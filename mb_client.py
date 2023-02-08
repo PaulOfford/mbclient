@@ -5,6 +5,7 @@ import time
 
 # I'm just developing ideas here -> this code is very messy
 
+
 class FrequencyControl:
 
     js8_freqs = [
@@ -32,6 +33,7 @@ class FrequencyControl:
             self.is_scanning = True
             scan_btn.configure(bg='#ff2222')
 
+
 class ScrollableFrame(ttk.Frame):
     def __init__(self, container, *args, **kwargs):
         super().__init__(container, *args, **kwargs)
@@ -53,6 +55,7 @@ class ScrollableFrame(ttk.Frame):
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
+
 def tick(curtime=''):  # used for the header clock
     newtime = time.strftime('%Y-%m-%d %H:%M:%S')
     if newtime != curtime:
@@ -65,6 +68,7 @@ freq_ctrl = FrequencyControl()
 
 root = tk.Tk()
 root.title("Microblog Client r1")
+root.geometry("1200x460")
 
 font_btn = font.Font(family='Ariel', size=9, weight='normal')
 font_btn_bold = font.Font(family='Ariel', size=9, weight='bold')
@@ -75,17 +79,15 @@ font_main_ul = font.Font(family='Ariel', size=8, weight='normal', underline=True
 font_main_hdr = font.Font(family='Ariel', size=10, weight='normal')
 font_main_bold = font.Font(family='Ariel', size=8, weight='bold')
 
-# root.geometry("1080x720")
-
 # ---------------------------------------------------------------------------------------
 # HEADER AREA
 # ---------------------------------------------------------------------------------------
 
 frame_hdr = tk.Frame(root, background="black", height=100, pady=17)
 frame_hdr.grid(columnspan=3, rowspan=2)
-frame_hdr.columnconfigure(0, weight=1, minsize=280)
+frame_hdr.columnconfigure(0, weight=1, minsize=300)
 frame_hdr.columnconfigure(1, weight=1, minsize=480)
-frame_hdr.columnconfigure(2, weight=1, minsize=320)
+frame_hdr.columnconfigure(2, weight=1, minsize=420)
 
 # frequency in the header
 freq_text = tk.StringVar()
@@ -141,34 +143,56 @@ scan_text.set('Scan')
 
 frame_main = tk.Frame(root, pady=17)
 frame_main.grid(columnspan=3, rowspan=1)
-frame_main.columnconfigure(0, weight=1, minsize=280)
-frame_main.columnconfigure(1, weight=1, minsize=444)
-frame_main.columnconfigure(2, weight=1, minsize=320)
+frame_main.columnconfigure(0, weight=1, minsize=200)
+frame_main.columnconfigure(1, weight=2, minsize=480)
+frame_main.columnconfigure(2, weight=2, minsize=400)
 
-frame_conv_list = tk.Frame(frame_main, bg='white', padx=2)
-frame_conv_list.grid(column=0, row=0, sticky='news')
 
-conv_list_hdr = tk.Label(
-    frame_conv_list,
-    text="Server: Client Message",
+frame_latest_list = tk.Frame(frame_main, bg='white', padx=2)
+frame_latest_list.grid(column=0, row=0, sticky='news')
+
+latest_list_hdr = tk.Label(
+    frame_latest_list,
+    text="Latest Posts",
     bg='white',
-    font=font_main,
+    font=font_main_ul,
     justify=tk.LEFT,
-    anchor=tk.W
+    anchor=tk.W,
+    padx=2
 )
-conv_list_hdr.grid(column=0, row=0, padx=2, sticky=tk.EW)
+latest_list_hdr.pack(anchor='ne', fill=tk.X)
 
-conv_01_text = tk.StringVar()
-conv_01_btn = tk.Button(frame_conv_list,
-                        textvariable=conv_01_text,
-                        font=font_main,
-                        activebackground='#f0f0f0',
-                        bg='white', height=1, width=50,
-                        anchor=tk.W,
-                        pady=3, relief='flat'
-                        )
-conv_01_btn.grid(column=0, row=1, padx=2, sticky=tk.W)
-conv_01_text.set("M0PXO: 2E0FGO -M.L 55 POST NOT FOUND")
+latest_01_text = tk.StringVar()
+latest_01_btn = tk.Button(
+    frame_latest_list,
+    textvariable=latest_01_text,
+    font=font_main,
+    activebackground='#f0f0f0',
+    bg='white', height=1, width=50,
+    anchor=tk.W,
+    pady=3, padx=2,
+    relief='flat'
+)
+latest_01_btn.pack(anchor='ne', fill=tk.X)
+
+latest_01_text.set("2023-02-07 11:04 - EmComms Due to Earthquake in Turkey")
+
+latest_02_text = tk.StringVar()
+latest_02_btn = tk.Button(
+    frame_latest_list,
+    textvariable=latest_02_text,
+    font=font_main,
+    activebackground='#f0f0f0',
+    bg='white', height=1, width=50,
+    anchor=tk.W,
+    pady=3, padx=2,
+    relief='flat'
+)
+latest_02_btn.pack(anchor='ne', fill=tk.X)
+
+latest_02_text.set("2023-02-03 08:30 - K7RA Solar Update")
+
+# QSO Area follows - middle of main
 
 frame_qso_outer = tk.Frame(frame_main)
 frame_qso_outer.grid(column=1, row=0, sticky='news')
@@ -291,13 +315,16 @@ cli_text = tk.Text(
 )
 cli_text.pack(fill=tk.X, padx=4, pady=4)
 
+blog_list_hdr = ["Mblog", "Station", "SNR", "Cap.", "Last Post", "Last Post"]
+blog_list_labels = [tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label()]
+
 blog_list = [
-    ["Mblog", "Station", "SNR", "Cap.", "Last Post", "Last Post"],
     ["AUSNEWS", "VK3WXY", "-25 dB", "LEGU", "2023-02-07", "405"],
     ["M0PXO", "M0PXO", "+01 dB", "LEG", "2023-02-03", "29"],
     ["NEWSEN", "K7GHI", "-24 dB", "LEG", "2023-01-31", "36"],
     ["NEWSEN", "K7MNO", "-13 dB", "LEG", "2023-01-30", "35"],
-    ["NEWSSP", "K7MNO", "-14 dB", "LEG", "2023-01-27", "14"],
+    # ["NEWSSP", "K7MNO", "-14 dB", "LEG", "2023-01-27", "14"],
+    ["9Q1AB", "9Q1AB", "-16 dB", "LEG", "2023-02-07", "182"],
 ]
 
 cell_str_array = [
@@ -310,18 +337,18 @@ cell_str_array = [
 ]
 
 blog_details = [
-    [tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label()],
-    [tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label()],
-    [tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label()],
-    [tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label()],
-    [tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label()],
-    [tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label()],
+    [tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button()],
+    [tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button()],
+    [tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button()],
+    [tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button()],
+    [tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button()],
+    [tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button()],
 ]
 
-frame_blog_list = tk.Frame(frame_main, bg='white', height=300, width=320, padx=2)
+frame_blog_list = tk.Frame(frame_main, bg='white', height=300, padx=2)
 frame_blog_list.grid(column=2, row=0, sticky='news')
 
-frame_blog_list.grid(columnspan=5)
+frame_blog_list.grid(columnspan=6)
 frame_blog_list.columnconfigure(0, weight=1)
 frame_blog_list.columnconfigure(1, weight=1)
 frame_blog_list.columnconfigure(2, weight=1)
@@ -329,33 +356,36 @@ frame_blog_list.columnconfigure(3, weight=1)
 frame_blog_list.columnconfigure(4, weight=1)
 frame_blog_list.columnconfigure(5, weight=1)
 
+for col in range(1, 6):
+    blog_list_labels[col] = tk.Label(
+        frame_blog_list,
+        text=blog_list_hdr[col],
+        bg='white',
+        font=font_main_ul,
+        justify=tk.LEFT,
+        anchor=tk.W
+    )
+    blog_list_labels[col].grid(column=col, row=0)
+    new_str = blog_list[0][col]
+    cell_str_array[0][col].set(value=new_str)
+
 row = 0
 for blog in blog_list:
-    for col in range(0, 5):
-        if row == 0:
-            blog_details[row][col] = tk.Label(
-                frame_blog_list,
-                textvariable=cell_str_array[row][col],
-                bg='white',
-                font=font_main_ul,
-                justify=tk.LEFT,
-                anchor=tk.W
-            )
-            blog_details[row][col].grid(column=col, row=row)
-            new_str = blog_list[row][col]
-            cell_str_array[row][col].set(value=new_str)
-        else:
-            blog_details[row][col] = tk.Label(
-                frame_blog_list,
-                textvariable=cell_str_array[row][col],
-                bg='white',
-                font=font_main,
-                justify=tk.LEFT,
-                anchor=tk.W
-            )
-            blog_details[row][col].grid(column=col, row=row)
-            new_str = blog_list[row][col]
-            cell_str_array[row][col].set(value=new_str)
+    for col in range(1, 6):
+        blog_details[row][col] = tk.Button(
+            frame_blog_list,
+            textvariable=cell_str_array[row][col],
+            bg='white',
+            font=font_main,
+            justify=tk.CENTER,
+            relief=tk.FLAT,
+            width=12
+        )
+        blog_details[row][col].grid(column=col, row=row+1)  # need to row+1 to allow for header
+        new_str = blog_list[row][col]
+        cell_str_array[row][col].set(value=new_str)
+        if blog_list[row][0] == 'M0PXO':
+            blog_details[row][col].configure(bg='#6699ff')
 
     row = row + 1
 
