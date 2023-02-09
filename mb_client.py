@@ -319,12 +319,12 @@ blog_list_hdr = ["Mblog", "Station", "SNR", "Cap.", "Last Post", "Last Post"]
 blog_list_labels = [tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label()]
 
 blog_list = [
-    ["AUSNEWS", "VK3WXY", "-25 dB", "LEGU", "2023-02-07", "405"],
-    ["M0PXO", "M0PXO", "+01 dB", "LEG", "2023-02-03", "29"],
-    ["NEWSEN", "K7GHI", "-24 dB", "LEG", "2023-01-31", "36"],
-    ["NEWSEN", "K7MNO", "-13 dB", "LEG", "2023-01-30", "35"],
+    ["AUSNEWS", "VK3WXY", "-25 dB", "LEGU", "2023-02-07", "405", False],
+    ["M0PXO", "M0PXO", "+01 dB", "LEG", "2023-02-03", "29", True],
+    ["NEWSEN", "K7GHI", "-24 dB", "LEG", "2023-01-31", "36", False],
+    ["NEWSEN", "K7MNO", "-13 dB", "LEG", "2023-01-30", "35", False],
     # ["NEWSSP", "K7MNO", "-14 dB", "LEG", "2023-01-27", "14"],
-    ["9Q1AB", "9Q1AB", "-16 dB", "LEG", "2023-02-07", "182"],
+    ["9Q1AB", "9Q1AB", "-16 dB", "LEG", "2023-02-07", "182", False],
 ]
 
 cell_str_array = [
@@ -384,7 +384,7 @@ for blog in blog_list:
         blog_details[row][col].grid(column=col, row=row+1)  # need to row+1 to allow for header
         new_str = blog_list[row][col]
         cell_str_array[row][col].set(value=new_str)
-        if blog_list[row][0] == 'M0PXO':
+        if blog_list[row][6]:
             blog_details[row][col].configure(bg='#6699ff')
 
     row = row + 1
