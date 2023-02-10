@@ -1,5 +1,4 @@
 import tkinter as tk
-import tkinter as tk
 from tkinter import ttk
 import tkinter.font as font
 import time
@@ -274,7 +273,8 @@ class GuiCli:
 
         cli_hdr = tk.Label(frame,
                            textvariable=self.cli_hdr_text,
-                           bg='#6699ff',
+                           bg='#000000',
+                           fg='#ffffff',
                            font=font_main,
                            justify=tk.LEFT,
                            anchor=tk.W,
@@ -300,26 +300,21 @@ class GuiCli:
 
 class GuiBlogList:
 
-    blog_list_labels = [tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label()]
-    blog_list = []
-
     def __init__(self, frame):
         global max_blogs
-        blog_list_hdr = ["Mblog", "Station", "SNR", "Cap.", "Last Post", "Last Post", "Last Seen"]
 
-        # set up the blog table
-        blog_list_cell = {'tv': None, 'btn': None, 'selected': False}
-        blog_list_row = []
-        no_of_cols = len(blog_list_hdr)
+        self.blog_list_hdr = ["Mblog", "Station", "SNR", "Cap.", "Last Post", "Last Post", "Last Seen"]
+        self.blog_list_labels = [tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label()]
+        no_of_cols = len(self.blog_list_hdr)
+        self.blog_list = [[{} for sub in range(no_of_cols)] for sub in range(max_blogs)]
 
-        for col in range(0, no_of_cols):
-            blog_list_row.append(blog_list_cell)
-        for row in range(0, max_blogs):
-            self.blog_list.append(blog_list_row)
-        for row in range(0, max_blogs):
-            for column in range(0, 6):
-                self.blog_list[row][column]['tv'] = tk.StringVar()
-                self.blog_list[row][column]['btn'] = tk.Button()
+        for row in range(0, len(self.blog_list)):
+            for col in range(0, no_of_cols):
+                temp = {}
+                sv = tk.StringVar()
+                self.blog_list[row][col]['tv'] = sv
+                self.blog_list[row][col]['btn'] = tk.Button()
+                self.blog_list[row][col]['selected'] = tk.FALSE
 
         frame.grid(columnspan=no_of_cols)
         for i in range(0, no_of_cols):
@@ -327,47 +322,45 @@ class GuiBlogList:
 
         # set the headers
         for col in range(0, no_of_cols):
-            self.blog_list[col] = tk.Label(
+            self.blog_list_labels[col] = tk.Label(
                 frame,
-                text=blog_list_hdr[col],
+                text=self.blog_list_hdr[col],
                 bg='white',
                 font=font_main_ul,
                 justify=tk.LEFT,
                 anchor=tk.W
             )
-            self.blog_list[col].grid(row=0, column=col)
+            self.blog_list_labels[col].grid(row=0, column=col)
 
+        row = 0
+        for _ in self.blog_list:
+            for col in range(0, no_of_cols):
+                self.blog_list[row][col]['btn'] = tk.Button(
+                    frame,
+                    textvariable=self.blog_list[row][col]['tv'],
+                    bg='white',
+                    font=font_main,
+                    justify=tk.CENTER,
+                    relief=tk.FLAT,
+                    width=12
+                )
+                self.blog_list[row][col]['btn'].grid(column=col, row=row + 1)  # need to row+1 to allow for header
 
-        blog_list = [
-            ["AUSNEWS", "VK3WXY", "-25 dB", "LEGU", "2023-02-07", "405", False],
-            ["M0PXO", "M0PXO", "+01 dB", "LEG", "2023-02-03", "29", True],
-            ["NEWSEN", "K7GHI", "-24 dB", "LEG", "2023-01-31", "36", False],
-            ["NEWSEN", "K7MNO", "-13 dB", "LEG", "2023-01-30", "35", False],
-            # ["NEWSSP", "K7MNO", "-14 dB", "LEG", "2023-01-27", "14"],
-            ["9Q1AB", "9Q1AB", "-16 dB", "LEG", "2023-02-07", "182", False],
-        ]
+            row = row + 1
 
+    def blog_list_reload(self, entries):
+        # clear all entries
+        for row in range(0, len(self.blog_list)):
+            for col in range(0, len(self.blog_list_hdr)):
+                self.blog_list[row][col]['tv'].set(value='')
+                self.blog_list[row][col]['btn'].configure(bg='#ffffff')
 
-        #
-        # row = 0
-        # for blog in blog_list:
-        #     for col in range(1, 6):
-        #         blog_details[row][col] = tk.Button(
-        #             frame,
-        #             textvariable=cell_str_array[row][col],
-        #             bg='white',
-        #             font=font_main,
-        #             justify=tk.CENTER,
-        #             relief=tk.FLAT,
-        #             width=12
-        #         )
-        #         blog_details[row][col].grid(column=col, row=row + 1)  # need to row+1 to allow for header
-        #         new_str = blog_list[row][col]
-        #         cell_str_array[row][col].set(value=new_str)
-        #         if blog_list[row][6]:
-        #             blog_details[row][col].configure(bg='#6699ff')
-        #
-        #     row = row + 1
+        for row in range(0, len(entries)):
+            for col in range(0, len(self.blog_list_hdr)):  # last entry in the line is selected flag so skip
+                self.blog_list[row][col]['tv'].set(entries[row][col])
+                if entries[row][len(entries[row]) - 1]:  # check the selected flag
+                    self.blog_list[row][col]['btn'].configure(bg='#000000')
+                    self.blog_list[row][col]['btn'].configure(fg='#ffffff')
 
 
 class GuiMain:
@@ -419,6 +412,9 @@ class GuiMain:
 
     def set_selected_blog(self, blog: str):
         self.cli.set_selected_blog(blog)
+
+    def blog_list_reload(self, entries):
+        self.blog_list.blog_list_reload(entries)
 
 
 # Code here is first to run
@@ -483,5 +479,18 @@ main.append_qso(
 )
 
 main.set_selected_blog('M0PXO')
+
+blog_list_entries = [
+    ["AUSNEWS", "VK3WXY", "-25 dB", "LEGU", "2023-02-07", "405", "2023-02-09", False],
+    ["M0PXO", "M0PXO", "+01 dB", "LEG", "2023-02-03", "29", "2023-02-10", True],
+    ["NEWSEN", "K7GHI", "-24 dB", "LEG", "2023-01-31", "36", "2023-02-05", False],
+    ["NEWSEN", "K7MNO", "-13 dB", "LEG", "2023-01-30", "35", "2023-02-06", False],
+    # ["NEWSSP", "K7MNO", "-14 dB", "LEG", "2023-01-27", "14", "2023-02-06", False],
+    ["9Q1AB", "9Q1AB", "-16 dB", "LEG", "2023-02-07", "182", "2023-02-10", False],
+]
+
+
+main.blog_list_reload(blog_list_entries)
+
 
 root.mainloop()
