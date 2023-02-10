@@ -3,42 +3,47 @@ from tkinter import ttk
 import tkinter.font as font
 import time
 
-# I'm just developing ideas here -> this code is very messy
+max_post_list = 30
+max_qsos = 4
+max_blogs = 30
+
+root = tk.Tk()
+root.title("Microblog Client r2")
+root.geometry("1080x640")
+
+font_btn = font.Font(family='Ariel', size=9, weight='normal')
+font_btn_bold = font.Font(family='Ariel', size=9, weight='bold')
+font_hdr = font.Font(family='Ariel', size=14, weight='normal')
+font_freq = font.Font(family='Seven Segment', size=24, weight='normal')
+font_main = font.Font(family='Ariel', size=8, weight='normal')
+font_main_ul = font.Font(family='Ariel', size=8, weight='normal', underline=True)
+font_main_hdr = font.Font(family='Ariel', size=10, weight='normal')
+font_main_bold = font.Font(family='Ariel', size=8, weight='bold')
 
 
-class FrequencyControl:
+class Timeout:
+    target_time = 0
+    timeout_value = 0
 
-    js8_freqs = [
-        1.842,
-        3.578,
-        7.078,
-        10.130,
-        14.078,
-        18.104,
-        21.078,
-        24.922,
-        27.245,
-        28.078,
-        50.318,
-    ]
+    def __init__(self, to_in_secs: int):
+        self.to_value = to_in_secs
 
-    is_scanning = False
+    def start(self):
+        self.target_time = time.time() + self.timeout_value
 
-    def toggle_scan(self):
-        global scan_btn
-        if self.is_scanning:
-            self.is_scanning = False
-            scan_btn.configure(bg='#22ff23')
+    def has_expired(self) -> bool:
+        if time.time() > self.target_time:
+            return True
         else:
-            self.is_scanning = True
-            scan_btn.configure(bg='#ff2222')
+            return False
 
 
-class ScrollableFrame(ttk.Frame):
+class ScrollableFrame(ttk.Frame):  # ToDo: rewrite this class so that it expands correctly
     def __init__(self, container, *args, **kwargs):
         super().__init__(container, *args, **kwargs)
         canvas = tk.Canvas(self)
         scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
+
         self.scrollable_frame = ttk.Frame(canvas)
 
         self.scrollable_frame.bind(
@@ -56,165 +61,393 @@ class ScrollableFrame(ttk.Frame):
         scrollbar.pack(side="right", fill="y")
 
 
-def tick(curtime=''):  # used for the header clock
-    newtime = time.strftime('%Y-%m-%d %H:%M:%S')
-    if newtime != curtime:
-        curtime = newtime
-        clockLabel.config(text=curtime)
-    clockLabel.after(200, tick, curtime)
+class GuiHeader:
+
+    js8_freqs = [1.842, 3.578, 7.078, 10.130, 14.078, 18.104, 21.078, 24.922, 27.245, 28.078, 50.318]
+
+    is_scanning = False
+    freq_text = tk.StringVar()
+    offset_text = tk.StringVar()
+    callsign_text = tk.StringVar()
+    scan_btn = None
+    clock_label = None
+
+    def __init__(self, header_frame):
+        frame_hdr_left = tk.Frame(header_frame, bg='black')
+        frame_hdr_left.pack(expand=True, fill='y', side='left')
+        frame_hdr_mid = tk.Frame(header_frame, bg='black')
+        frame_hdr_mid.pack(expand=True, fill='y', side='left')
+        frame_hdr_right = tk.Frame(header_frame, bg='black')
+        frame_hdr_right.pack(expand=True, fill='y', side='left')
+
+        frame_cell_1 = tk.Frame(frame_hdr_left, bg='black')
+        frame_cell_1.pack(expand=True, fill='both')
+        # frequency in the header
+        hdr_freq = tk.Label(
+            frame_cell_1,
+            textvariable=self.freq_text,
+            bg='black', fg='white',
+            font=font_freq,
+            justify='center',
+        )
+        hdr_freq.pack()
+
+        frame_cell_4 = tk.Frame(frame_hdr_left, bg='black')
+        frame_cell_4.pack(expand=True, fill='both')
+        hdr_offset = tk.Label(
+            frame_cell_4,
+            textvariable=self.offset_text,
+            bg='black', fg='white',
+            font=font_hdr,
+            justify='center',
+        )
+        hdr_offset.pack()
+
+        # Callsign
+        frame_cell_2 = tk.Frame(frame_hdr_mid, bg='black')
+        frame_cell_2.pack(expand=True, fill='both')
+        hdr_callsign = tk.Label(
+            frame_cell_2,
+            textvariable=self.callsign_text,
+            bg='black', fg='white',
+            font=font_hdr
+        )
+        hdr_callsign.pack()
+
+        # Clock
+        frame_cell_5 = tk.Frame(frame_hdr_mid, bg='black')
+        frame_cell_5.pack(expand=True, fill='both')
+        self.clock_label = tk.Label(
+            frame_cell_5,
+            bg='black', fg='white',
+            font=font_hdr,
+        )
+        self.clock_label.pack()
+
+        # Scan button
+        frame_cell_3 = tk.Frame(frame_hdr_right, bg='black')
+        frame_cell_3.pack(expand=True, fill='both')
+        self.scan_btn = tk.Button(
+            frame_cell_3,
+            text='Scan',
+            font=font_btn_bold,
+            bg='#22ff23', height=1, width=18,
+            relief='flat',
+            command=self.toggle_scan
+        )
+        self.scan_btn.pack()
+
+        # Blank Cell
+        frame_cell_6 = tk.Frame(frame_hdr_right, bg='black')
+        frame_cell_6.pack(expand=True, fill='both')
+        hdr_blank = tk.Label(
+            frame_cell_6,
+            text='',
+            bg='black', fg='white',
+            font=font_hdr
+        )
+        hdr_blank.pack()
+
+    def clock_tick(self, curtime=''):  # used for the header clock
+        newtime = time.strftime('%Y-%m-%d %H:%M:%S')
+        if newtime != curtime:
+            curtime = newtime
+            self.clock_label.config(text=curtime)
+        self.clock_label.after(200, self.clock_tick, curtime)
+
+    def toggle_scan(self):
+        if self.is_scanning:
+            self.is_scanning = False
+            self.scan_btn.configure(bg='#22ff23')
+        else:
+            self.is_scanning = True
+            self.scan_btn.configure(bg='#ff2222')
+
+    def set_frequency(self, freq):
+        self.freq_text.set(freq)
+
+    def set_offset(self, offset):
+        self.offset_text.set(offset)
+
+    def set_callsign(self, callsign):
+        self.callsign_text.set(callsign)
 
 
-freq_ctrl = FrequencyControl()
+class GuiLatestPosts:
+    latest_post_list = []
+    latest_btn_list = []
 
-root = tk.Tk()
-root.title("Microblog Client r1")
-root.geometry("1200x460")
+    def __init__(self, frame):
+        global max_post_list
+        latest_list_hdr = tk.Label(
+            frame,
+            text="Latest Posts",
+            bg='white',
+            font=font_main_ul,
+            justify=tk.LEFT,
+            anchor=tk.W,
+            padx=4
+        )
+        latest_list_hdr.pack(anchor='ne', fill=tk.X)
 
-font_btn = font.Font(family='Ariel', size=9, weight='normal')
-font_btn_bold = font.Font(family='Ariel', size=9, weight='bold')
-font_hdr = font.Font(family='Ariel', size=14, weight='normal')
-font_freq = font.Font(family='Seven Segment', size=24, weight='normal')
-font_main = font.Font(family='Ariel', size=8, weight='normal')
-font_main_ul = font.Font(family='Ariel', size=8, weight='normal', underline=True)
-font_main_hdr = font.Font(family='Ariel', size=10, weight='normal')
-font_main_bold = font.Font(family='Ariel', size=8, weight='bold')
+        for i in range(0, max_post_list):
+            self.latest_post_list.append(tk.StringVar())
 
-# ---------------------------------------------------------------------------------------
-# HEADER AREA
-# ---------------------------------------------------------------------------------------
+        for index in range(0, max_post_list):
+            self.latest_btn_list.append(
+                tk.Button(
+                    frame,
+                    textvariable=self.latest_post_list[index],
+                    font=font_main,
+                    activebackground='#f0f0f0',
+                    bg='white',
+                    height=1,
+                    anchor=tk.W,
+                    padx=4,
+                    pady=3,
+                    relief='flat'
+                )
+            )
+            self.latest_btn_list[-1].pack(anchor='ne', fill=tk.X)
 
-frame_hdr = tk.Frame(root, background="black", height=100, pady=17)
-frame_hdr.grid(columnspan=3, rowspan=2)
-frame_hdr.columnconfigure(0, weight=1, minsize=300)
-frame_hdr.columnconfigure(1, weight=1, minsize=480)
-frame_hdr.columnconfigure(2, weight=1, minsize=420)
-
-# frequency in the header
-freq_text = tk.StringVar()
-hdr_freq = tk.Label(frame_hdr, textvariable=freq_text,
-                    bg='black', fg='white',
-                    font=font_freq
-                    )
-hdr_freq.grid(column=0, row=0, padx=10)
-freq_text.set('14.078 000')
-
-offset_text = tk.StringVar()
-hdr_offset = tk.Label(
-    frame_hdr, textvariable=offset_text,
-    bg='black', fg='white',
-    font=font_hdr,
-    justify=tk.LEFT
-)
-hdr_offset.grid(column=0, row=1, padx=10)
-offset_text.set('1800 Hz')
-
-# Callsign
-callsign_text = tk.StringVar()
-hdr_callsign = tk.Label(frame_hdr, textvariable=callsign_text,
-                        bg='black', fg='white',
-                        font=font_hdr,
-                        )
-hdr_callsign.grid(column=1, row=0, sticky=tk.EW)
-callsign_text.set('2E0FGO')  # very ugly - try to improve
-
-clockLabel = tk.Label(frame_hdr,
-                      bg='black', fg='white',
-                      font=font_hdr,
-                      anchor=tk.E
-                      )
-clockLabel.grid(column=1, row=1)
-
-# Scan button
-scan_text = tk.StringVar()
-scan_btn = tk.Button(
-    frame_hdr, textvariable=scan_text,
-    font=font_btn_bold,
-    bg='#22ff23', height=1, width=18,
-    pady=3, relief='flat',
-    command=freq_ctrl.toggle_scan
-)
-scan_btn.grid(column=2, row=0)
-scan_text.set('Scan')
+    def prepend_latest(self, post_line: str):
+        list_length = len(self.latest_post_list)
+        for index in range(list_length - 1, 0, -1):  # index starts by addressing the last entry
+            self.latest_post_list[index].set(self.latest_post_list[index - 1].get())
+        self.latest_post_list[0].set(post_line)
 
 
-# ---------------------------------------------------------------------------------------
-# MAIN AREA - contains the activity list, qso details and available mb servers
-# ---------------------------------------------------------------------------------------
+class GuiQsoBox:
 
-frame_main = tk.Frame(root, pady=17)
-frame_main.grid(columnspan=3, rowspan=1)
-frame_main.columnconfigure(0, weight=1, minsize=200)
-frame_main.columnconfigure(1, weight=2, minsize=480)
-frame_main.columnconfigure(2, weight=2, minsize=400)
+    qso_text = []
+    qso_label = []
 
+    def __init__(self, frame):
+        # ok - I'm not proud of this, but I have tried everything I can think of to get the scrollable
+        # frame to expand
+        junk_text = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t"
+        junk = tk.Label(
+            frame.scrollable_frame,
+            text=junk_text,
+            bg='#ffeaa7',
+            font=font_main,
+            justify=tk.LEFT,
+            anchor=tk.W,
+            padx=4,
+            pady=3,
+        )
+        junk.pack(fill=tk.X, expand=1, anchor='ne')
 
-frame_latest_list = tk.Frame(frame_main, bg='white', padx=2)
-frame_latest_list.grid(column=0, row=0, sticky='news')
+        global max_qsos
+        for i in range(0, max_qsos):
+            self.qso_text.append(tk.StringVar())
 
-latest_list_hdr = tk.Label(
-    frame_latest_list,
-    text="Latest Posts",
-    bg='white',
-    font=font_main_ul,
-    justify=tk.LEFT,
-    anchor=tk.W,
-    padx=2
-)
-latest_list_hdr.pack(anchor='ne', fill=tk.X)
+        for index in range(0, max_qsos):
+            self.qso_label.append(
+                tk.Label(
+                    frame.scrollable_frame,
+                    textvariable=self.qso_text[index],
+                    font=font_main,
+                    bg='#ffeaa7',
+                    anchor=tk.W,
+                    justify=tk.LEFT,
+                    wraplength=360,
+                    padx=10,
+                    pady=3, relief='flat'
+                )
+            )
+            self.qso_label[-1].pack(anchor='ne', fill=tk.X)
 
-latest_01_text = tk.StringVar()
-latest_01_btn = tk.Button(
-    frame_latest_list,
-    textvariable=latest_01_text,
-    font=font_main,
-    activebackground='#f0f0f0',
-    bg='white', height=1, width=50,
-    anchor=tk.W,
-    pady=3, padx=2,
-    relief='flat'
-)
-latest_01_btn.pack(anchor='ne', fill=tk.X)
-
-latest_01_text.set("2023-02-07 11:04 - EmComms Due to Earthquake in Turkey")
-
-latest_02_text = tk.StringVar()
-latest_02_btn = tk.Button(
-    frame_latest_list,
-    textvariable=latest_02_text,
-    font=font_main,
-    activebackground='#f0f0f0',
-    bg='white', height=1, width=50,
-    anchor=tk.W,
-    pady=3, padx=2,
-    relief='flat'
-)
-latest_02_btn.pack(anchor='ne', fill=tk.X)
-
-latest_02_text.set("2023-02-03 08:30 - K7RA Solar Update")
-
-# QSO Area follows - middle of main
-
-frame_qso_outer = tk.Frame(frame_main)
-frame_qso_outer.grid(column=1, row=0, sticky='news')
-
-frame_qso = ScrollableFrame(frame_qso_outer)
-frame_qso.pack(side=tk.TOP, fill=tk.BOTH, expand=1, padx=4)
+    def append_qso(self, value: str):
+        list_length = len(self.qso_text)
+        for index in range(list_length - 1, 0, -1):  # index starts by addressing the last entry
+            self.qso_text[index - 1].set(self.qso_text[index].get())
+        self.qso_text[list_length - 1].set(value)
 
 
-qso_01_text = tk.StringVar()
-qso_01 = tk.Label(
-    frame_qso.scrollable_frame,
-    textvariable=qso_01_text,
-    font=font_main,
-    bg='#ffeaa7',
-    anchor=tk.W,
-    justify=tk.LEFT,
-    wraplength=400,
-    padx=10,
-    pady=3, relief='flat'
-)
-qso_01.pack(fill='both', expand=1)
-qso_01_text.set(
+class GuiCli:
+
+    cli_hdr_text = tk.StringVar()
+
+    def __init__(self, frame):
+
+        cli_hdr = tk.Label(frame,
+                           textvariable=self.cli_hdr_text,
+                           bg='#000000',
+                           fg='#ffffff',
+                           font=font_main,
+                           justify=tk.LEFT,
+                           anchor=tk.W,
+                           padx=4,
+                           pady=3,
+                           )
+        cli_hdr.pack(fill=tk.X, anchor=tk.W, padx=4, pady=4)
+        self.cli_hdr_text.set("Directed to: Nowhere")
+
+        cli_text = tk.Text(
+            frame,
+            font=font_main,
+            width=50,
+            height=1,
+            padx=4,
+            pady=4
+        )
+        cli_text.pack(fill=tk.X, padx=4, pady=4)
+
+    def set_selected_blog(self, blog: str):
+        self.cli_hdr_text.set(f"Directed to: {blog}")
+
+
+class GuiBlogList:
+
+    def __init__(self, frame):
+        global max_blogs
+
+        self.blog_list_headers = [
+            {'text': "Mblog", 'btn': tk.Button()},
+            {'text': "Station", 'btn': tk.Button()},
+            {'text': "SNR", 'btn': tk.Button()},
+            {'text': "Cap.", 'btn': tk.Button()},
+            {'text': "Latest\nPost Date", 'btn': tk.Button()},
+            {'text': "Latest\nPost ID", 'btn': tk.Button()},
+            {'text': "Last Seen", 'btn': tk.Button()},
+        ]
+        no_of_cols = len(self.blog_list_headers)
+        self.blog_list = [[{} for _ in range(no_of_cols)] for _ in range(max_blogs)]
+
+        for row in range(0, len(self.blog_list)):
+            for col in range(0, no_of_cols):
+                sv = tk.StringVar()
+                self.blog_list[row][col]['tv'] = sv
+                self.blog_list[row][col]['btn'] = tk.Button()
+                self.blog_list[row][col]['selected'] = tk.FALSE
+
+        frame.grid(columnspan=no_of_cols)
+        for i in range(0, no_of_cols):
+            frame.columnconfigure(i, weight=1)
+
+        # set the headers
+        for col in range(0, no_of_cols):
+            self.blog_list_headers[col]['btn'] = tk.Button(
+                frame,
+                text=self.blog_list_headers[col]['text'],
+                relief='flat',
+                bg='white',
+                font=font_main_ul,
+                justify=tk.CENTER,
+                anchor=tk.W
+            )
+            self.blog_list_headers[col]['btn'].grid(row=0, column=col)
+
+        row = 0
+        for _ in self.blog_list:
+            for col in range(0, no_of_cols):
+                self.blog_list[row][col]['btn'] = tk.Button(
+                    frame,
+                    textvariable=self.blog_list[row][col]['tv'],
+                    bg='white',
+                    font=font_main,
+                    justify=tk.CENTER,
+                    relief=tk.FLAT,
+                    width=14
+                )
+                self.blog_list[row][col]['btn'].grid(column=col, row=row + 1)  # need to row+1 to allow for header
+
+            row = row + 1
+
+    def blog_list_reload(self, entries):
+        # clear all entries
+        for row in range(0, len(self.blog_list)):
+            for col in range(0, len(self.blog_list_headers)):
+                self.blog_list[row][col]['tv'].set(value='')
+                self.blog_list[row][col]['btn'].configure(bg='#ffffff')
+
+        for row in range(0, len(entries)):
+            for col in range(0, len(self.blog_list_headers)):  # last entry in the line is selected flag so skip
+                self.blog_list[row][col]['tv'].set(entries[row][col])
+                if entries[row][len(entries[row]) - 1]:  # check the selected flag
+                    self.blog_list[row][col]['btn'].configure(bg='#3498db')
+                    self.blog_list[row][col]['btn'].configure(fg='#000000')
+
+
+class GuiMain:
+
+    def __init__(self, frame):
+        pane_main = tk.PanedWindow(frame, bg='#606060')
+        pane_main.pack(fill='both', expand=1, side='top')
+
+        frame_left = tk.Frame(pane_main, bg='white')
+        pane_main.add(frame_left)
+
+        frame_mid = tk.Frame(pane_main, bg='white')
+        pane_main.add(frame_mid, width=440)
+
+        frame_right = tk.Frame(pane_main, bg='white')
+        pane_main.add(frame_right)
+
+        # Latest Posts area
+        frame_latest_list = tk.Frame(frame_left, bg='white')
+        frame_latest_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+        self.latest_posts = GuiLatestPosts(frame_latest_list)
+
+        # QSO Area follows - middle of main
+        frame_qso_outer = tk.Frame(frame_mid, width=480)
+        frame_qso_outer.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+        frame_qso = ScrollableFrame(frame_qso_outer)
+        frame_qso.pack(side=tk.TOP, fill=tk.BOTH, expand=1, padx=4)
+
+        self.qso_box = GuiQsoBox(frame_qso)
+
+        frame_cli = tk.Frame(frame_mid)
+        frame_cli.pack(side=tk.BOTTOM, padx=4)
+
+        self.cli = GuiCli(frame_mid)
+
+        # Blog list area - right of main
+        frame_blog_list = tk.Frame(frame_right, bg='white', padx=4, pady=4)
+        frame_blog_list.pack()
+
+        self.blog_list = GuiBlogList(frame_blog_list)
+
+    def prepend_latest(self, value: str):
+        self.latest_posts.prepend_latest(value)
+
+    def append_qso(self, value: str):
+        self.qso_box.append_qso(value)
+
+    def set_selected_blog(self, blog: str):
+        self.cli.set_selected_blog(blog)
+
+    def blog_list_reload(self, entries):
+        self.blog_list.blog_list_reload(entries)
+
+
+# Code here is first to run
+frame_container = tk.Frame(root)
+frame_container.pack(fill='x', expand=1, side='top', anchor='n')
+
+frame_hdr = tk.Frame(frame_container, background="black", height=100, pady=10)
+frame_hdr.pack(fill='x', expand=1, side='top', anchor='n')
+header = GuiHeader(header_frame=frame_hdr)  # populate the header
+
+frame_main = tk.Frame(frame_container, pady=4)
+frame_main.pack(fill='both', expand=1, side='top', anchor='n', padx=4)
+
+# Now for the logic
+
+header.set_frequency('14.078 000')
+header.set_offset('1800 Hz')
+header.set_callsign('2E0FGO')
+header.clock_tick()
+
+main = GuiMain(frame=frame_main)  # populate the main area
+
+main.prepend_latest("2023-02-03 08:30 - K7RA Solar Update")
+main.prepend_latest("2023-02-07 11:04 - EmComms Due to Earthquake in Turkey")
+
+main.append_qso(
     "18:07:28 - (1800) - M0PXO: 2E0FGO  +M.L >0\n"
     "20 - MARINES TO GAIN RADIO OP EXPERIENCE\n"
     "21 - MORE HAMS ON THE ISS\n"
@@ -223,21 +456,7 @@ qso_01_text.set(
     "24 - RSGB PROPOGATION NEWS\n"
 )
 
-
-qso_02_text = tk.StringVar()
-qso_02 = tk.Label(
-    frame_qso.scrollable_frame,
-    textvariable=qso_02_text,
-    font=font_main,
-    bg='#ffeaa7',
-    anchor=tk.W,
-    justify=tk.LEFT,
-    wraplength=400,
-    padx=10,
-    pady=3, relief='flat'
-)
-qso_02.pack(fill=tk.X)
-qso_02_text.set(
+main.append_qso(
     "18:10:02 - (1800) - M0PXO: 2E0FGO  +GE 24\n"
     "PROPAGATION NEWS - 15 JANUARY 2023\n\n"
     "SUNSPOT REGION 3186 HAS ROTATED INTO VIEW OFF THE SUN'S NORTHEAST LIMB AND PRODUCE"
@@ -247,20 +466,7 @@ qso_02_text.set(
     "WE CURRENTLY HAVE AN SFI IN THE 190S."
 )
 
-qso_03_text = tk.StringVar()
-qso_03 = tk.Label(
-    frame_qso.scrollable_frame,
-    textvariable=qso_03_text,
-    font=font_main,
-    bg='#ffeaa7',
-    anchor=tk.W,
-    justify=tk.LEFT,
-    wraplength=400,
-    padx=10,
-    pady=3, relief='flat'
-)
-qso_03.pack(fill=tk.X)
-qso_03_text.set(
+main.append_qso(
     "14:25:48 - (1800) - M0PXO: 2E0FGO  +M.L >2023-01-17\n"
     "25 - FALCONSAT-3 NEARS REENTRY\n"
     "26 - 2026 WORLD RADIOSPORT TEAM CHAMPIONSHIP NEWS\n"
@@ -269,20 +475,7 @@ qso_03_text.set(
     "29 - RSGB PROPOGATION NEWS\n"
 )
 
-qso_04_text = tk.StringVar()
-qso_04 = tk.Label(
-    frame_qso.scrollable_frame,
-    textvariable=qso_04_text,
-    font=font_main,
-    bg='#ffeaa7',
-    anchor=tk.W,
-    justify=tk.LEFT,
-    wraplength=400,
-    padx=10,
-    pady=3, relief='flat'
-)
-qso_04.pack(fill=tk.X)
-qso_04_text.set(
+main.append_qso(
     "14:28:47 - (1800) - M0PXO: 2E0FGO  +M.G 25\n"
     "AMATEUR SATELLITE FALCONSAT-3 NEARS REENTRY\n\n"
     "2023-01-20\n"
@@ -292,103 +485,19 @@ qso_04_text.set(
     "THE SATELLITE HAS ONLY BEEN AVAILABLE FOR APPROXIMATELY 24 HOURS EACH WEEKEND DUE TO WEAK BATTERIES.\n"
 )
 
-qso_hdr_text = tk.StringVar()
-qso_hdr = tk.Label(frame_qso_outer,
-                   textvariable=qso_hdr_text,
-                   bg='#6699ff',
-                   font=font_main,
-                   justify=tk.LEFT,
-                   anchor=tk.W,
-                   padx=4,
-                   pady=3,
-                   )
-qso_hdr.pack(fill=tk.X, anchor=tk.W, padx=4, pady=4)
-qso_hdr_text.set("Selected Blog: M0PXO")
+main.set_selected_blog('M0PXO')
 
-cli_text = tk.Text(
-    frame_qso_outer,
-    font=font_main,
-    width=50,
-    height=1,
-    padx=4,
-    pady=4
-)
-cli_text.pack(fill=tk.X, padx=4, pady=4)
-
-blog_list_hdr = ["Mblog", "Station", "SNR", "Cap.", "Last Post", "Last Post"]
-blog_list_labels = [tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label()]
-
-blog_list = [
-    ["AUSNEWS", "VK3WXY", "-25 dB", "LEGU", "2023-02-07", "405", False],
-    ["M0PXO", "M0PXO", "+01 dB", "LEG", "2023-02-03", "29", True],
-    ["NEWSEN", "K7GHI", "-24 dB", "LEG", "2023-01-31", "36", False],
-    ["NEWSEN", "K7MNO", "-13 dB", "LEG", "2023-01-30", "35", False],
-    # ["NEWSSP", "K7MNO", "-14 dB", "LEG", "2023-01-27", "14"],
-    ["9Q1AB", "9Q1AB", "-16 dB", "LEG", "2023-02-07", "182", False],
+blog_list_entries = [
+    ["AUSNEWS", "VK3WXY", "-25 dB", "LEGU", "2023-02-07", "405", "2023-02-09 18:02", False],
+    ["M0PXO", "M0PXO", "+01 dB", "LEG", "2023-02-03", "29", "2023-02-10 10:23", True],
+    ["NEWSEN", "K7GHI", "-24 dB", "LEG", "2023-01-31", "36", "2023-02-05 22:10", False],
+    ["NEWSEN", "K7MNO", "-13 dB", "LEG", "2023-01-30", "35", "2023-02-06 07:45", False],
+    # ["NEWSSP", "K7MNO", "-14 dB", "LEG", "2023-01-27", "14", "2023-02-06 07:18", False],
+    ["9Q1AB", "9Q1AB", "-16 dB", "LEG", "2023-02-07", "182", "2023-02-10 10:25", False],
 ]
 
-cell_str_array = [
-    [tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar()],
-    [tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar()],
-    [tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar()],
-    [tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar()],
-    [tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar()],
-    [tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar()],
-]
 
-blog_details = [
-    [tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button()],
-    [tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button()],
-    [tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button()],
-    [tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button()],
-    [tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button()],
-    [tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button(), tk.Button()],
-]
-
-frame_blog_list = tk.Frame(frame_main, bg='white', height=300, padx=2)
-frame_blog_list.grid(column=2, row=0, sticky='news')
-
-frame_blog_list.grid(columnspan=6)
-frame_blog_list.columnconfigure(0, weight=1)
-frame_blog_list.columnconfigure(1, weight=1)
-frame_blog_list.columnconfigure(2, weight=1)
-frame_blog_list.columnconfigure(3, weight=1)
-frame_blog_list.columnconfigure(4, weight=1)
-frame_blog_list.columnconfigure(5, weight=1)
-
-for col in range(1, 6):
-    blog_list_labels[col] = tk.Label(
-        frame_blog_list,
-        text=blog_list_hdr[col],
-        bg='white',
-        font=font_main_ul,
-        justify=tk.LEFT,
-        anchor=tk.W
-    )
-    blog_list_labels[col].grid(column=col, row=0)
-    new_str = blog_list[0][col]
-    cell_str_array[0][col].set(value=new_str)
-
-row = 0
-for blog in blog_list:
-    for col in range(1, 6):
-        blog_details[row][col] = tk.Button(
-            frame_blog_list,
-            textvariable=cell_str_array[row][col],
-            bg='white',
-            font=font_main,
-            justify=tk.CENTER,
-            relief=tk.FLAT,
-            width=12
-        )
-        blog_details[row][col].grid(column=col, row=row+1)  # need to row+1 to allow for header
-        new_str = blog_list[row][col]
-        cell_str_array[row][col].set(value=new_str)
-        if blog_list[row][6]:
-            blog_details[row][col].configure(bg='#6699ff')
-
-    row = row + 1
+main.blog_list_reload(blog_list_entries)
 
 
-tick()  # run the clock
 root.mainloop()
