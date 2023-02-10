@@ -312,23 +312,22 @@ class GuiBlogList:
             {'text': "Latest\nPost ID", 'btn': tk.Button()},
             {'text': "Last Seen", 'btn': tk.Button()},
         ]
-        no_of_cols = len(self.blog_list_headers)
-        self.blog_list = [[{} for _ in range(no_of_cols)] for _ in range(max_blogs)]
+        self.blog_list = [[{} for _, _ in enumerate(self.blog_list_headers)] for _ in range(max_blogs)]
 
-        for row in range(0, len(self.blog_list)):
-            for col in range(0, no_of_cols):
+        for row, _ in enumerate(self.blog_list):
+            for col, blog in enumerate(self.blog_list[row]):
                 sv = tk.StringVar()
-                self.blog_list[row][col]['tv'] = sv
-                self.blog_list[row][col]['btn'] = tk.Button()
-                self.blog_list[row][col]['selected'] = tk.FALSE
+                blog['tv'] = sv
+                blog['btn'] = tk.Button()
+                blog['selected'] = tk.FALSE
 
-        frame.grid(columnspan=no_of_cols)
-        for i in range(0, no_of_cols):
+        frame.grid(columnspan=len(self.blog_list[row]))
+        for i, _ in enumerate(self.blog_list[row]):
             frame.columnconfigure(i, weight=1)
 
         # set the headers
-        for col in range(0, no_of_cols):
-            self.blog_list_headers[col]['btn'] = tk.Button(
+        for col, blog_hdr in enumerate(self.blog_list_headers):
+            blog_hdr['btn'] = tk.Button(
                 frame,
                 text=self.blog_list_headers[col]['text'],
                 relief='flat',
@@ -337,12 +336,12 @@ class GuiBlogList:
                 justify=tk.CENTER,
                 anchor=tk.W
             )
-            self.blog_list_headers[col]['btn'].grid(row=0, column=col)
+            blog_hdr['btn'].grid(row=0, column=col)
 
         row = 0
         for _ in self.blog_list:
-            for col in range(0, no_of_cols):
-                self.blog_list[row][col]['btn'] = tk.Button(
+            for col, blog in enumerate(self.blog_list[row]):
+                blog['btn'] = tk.Button(
                     frame,
                     textvariable=self.blog_list[row][col]['tv'],
                     bg='white',
@@ -351,23 +350,23 @@ class GuiBlogList:
                     relief=tk.FLAT,
                     width=14
                 )
-                self.blog_list[row][col]['btn'].grid(column=col, row=row + 1)  # need to row+1 to allow for header
+                blog['btn'].grid(column=col, row=row + 1)  # need to row+1 to allow for header
 
             row = row + 1
 
     def blog_list_reload(self, entries):
         # clear all entries
-        for row in range(0, len(self.blog_list)):
-            for col in range(0, len(self.blog_list_headers)):
-                self.blog_list[row][col]['tv'].set(value='')
-                self.blog_list[row][col]['btn'].configure(bg='#ffffff')
+        for row, _ in enumerate(self.blog_list):
+            for col, blog in enumerate(self.blog_list[row]):
+                blog['tv'].set(value='')
+                blog['btn'].configure(bg='#ffffff')
 
-        for row in range(0, len(entries)):
-            for col in range(0, len(self.blog_list_headers)):  # last entry in the line is selected flag so skip
-                self.blog_list[row][col]['tv'].set(entries[row][col])
+        for row, _ in enumerate(entries):
+            for col, blog in enumerate(self.blog_list[row]):  # last entry in the line is selected flag so skip
+                blog['tv'].set(entries[row][col])
                 if entries[row][len(entries[row]) - 1]:  # check the selected flag
-                    self.blog_list[row][col]['btn'].configure(bg='#3498db')
-                    self.blog_list[row][col]['btn'].configure(fg='#000000')
+                    blog['btn'].configure(bg='#3498db')
+                    blog['btn'].configure(fg='#000000')
 
 
 class GuiMain:
