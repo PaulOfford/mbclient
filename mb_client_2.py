@@ -1,10 +1,12 @@
 import tkinter as tk
+import tkinter as tk
 from tkinter import ttk
 import tkinter.font as font
 import time
 
 max_post_list = 30
 max_qsos = 4
+max_blogs = 30
 
 root = tk.Tk()
 root.title("Microblog Client r1")
@@ -22,15 +24,22 @@ font_main_bold = font.Font(family='Ariel', size=8, weight='bold')
 
 class Timeout:
     target_time = 0
-    to_value = 0
+    timeout_value = 0
 
     def __init__(self, to_in_secs: int):
         self.to_value = to_in_secs
 
-    # ToDo: Finish this class
+    def start(self):
+        self.target_time = time.time() + self.timeout_value
+
+    def has_expired(self) -> bool:
+        if time.time() > self.target_time:
+            return True
+        else:
+            return False
 
 
-class ScrollableFrame(ttk.Frame):
+class ScrollableFrame(ttk.Frame):  # ToDo: rewrite this class so that it expands correctly
     def __init__(self, container, *args, **kwargs):
         super().__init__(container, *args, **kwargs)
         canvas = tk.Canvas(self)
@@ -289,19 +298,89 @@ class GuiCli:
         self.cli_hdr_text.set(f"Directed to: {blog}")
 
 
+class GuiBlogList:
+
+    blog_list_labels = [tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label(), tk.Label()]
+    blog_list = []
+
+    def __init__(self, frame):
+        global max_blogs
+        blog_list_hdr = ["Mblog", "Station", "SNR", "Cap.", "Last Post", "Last Post", "Last Seen"]
+
+        # set up the blog table
+        blog_list_cell = {'tv': None, 'btn': None, 'selected': False}
+        blog_list_row = []
+        no_of_cols = len(blog_list_hdr)
+
+        for col in range(0, no_of_cols):
+            blog_list_row.append(blog_list_cell)
+        for row in range(0, max_blogs):
+            self.blog_list.append(blog_list_row)
+        for row in range(0, max_blogs):
+            for column in range(0, 6):
+                self.blog_list[row][column]['tv'] = tk.StringVar()
+                self.blog_list[row][column]['btn'] = tk.Button()
+
+        frame.grid(columnspan=no_of_cols)
+        for i in range(0, no_of_cols):
+            frame.columnconfigure(i, weight=1)
+
+        # set the headers
+        for col in range(0, no_of_cols):
+            self.blog_list[col] = tk.Label(
+                frame,
+                text=blog_list_hdr[col],
+                bg='white',
+                font=font_main_ul,
+                justify=tk.LEFT,
+                anchor=tk.W
+            )
+            self.blog_list[col].grid(row=0, column=col)
+
+
+        blog_list = [
+            ["AUSNEWS", "VK3WXY", "-25 dB", "LEGU", "2023-02-07", "405", False],
+            ["M0PXO", "M0PXO", "+01 dB", "LEG", "2023-02-03", "29", True],
+            ["NEWSEN", "K7GHI", "-24 dB", "LEG", "2023-01-31", "36", False],
+            ["NEWSEN", "K7MNO", "-13 dB", "LEG", "2023-01-30", "35", False],
+            # ["NEWSSP", "K7MNO", "-14 dB", "LEG", "2023-01-27", "14"],
+            ["9Q1AB", "9Q1AB", "-16 dB", "LEG", "2023-02-07", "182", False],
+        ]
+
+
+        #
+        # row = 0
+        # for blog in blog_list:
+        #     for col in range(1, 6):
+        #         blog_details[row][col] = tk.Button(
+        #             frame,
+        #             textvariable=cell_str_array[row][col],
+        #             bg='white',
+        #             font=font_main,
+        #             justify=tk.CENTER,
+        #             relief=tk.FLAT,
+        #             width=12
+        #         )
+        #         blog_details[row][col].grid(column=col, row=row + 1)  # need to row+1 to allow for header
+        #         new_str = blog_list[row][col]
+        #         cell_str_array[row][col].set(value=new_str)
+        #         if blog_list[row][6]:
+        #             blog_details[row][col].configure(bg='#6699ff')
+        #
+        #     row = row + 1
+
+
 class GuiMain:
 
-    latest_posts = None
-
-    def __init__(self, main_frame):
-        pane_main = tk.PanedWindow(main_frame, bg='#606060')
+    def __init__(self, frame):
+        pane_main = tk.PanedWindow(frame, bg='#606060')
         pane_main.pack(fill='both', expand=1, side='top')
 
         frame_left = tk.Frame(pane_main)
         pane_main.add(frame_left)
 
         frame_mid = tk.Frame(pane_main)
-        pane_main.add(frame_mid, width=480)
+        pane_main.add(frame_mid, width=440)
 
         frame_right = tk.Frame(pane_main, bg='blue')
         pane_main.add(frame_right)
@@ -327,6 +406,10 @@ class GuiMain:
         self.cli = GuiCli(frame_mid)
 
         # Blog list area - right of main
+        frame_blog_list = tk.Frame(frame_right, bg='white', padx=4, pady=4)
+        frame_blog_list.pack()
+
+        self.blog_list = GuiBlogList(frame_blog_list)
 
     def prepend_latest(self, value: str):
         self.latest_posts.prepend_latest(value)
@@ -356,7 +439,7 @@ header.set_offset('1800 Hz')
 header.set_callsign('2E0FGO')
 header.clock_tick()
 
-main = GuiMain(main_frame=frame_main)  # populate the main area
+main = GuiMain(frame=frame_main)  # populate the main area
 
 main.prepend_latest("2023-02-03 08:30 - K7RA Solar Update")
 main.prepend_latest("2023-02-07 11:04 - EmComms Due to Earthquake in Turkey")
