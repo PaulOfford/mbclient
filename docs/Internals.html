@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Internals</title>
+    <link media="all" rel="stylesheet" href="styles/main.css" />
+</head>
+<body>
+    <div class="outer-div">
+        <h1>Internals</h1>
+        <h2>Design</h2>
+        <p>This microblog client (mbclient) is written in Python so that it can be run on a broad range
+            of platforms.  The GUI is based on the tkinter library, which is portable across platforms.
+            Data is stored in a SQLite database, which comes bundled with Python and, again,
+            chosen for its wide platform support.  The database is used to provide persistence, including
+            the saving of settings.</p>
+        <p>Python persistent object facilities (like <i>pickle</i>) were considered, but these wouldn't meet
+            all the data needs and are more complex to maintain.</p>
+        <p>mbclient comprises two components:</p>
+        <ul>
+            <li>Front-end - the GUI and code relating to presentation</li>
+            <li>Back-end - code that deals with communication and the main logic of the program</li>
+        </ul>
+        <p>Each of these components runs in its own Python thread.  Python multithreading does not equate
+            to OS multithreading, i.e. it does not use multiple cores.  However, the client will spend a
+            lot of time waiting for UI events and network IO (API calls to JS8Call) and so it should meet
+            our needs.  Python multiprocessing could be considered at a later stage, if neccessary.
+            Communication between the front-end and back-end is via a table in the SQLite database which
+            is used as a mailbox-style messaging mechanism.</p>
+        <h2>Database</h2>
+    </div>
+</body>
+</html>
