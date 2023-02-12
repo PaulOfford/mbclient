@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk
 import tkinter.font as font
 import time
+from settings import *
+import sqlite3
 
 max_post_list = 30
 max_qsos = 4
@@ -36,6 +38,65 @@ class Timeout:
             return True
         else:
             return False
+
+
+class DbTable:
+
+    col_names = None
+    result = None
+    has_is_selected = False
+
+    def __init__(self, table):
+        self.table = table
+
+        db = sqlite3.connect(db_file)
+        db.row_factory = sqlite3.Row
+        c = db.cursor()
+        c.execute(f"SELECT * FROM {table} LIMIT 1")
+        row = c.fetchone()
+        self.col_names = row.keys()
+        if 'is_selected' in self.col_names:
+            self.has_is_selected = True
+
+        self.result = [{} for _ in range(max_blogs)]
+
+        c.close()
+
+    # This method returns a list of dictionaries with the columns selected by the
+    # hdr_list, in the order of the columns in the hdr_list.
+    # The hdr_list must contain a key db_col with a value of the name of a database column.
+    def select(self, where=None, order_by=None, desc=False, limit=0, hdr_list=None):
+
+        db = sqlite3.connect(db_file)
+        c = db.cursor()
+
+        select_cols = ''
+        for i, hdr_col in enumerate(hdr_list):
+            if i > 0:
+                select_cols += ','
+            select_cols += f" {hdr_col['db_col']}"
+
+        query = f"SELECT {select_cols} FROM {self.table}"
+        if where:
+            query += f" WHERE {where}"
+        if order_by:
+            query += f" ORDER BY {order_by}"
+        if desc:
+            query += f" DESC"
+        if limit > 0:
+            query += f" LIMIT {limit}"
+
+        c.execute(query)
+        list_of_tuples = c.fetchall()
+        db.close()
+
+        # convert the list of tuples to a list of dictionaries based on the self.col_names values
+        for y, row in enumerate(list_of_tuples):
+            for x, col in enumerate(hdr_list):
+                abc = f"{col['db_col']}"
+                self.result[y][abc] = row[x]
+
+        return self.result
 
 
 class ScrollableFrame(ttk.Frame):  # ToDo: rewrite this class so that it expands correctly
@@ -300,34 +361,38 @@ class GuiCli:
 
 class GuiBlogList:
 
+    blog_list = None  # this is a list of blog entries, each of which is a dictionary
+    blog_list_headers = None  # this is a list of blog list headers, each of which is a dictionary
+
     def __init__(self, frame):
         global max_blogs
 
         self.blog_list_headers = [
-            {'text': "Mblog", 'btn': tk.Button()},
-            {'text': "Station", 'btn': tk.Button()},
-            {'text': "SNR", 'btn': tk.Button()},
-            {'text': "Cap.", 'btn': tk.Button()},
-            {'text': "Latest\nPost Date", 'btn': tk.Button()},
-            {'text': "Latest\nPost ID", 'btn': tk.Button()},
-            {'text': "Last Seen", 'btn': tk.Button()},
+            {'db_col': 'blog_name', 'type': 'Text', 'suffix': '', 'text': 'Mblog', 'widget': tk.Button()},
+            {'db_col': 'station_name', 'type': 'Text', 'suffix': '', 'text': 'Station', 'widget': tk.Button()},
+            {'db_col': 'snr', 'type': 'Int', 'text': 'SNR', 'suffix': ' dB', 'widget': tk.Button()},
+            {'db_col': 'capabilities', 'type': 'Text', 'suffix': '', 'text': 'Cap.', 'widget': tk.Button()},
+            {'db_col': 'latest_post_date', 'type': 'Date', 'suffix': '', 'text': 'Latest\nPost Date', 'widget': tk.Button()},
+            {'db_col': 'latest_post_id', 'type': 'Int', 'suffix': '', 'text': 'Latest\nPost ID', 'widget': tk.Button()},
+            {'db_col': 'last_seen_date', 'type': 'Date', 'suffix': '', 'text': 'Last Seen', 'widget': tk.Button()},
+            {'db_col': 'is_selected', 'db_type': 'Int', 'suffix': '', 'text': None, 'widget': None},
         ]
         self.blog_list = [[{} for _, _ in enumerate(self.blog_list_headers)] for _ in range(max_blogs)]
 
         for row, _ in enumerate(self.blog_list):
             for col, blog in enumerate(self.blog_list[row]):
-                sv = tk.StringVar()
-                blog['tv'] = sv
-                blog['btn'] = tk.Button()
+                blog['db_col'] = self.blog_list_headers[col]['db_col']
+                blog['tv'] = tk.StringVar()
+                blog['widget'] = tk.Button()
                 blog['selected'] = tk.FALSE
 
-        frame.grid(columnspan=len(self.blog_list[row]))
-        for i, _ in enumerate(self.blog_list[row]):
+        frame.grid(columnspan=len(self.blog_list_headers))
+        for i, _ in enumerate(self.blog_list_headers):
             frame.columnconfigure(i, weight=1)
 
         # set the headers
         for col, blog_hdr in enumerate(self.blog_list_headers):
-            blog_hdr['btn'] = tk.Button(
+            blog_hdr['widget'] = tk.Button(
                 frame,
                 text=self.blog_list_headers[col]['text'],
                 relief='flat',
@@ -336,12 +401,13 @@ class GuiBlogList:
                 justify=tk.CENTER,
                 anchor=tk.W
             )
-            blog_hdr['btn'].grid(row=0, column=col)
+            blog_hdr['widget'].grid(row=0, column=col)
 
+        # add the blog list buttons to the grid
         row = 0
         for _ in self.blog_list:
             for col, blog in enumerate(self.blog_list[row]):
-                blog['btn'] = tk.Button(
+                blog['widget'] = tk.Button(
                     frame,
                     textvariable=self.blog_list[row][col]['tv'],
                     bg='white',
@@ -350,23 +416,41 @@ class GuiBlogList:
                     relief=tk.FLAT,
                     width=14
                 )
-                blog['btn'].grid(column=col, row=row + 1)  # need to row+1 to allow for header
+                blog['widget'].grid(column=col, row=row + 1)  # need to row+1 to allow for header
 
             row = row + 1
 
-    def blog_list_reload(self, entries):
+    def blog_list_reload(self):
         # clear all entries
         for row, _ in enumerate(self.blog_list):
             for col, blog in enumerate(self.blog_list[row]):
                 blog['tv'].set(value='')
-                blog['btn'].configure(bg='#ffffff')
+                blog['widget'].configure(bg='#ffffff')
 
-        for row, _ in enumerate(entries):
-            for col, blog in enumerate(self.blog_list[row]):  # last entry in the line is selected flag so skip
-                blog['tv'].set(entries[row][col])
-                if entries[row][len(entries[row]) - 1]:  # check the selected flag
-                    blog['btn'].configure(bg='#3498db')
-                    blog['btn'].configure(fg='#000000')
+        blogs_table = DbTable('blogs')
+        db_values = blogs_table.select(order_by='last_seen_date', desc=True, limit=30, hdr_list=self.blog_list_headers)
+
+        # we need to add the data for each column in the order the columns are in the header
+        # AND NOT necessarily the order they are returned from the database.
+        for row, db_row in enumerate(db_values):
+            for col, col_name in enumerate(list(db_row)):
+                if col_name == 'is_selected':  # this marks the end of the list and we don't add it to the grid
+                    break
+
+                if self.blog_list_headers[col]['type'] == 'Int':
+                    value = str(db_row[col_name]) + self.blog_list_headers[col]['suffix']
+                elif self.blog_list_headers[col]['type'] == 'Date':
+                    value = time.strftime("%Y-%m-%d %H:%M", time.gmtime(db_row[col_name]))\
+                            + self.blog_list_headers[col]['suffix']
+                else:
+                    value = db_row[col_name] + self.blog_list_headers[col]['suffix']
+
+                blog_cell = self.blog_list[row][col]
+                blog_cell['tv'].set(value)
+                if db_row['is_selected']:  # check the selected flag
+                    blog_cell['widget'].configure(bg='#3498db')
+                    blog_cell['widget'].configure(fg='#000000')
+        return
 
 
 class GuiMain:
@@ -419,8 +503,8 @@ class GuiMain:
     def set_selected_blog(self, blog: str):
         self.cli.set_selected_blog(blog)
 
-    def blog_list_reload(self, entries):
-        self.blog_list.blog_list_reload(entries)
+    def blog_list_reload(self):
+        self.blog_list.blog_list_reload()
 
 
 # Code here is first to run
@@ -486,17 +570,7 @@ main.append_qso(
 
 main.set_selected_blog('M0PXO')
 
-blog_list_entries = [
-    ["AUSNEWS", "VK3WXY", "-25 dB", "LEGU", "2023-02-07", "405", "2023-02-09 18:02", False],
-    ["M0PXO", "M0PXO", "+01 dB", "LEG", "2023-02-03", "29", "2023-02-10 10:23", True],
-    ["NEWSEN", "K7GHI", "-24 dB", "LEG", "2023-01-31", "36", "2023-02-05 22:10", False],
-    ["NEWSEN", "K7MNO", "-13 dB", "LEG", "2023-01-30", "35", "2023-02-06 07:45", False],
-    # ["NEWSSP", "K7MNO", "-14 dB", "LEG", "2023-01-27", "14", "2023-02-06 07:18", False],
-    ["9Q1AB", "9Q1AB", "-16 dB", "LEG", "2023-02-07", "182", "2023-02-10 10:25", False],
-]
-
-
-main.blog_list_reload(blog_list_entries)
+main.blog_list_reload()
 
 
 root.mainloop()
