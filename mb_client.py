@@ -388,7 +388,11 @@ class GuiQsoBox:
 
     def __init__(self, frame: tk.Frame):
 
-        self.qso_box = tk.Text(frame, width=400, wrap=tk.WORD, padx=10, pady=10, font=font_main, bg='#ffeaa7')
+        v = tk.Scrollbar(frame, orient='vertical')
+        v.pack(side=tk.RIGHT, fill='y')
+        self.qso_box = tk.Text(frame, width=400, wrap=tk.WORD, padx=10, pady=10,
+                               font=font_main, bg='#ffeaa7', yscrollcommand=v.set)
+        v.config(command=self.qso_box.yview)
         self.qso_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
 
 
