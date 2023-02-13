@@ -36,9 +36,14 @@ c.execute("""CREATE TABLE latest (
 )""")
 
 c.execute("""CREATE TABLE qso (
-    blog_name text,
-    station_name text,
-    frequency real,
+    qso_date integer,
+    blog text,
+    station text,
+    directed_to text,
+    frequency integer,
+    offset integer,
+    cmd text,
+    rsp text,
     post_id integer,
     post_date integer,
     title text,
@@ -81,6 +86,230 @@ for i, b in enumerate(blog_list):
                     'last_seen_date': time.mktime(time.strptime(b['last_seen_date'], "%Y-%m-%d %H:%M")),
                     'is_selected': b['is_selected'],
                 })
+
+
+qsos = [
+    {
+        'qso_date': '2023-02-07 14:25:48',
+        'blog': 'M0PXO',
+        'station': 'M0PXO',
+        'directed_to': '2E0FGO',
+        'frequency': 14078000,
+        'offset': 1800,
+        'cmd': 'M.L >0',
+        'rsp': 'OK',
+        'post_id': 20,
+        'post_date': '1970-01-01 00:00:00',
+        'title': 'MARINES TO GAIN RADIO OP EXPERIENCE',
+        'body': ''
+    },
+    {
+        'qso_date': '2023-02-07 14:25:48',
+        'blog': 'M0PXO',
+        'station': 'M0PXO',
+        'directed_to': '2E0FGO',
+        'frequency': 14078000,
+        'offset': 1800,
+        'cmd': 'M.L >0',
+        'rsp': 'OK',
+        'post_id': 21,
+        'post_date': '1970-01-01 00:00:00',
+        'title': 'MORE HAMS ON THE ISS',
+        'body': ''
+    },
+    {
+        'qso_date': '2023-02-07 14:25:48',
+        'blog': 'M0PXO',
+        'station': 'M0PXO',
+        'directed_to': '2E0FGO',
+        'frequency': 14078000,
+        'offset': 1800,
+        'cmd': 'M.L >0',
+        'rsp': 'OK',
+        'post_id': 22,
+        'post_date': '1970-01-01 00:00:00',
+        'title': 'HAARP THANKS HAMS',
+        'body': ''
+    },
+    {
+        'qso_date': '2023-02-07 14:25:48',
+        'blog': 'M0PXO',
+        'station': 'M0PXO',
+        'directed_to': '2E0FGO',
+        'frequency': 14078000,
+        'offset': 1800,
+        'cmd': 'M.L >0',
+        'rsp': 'OK',
+        'post_id': 23,
+        'post_date': '1970-01-01 00:00:00',
+        'title': 'K7RA SOLAR UPDATE',
+        'body': ''
+    },
+    {
+        'qso_date': '2023-02-07 14:25:48',
+        'blog': 'M0PXO',
+        'station': 'M0PXO',
+        'directed_to': '2E0FGO',
+        'frequency': 14078000,
+        'offset': 1800,
+        'cmd': 'M.L >0',
+        'rsp': 'OK',
+        'post_id': 24,
+        'post_date': '1970-01-01 00:00:00',
+        'title': 'RSGB PROPOGATION NEWS',
+        'body': ''
+    },
+
+    {
+        'qso_date': '2023-02-07 18:07:28',
+        'blog': 'M0PXO',
+        'station': 'M0PXO',
+        'directed_to': '2E0FGO',
+        'frequency': 14078000,
+        'offset': 1800,
+        'cmd': 'M.L >0',
+        'rsp': 'OK',
+        'post_id': 20,
+        'post_date': '2022-12-22 12:00:00',
+        'title': 'MARINES TO GAIN RADIO OP EXPERIENCE',
+        'body': ''
+    },
+    {
+        'qso_date': '2023-02-07 18:07:28',
+        'blog': 'M0PXO',
+        'station': 'M0PXO',
+        'directed_to': '2E0FGO',
+        'frequency': 14078000,
+        'offset': 1800,
+        'cmd': 'M.L >0',
+        'rsp': 'OK',
+        'post_id': 21,
+        'post_date': '2023-01-06 12:00:00',
+        'title': 'MORE HAMS ON THE ISS',
+        'body': ''
+    },
+    {
+        'qso_date': '2023-02-07 18:07:28',
+        'blog': 'M0PXO',
+        'station': 'M0PXO',
+        'directed_to': '2E0FGO',
+        'frequency': 14078000,
+        'offset': 1800,
+        'cmd': 'M.L >0',
+        'rsp': 'OK',
+        'post_id': 22,
+        'post_date': '2023-01-13 12:00:00',
+        'title': 'HAARP THANKS HAMS',
+        'body': ''
+    },
+    {
+        'qso_date': '2023-02-07 18:07:28',
+        'blog': 'M0PXO',
+        'station': 'M0PXO',
+        'directed_to': '2E0FGO',
+        'frequency': 14078000,
+        'offset': 1800,
+        'cmd': 'M.L >0',
+        'rsp': 'OK',
+        'post_id': 23,
+        'post_date': '2023-01-13 12:00:00',
+        'title': 'K7RA SOLAR UPDATE',
+        'body': ''
+    },
+    {
+        'qso_date': '2023-02-07 18:07:28',
+        'blog': 'M0PXO',
+        'station': 'M0PXO',
+        'directed_to': '2E0FGO',
+        'frequency': 14078000,
+        'offset': 1800,
+        'cmd': 'M.L >0',
+        'rsp': 'OK',
+        'post_id': 24,
+        'post_date': '2023-01-15 12:00:00',
+        'title': 'RSGB PROPOGATION NEWS',
+        'body': ''
+    },
+    {
+        'qso_date': '2023-02-07 18:10:02',
+        'blog': 'M0PXO',
+        'station': 'M0PXO',
+        'directed_to': '2E0FGO',
+        'frequency': 14078000,
+        'offset': 1800,
+        'cmd': 'M.G 24',
+        'rsp': 'OK',
+        'post_id': 24,
+        'post_date': '1970-01-01 00:00:00',
+        'title': 'RSGB Propogation News',
+        'body':
+            "PROPAGATION NEWS - 15 JANUARY 2023\n\n"
+            "SUNSPOT REGION 3186 HAS ROTATED INTO VIEW OFF THE SUN'S NORTHEAST LIMB AND PRODUCE"
+            " AN X1.0 SOLAR FLARE AT 2247UTC ON THE 10 JANUARY. IT MAY HAVE THROWN SOME PLASMA INTO"
+            " SPACE IN THE FORM OF A CORONAL MASS EJECTION BUT, AS IT IS NOT YET DIRECTLY FACING EARTH,"
+            " THE CME IS LIKELY DIRECTED AWAY FROM US.\n\n"
+            "WE CURRENTLY HAVE AN SFI IN THE 190S."
+    },
+    {
+        'qso_date': '2023-02-07 14:28:47',
+        'blog': 'M0PXO',
+        'station': 'M0PXO',
+        'directed_to': '2E0FGO',
+        'frequency': 14078000,
+        'offset': 1800,
+        'cmd': 'M.G 25',
+        'rsp': 'OK',
+        'post_id': 25,
+        'post_date': '2023-01-20 12:00:00',
+        'title': '',
+        'body':
+            "AMATEUR SATELLITE FALCONSAT-3 NEARS REENTRY\n\n"
+            "2023-01-20\n"
+            "FS-3 IS PREDICTED TO REENTER THE EARTHS ATMOSPHERE IN THE WEEK OF JANUARY 16 - 21, 2023."
+            "  RADIO AMATEUR SATELLITE CORPORATION (AMSAT) BOARD MEMBER AND FS-3 CONTROL OPERATOR, MARK HAMMOND,"
+            " N8MH, SAID HE WILL TRY TO HAVE THE SATELLITE OPERATIONAL FOR ITS FINAL HOURS.\n\n"
+            "THE SATELLITE HAS ONLY BEEN AVAILABLE FOR APPROXIMATELY 24 HOURS EACH WEEKEND DUE TO WEAK BATTERIES.\n"
+    },
+]
+
+for i, q in enumerate(qsos):
+    with db:
+        c.execute("INSERT INTO qso VALUES (:qso_date, :blog, :station, :directed_to,"
+                  " :frequency, :offset, :cmd, :rsp, :post_id, :post_date, :title, :body)",
+                {
+                    'qso_date': time.mktime(time.strptime(q['qso_date'], "%Y-%m-%d %H:%M:%S")),
+                    'blog': q['blog'],
+                    'station': q['station'],
+                    'directed_to': q['directed_to'],
+                    'frequency': q['frequency'],
+                    'offset': q['offset'],
+                    'cmd': q['cmd'],
+                    'rsp': q['rsp'],
+                    'post_id': q['post_id'],
+                    'post_date': time.mktime(time.strptime(q['post_date'], "%Y-%m-%d %H:%M:%S")),
+                    'title': q['title'],
+                    'body': q['body'],
+                })
+
+
+# main.append_qso(
+#     "14:25:48 - (1800) - M0PXO: 2E0FGO  +M.L >2023-01-17\n"
+#     "25 - FALCONSAT-3 NEARS REENTRY\n"
+#     "26 - 2026 WORLD RADIOSPORT TEAM CHAMPIONSHIP NEWS\n"
+#     "27 - RSGB PROPOGATION NEWS\n"
+#     "28 - YAESU RADIOS DONATED TO ARRL\n"
+#     "29 - RSGB PROPOGATION NEWS\n"
+# )
+#
+# main.append_qso(
+#     "14:28:47 - (1800) - M0PXO: 2E0FGO  +M.G 25\n"
+#     "AMATEUR SATELLITE FALCONSAT-3 NEARS REENTRY\n\n"
+#     "2023-01-20\n"
+#     "FS-3 IS PREDICTED TO REENTER THE EARTHS ATMOSPHERE IN THE WEEK OF JANUARY 16 - 21, 2023."
+#     "  RADIO AMATEUR SATELLITE CORPORATION (AMSAT) BOARD MEMBER AND FS-3 CONTROL OPERATOR, MARK HAMMOND,"
+#     " N8MH, SAID HE WILL TRY TO HAVE THE SATELLITE OPERATIONAL FOR ITS FINAL HOURS.\n\n"
+#     "THE SATELLITE HAS ONLY BEEN AVAILABLE FOR APPROXIMATELY 24 HOURS EACH WEEKEND DUE TO WEAK BATTERIES.\n"
+# )
 
 
 db.close()

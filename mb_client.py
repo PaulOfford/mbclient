@@ -6,7 +6,7 @@ from settings import *
 import sqlite3
 
 max_post_list = 30
-max_qsos = 4
+max_qsos = 50
 max_blogs = 30
 
 root = tk.Tk()
@@ -58,8 +58,6 @@ class DbTable:
         if 'is_selected' in self.col_names:
             self.has_is_selected = True
 
-        self.result = [{} for _ in range(max_blogs)]
-
         c.close()
 
     # This method returns a list of dictionaries with the columns selected by the
@@ -90,13 +88,15 @@ class DbTable:
         list_of_tuples = c.fetchall()
         db.close()
 
+        result = [{} for _ in range(0, len(list_of_tuples))]
+
         # convert the list of tuples to a list of dictionaries based on the self.col_names values
         for y, row in enumerate(list_of_tuples):
             for x, col in enumerate(hdr_list):
                 abc = f"{col['db_col']}"
-                self.result[y][abc] = row[x]
+                result[y][abc] = row[x]
 
-        return self.result
+        return result
 
 
 class ScrollableFrame(ttk.Frame):  # ToDo: rewrite this class so that it expands correctly
@@ -278,53 +278,177 @@ class GuiLatestPosts:
         self.latest_post_list[0].set(post_line)
 
 
+# class GuiQsoBox:
+#
+#     qso_text = []
+#     qso_label = []
+#     qso_cols = [
+#         {'db_col': 'qso_date'},
+#         {'db_col': 'blog'},
+#         {'db_col': 'cmd'},
+#         {'db_col': 'rsp'},
+#         {'db_col': 'post_id'},
+#         {'db_col': 'post_date'},
+#         {'db_col': 'title'},
+#         {'db_col': 'body'},
+#     ]
+#
+#     def __init__(self, frame: tk.Frame):
+#
+#         self.qso_frame = frame
+#
+#         # ok - I'm not proud of this, but I have tried everything I can think of to get the scrollable
+#         # frame to expand
+#         junk_text = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t"
+#         junk = tk.Label(
+#             frame.scrollable_frame,
+#             text=junk_text,
+#             bg='#ffeaa7',
+#             font=font_main,
+#             justify=tk.LEFT,
+#             anchor=tk.W,
+#             padx=4,
+#             pady=3,
+#         )
+#         junk.pack(fill=tk.X, expand=1, anchor='ne')
+#
+#         global max_qsos
+#         for i in range(0, max_qsos):
+#             self.qso_text.append(tk.StringVar())
+#
+#         for index in range(0, max_qsos):
+#             self.qso_label.append(
+#                 tk.Label(
+#                     frame.scrollable_frame,
+#                     textvariable=self.qso_text[index],
+#                     font=font_main,
+#                     bg='#ffeaa7',
+#                     anchor=tk.W,
+#                     justify=tk.LEFT,
+#                     wraplength=360,
+#                     padx=10,
+#                     pady=3, relief='flat'
+#                 )
+#             )
+#             self.qso_label[-1].pack(anchor='ne', fill=tk.X)
+#
+#
+#     def append_qso(self, value: str):
+#         list_length = len(self.qso_text)
+#         for index in range(list_length - 1, 0, -1):  # index starts by addressing the last entry
+#             self.qso_text[index - 1].set(self.qso_text[index].get())
+#         self.qso_text[list_length - 1].set(value)
+#
+#     def qso_box_reload(self):
+#         # initialise the text of off the labels
+#         for i in range(0, len(self.qso_text)):
+#             self.qso_text[i].set('')
+#
+#         qso_table = DbTable('qso')
+#         db_values = qso_table.select(order_by='qso_date', desc=False, limit=max_qsos, hdr_list=self.qso_cols)
+#         qso_string = ''
+#
+#         for i, r in enumerate(db_values):
+#             if r['rsp'] == 'OK' and len(r['body']) > 0:
+#                 # it's a post entry
+#                 q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
+#                 if r['post_date'] > 0:
+#                     p_date = time.strftime("%Y-%m-%d", time.gmtime(r['post_date']))
+#                 else:
+#                     p_date = None
+#
+#                 qso_string = f"{q_date} | Blog: {r['blog']} | Post ID: {r['post_id']}"
+#                 if p_date:
+#                     qso_string += f" | Post Date: {p_date}"
+#                 if len(r['title']):
+#                     qso_string += f" | Title: {r['title']}"
+#                 qso_string += f"\n\n{r['body']}"
+#
+#                 self.qso_text[i].set(qso_string)
+#
+#         return
+
+
 class GuiQsoBox:
 
-    qso_text = []
-    qso_label = []
+    qso_box = []
 
-    def __init__(self, frame):
-        # ok - I'm not proud of this, but I have tried everything I can think of to get the scrollable
-        # frame to expand
-        junk_text = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t"
-        junk = tk.Label(
-            frame.scrollable_frame,
-            text=junk_text,
-            bg='#ffeaa7',
-            font=font_main,
-            justify=tk.LEFT,
-            anchor=tk.W,
-            padx=4,
-            pady=3,
-        )
-        junk.pack(fill=tk.X, expand=1, anchor='ne')
+    prev_is_listing = False
 
-        global max_qsos
-        for i in range(0, max_qsos):
-            self.qso_text.append(tk.StringVar())
+    qso_cols = [
+        {'db_col': 'qso_date'},
+        {'db_col': 'blog'},
+        {'db_col': 'cmd'},
+        {'db_col': 'rsp'},
+        {'db_col': 'post_id'},
+        {'db_col': 'post_date'},
+        {'db_col': 'title'},
+        {'db_col': 'body'},
+    ]
 
-        for index in range(0, max_qsos):
-            self.qso_label.append(
-                tk.Label(
-                    frame.scrollable_frame,
-                    textvariable=self.qso_text[index],
-                    font=font_main,
-                    bg='#ffeaa7',
-                    anchor=tk.W,
-                    justify=tk.LEFT,
-                    wraplength=360,
-                    padx=10,
-                    pady=3, relief='flat'
-                )
-            )
-            self.qso_label[-1].pack(anchor='ne', fill=tk.X)
+    def __init__(self, frame: tk.Frame):
+
+        self.qso_box = tk.Text(frame, width=400, wrap=tk.WORD, padx=10, pady=10, font=font_main, bg='#ffeaa7')
+        self.qso_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
+
 
     def append_qso(self, value: str):
-        list_length = len(self.qso_text)
-        for index in range(list_length - 1, 0, -1):  # index starts by addressing the last entry
-            self.qso_text[index - 1].set(self.qso_text[index].get())
-        self.qso_text[list_length - 1].set(value)
+        self.qso_box.insert(tk.END, value)
 
+    def qso_box_reload(self):
+
+        qso_table = DbTable('qso')
+        db_values = qso_table.select(order_by='qso_date', desc=False, limit=max_qsos, hdr_list=self.qso_cols)
+
+        self.qso_box.configure(state=tk.NORMAL)
+        self.qso_box.delete(1.0, 'end')
+
+        qso_string = ''
+
+        for i, r in enumerate(db_values):
+            if r['rsp'] == 'OK' and len(r['body']) > 0:
+                # it's a post entry
+                qso_string = "\n----------------------------------------------\n"
+                q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
+                if r['post_date'] > 0:
+                    p_date = time.strftime("%Y-%m-%d", time.gmtime(r['post_date']))
+                else:
+                    p_date = None
+
+                qso_string += f"{q_date} {r['blog']} #{r['post_id']}"
+                if p_date:
+                    qso_string += f" {p_date}"
+                if len(r['title']):
+                    qso_string += f" {r['title']}"
+                qso_string += f"\n\n{r['body']}"
+
+                self.qso_box.insert(tk.END, qso_string)
+                self.qso_box.see(tk.END)
+                self.prev_is_listing = False
+
+            elif r['rsp'] == 'OK' and len(r['body']) == 0:
+                # it's a listing
+                qso_string = ''
+                if not self.prev_is_listing:
+                    qso_string = "\n----------------------------------------------\n"
+                q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
+                if r['post_date'] > 0:
+                    p_date = time.strftime("%Y-%m-%d", time.gmtime(r['post_date']))
+                else:
+                    p_date = None
+
+                qso_string += f"{q_date} {r['blog']} #{r['post_id']}"
+                if p_date:
+                    qso_string += f" {p_date}"
+
+                qso_string += f" {r['title']}\n"
+
+                self.qso_box.insert(tk.END, qso_string)
+                self.qso_box.see(tk.END)
+                self.prev_is_listing = True
+
+        self.qso_box.configure(state=tk.DISABLED)
+        return
 
 class GuiCli:
 
@@ -363,20 +487,21 @@ class GuiBlogList:
 
     blog_list = None  # this is a list of blog entries, each of which is a dictionary
     blog_list_headers = None  # this is a list of blog list headers, each of which is a dictionary
+    blog_list_headers = [
+        {'db_col': 'blog_name', 'type': 'Text', 'suffix': '', 'text': 'Mblog', 'widget': tk.Button()},
+        {'db_col': 'station_name', 'type': 'Text', 'suffix': '', 'text': 'Station', 'widget': tk.Button()},
+        {'db_col': 'snr', 'type': 'Int', 'text': 'SNR', 'suffix': ' dB', 'widget': tk.Button()},
+        {'db_col': 'capabilities', 'type': 'Text', 'suffix': '', 'text': 'Cap.', 'widget': tk.Button()},
+        {'db_col': 'latest_post_date', 'type': 'Date', 'suffix': '', 'text': 'Latest\nPost Date',
+         'widget': tk.Button()},
+        {'db_col': 'latest_post_id', 'type': 'Int', 'suffix': '', 'text': 'Latest\nPost ID', 'widget': tk.Button()},
+        {'db_col': 'last_seen_date', 'type': 'Date', 'suffix': '', 'text': 'Last Seen', 'widget': tk.Button()},
+        {'db_col': 'is_selected', 'db_type': 'Int', 'suffix': '', 'text': None, 'widget': None},
+    ]
 
     def __init__(self, frame):
         global max_blogs
 
-        self.blog_list_headers = [
-            {'db_col': 'blog_name', 'type': 'Text', 'suffix': '', 'text': 'Mblog', 'widget': tk.Button()},
-            {'db_col': 'station_name', 'type': 'Text', 'suffix': '', 'text': 'Station', 'widget': tk.Button()},
-            {'db_col': 'snr', 'type': 'Int', 'text': 'SNR', 'suffix': ' dB', 'widget': tk.Button()},
-            {'db_col': 'capabilities', 'type': 'Text', 'suffix': '', 'text': 'Cap.', 'widget': tk.Button()},
-            {'db_col': 'latest_post_date', 'type': 'Date', 'suffix': '', 'text': 'Latest\nPost Date', 'widget': tk.Button()},
-            {'db_col': 'latest_post_id', 'type': 'Int', 'suffix': '', 'text': 'Latest\nPost ID', 'widget': tk.Button()},
-            {'db_col': 'last_seen_date', 'type': 'Date', 'suffix': '', 'text': 'Last Seen', 'widget': tk.Button()},
-            {'db_col': 'is_selected', 'db_type': 'Int', 'suffix': '', 'text': None, 'widget': None},
-        ]
         self.blog_list = [[{} for _, _ in enumerate(self.blog_list_headers)] for _ in range(max_blogs)]
 
         for row, _ in enumerate(self.blog_list):
@@ -430,8 +555,6 @@ class GuiBlogList:
         blogs_table = DbTable('blogs')
         db_values = blogs_table.select(order_by='last_seen_date', desc=True, limit=30, hdr_list=self.blog_list_headers)
 
-        # we need to add the data for each column in the order the columns are in the header
-        # AND NOT necessarily the order they are returned from the database.
         for row, db_row in enumerate(db_values):
             for col, col_name in enumerate(list(db_row)):
                 if col_name == 'is_selected':  # this marks the end of the list and we don't add it to the grid
@@ -478,10 +601,10 @@ class GuiMain:
         frame_qso_outer = tk.Frame(frame_mid, width=480)
         frame_qso_outer.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        frame_qso = ScrollableFrame(frame_qso_outer)
-        frame_qso.pack(side=tk.TOP, fill=tk.BOTH, expand=1, padx=4)
+        # frame_qso = ScrollableFrame(frame_qso_outer)
+        # frame_qso.pack(side=tk.TOP, fill=tk.BOTH, expand=1, padx=4)
 
-        self.qso_box = GuiQsoBox(frame_qso)
+        self.qso_box = GuiQsoBox(frame_qso_outer)
 
         frame_cli = tk.Frame(frame_mid)
         frame_cli.pack(side=tk.BOTTOM, padx=4)
@@ -497,11 +620,11 @@ class GuiMain:
     def prepend_latest(self, value: str):
         self.latest_posts.prepend_latest(value)
 
-    def append_qso(self, value: str):
-        self.qso_box.append_qso(value)
-
     def set_selected_blog(self, blog: str):
         self.cli.set_selected_blog(blog)
+
+    def qso_box_reload(self):
+        self.qso_box.qso_box_reload()
 
     def blog_list_reload(self):
         self.blog_list.blog_list_reload()
@@ -530,45 +653,9 @@ main = GuiMain(frame=frame_main)  # populate the main area
 main.prepend_latest("2023-02-03 08:30 - K7RA Solar Update")
 main.prepend_latest("2023-02-07 11:04 - EmComms Due to Earthquake in Turkey")
 
-main.append_qso(
-    "18:07:28 - (1800) - M0PXO: 2E0FGO  +M.L >0\n"
-    "20 - MARINES TO GAIN RADIO OP EXPERIENCE\n"
-    "21 - MORE HAMS ON THE ISS\n"
-    "22 - HAARP THANKS HAMS\n"
-    "23 - K7RA SOLAR UPDATE\n"
-    "24 - RSGB PROPOGATION NEWS\n"
-)
-
-main.append_qso(
-    "18:10:02 - (1800) - M0PXO: 2E0FGO  +GE 24\n"
-    "PROPAGATION NEWS - 15 JANUARY 2023\n\n"
-    "SUNSPOT REGION 3186 HAS ROTATED INTO VIEW OFF THE SUN'S NORTHEAST LIMB AND PRODUCE"
-    " AN X1.0 SOLAR FLARE AT 2247UTC ON THE 10 JANUARY. IT MAY HAVE THROWN SOME PLASMA INTO"
-    " SPACE IN THE FORM OF A CORONAL MASS EJECTION BUT, AS IT IS NOT YET DIRECTLY FACING EARTH,"
-    " THE CME IS LIKELY DIRECTED AWAY FROM US.\n\n"
-    "WE CURRENTLY HAVE AN SFI IN THE 190S."
-)
-
-main.append_qso(
-    "14:25:48 - (1800) - M0PXO: 2E0FGO  +M.L >2023-01-17\n"
-    "25 - FALCONSAT-3 NEARS REENTRY\n"
-    "26 - 2026 WORLD RADIOSPORT TEAM CHAMPIONSHIP NEWS\n"
-    "27 - RSGB PROPOGATION NEWS\n"
-    "28 - YAESU RADIOS DONATED TO ARRL\n"
-    "29 - RSGB PROPOGATION NEWS\n"
-)
-
-main.append_qso(
-    "14:28:47 - (1800) - M0PXO: 2E0FGO  +M.G 25\n"
-    "AMATEUR SATELLITE FALCONSAT-3 NEARS REENTRY\n\n"
-    "2023-01-20\n"
-    "FS-3 IS PREDICTED TO REENTER THE EARTHS ATMOSPHERE IN THE WEEK OF JANUARY 16 - 21, 2023."
-    "  RADIO AMATEUR SATELLITE CORPORATION (AMSAT) BOARD MEMBER AND FS-3 CONTROL OPERATOR, MARK HAMMOND,"
-    " N8MH, SAID HE WILL TRY TO HAVE THE SATELLITE OPERATIONAL FOR ITS FINAL HOURS.\n\n"
-    "THE SATELLITE HAS ONLY BEEN AVAILABLE FOR APPROXIMATELY 24 HOURS EACH WEEKEND DUE TO WEAK BATTERIES.\n"
-)
-
 main.set_selected_blog('M0PXO')
+
+main.qso_box_reload()
 
 main.blog_list_reload()
 
