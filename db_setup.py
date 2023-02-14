@@ -26,15 +26,6 @@ c.execute("""CREATE TABLE status (
     selected_blog_id integer
 )""")
 
-c.execute("""CREATE TABLE latest (
-    blog_name text,
-    station_name text,
-    frequency real,
-    post_id integer,
-    post_date integer,
-    title text
-)""")
-
 c.execute("""CREATE TABLE qso (
     qso_date integer,
     blog text,
@@ -291,25 +282,54 @@ for i, q in enumerate(qsos):
                     'body': q['body'],
                 })
 
+latest = [
+    {
+        'qso_date': '2023-02-13 22:24:48',
+        'blog': 'M0PXO',
+        'station': 'M0PXO',
+        'directed_to': 'M7PJO',
+        'frequency': 28078000,
+        'offset': 1500,
+        'cmd': '',
+        'rsp': 'OK',
+        'post_id': 40,
+        'post_date': '1970-01-01 00:00:00',
+        'title': 'TURKEY/SYRIA LATEST',
+        'body': ''
+    },
+    {
+        'qso_date': '2023-02-13 01:25:48',
+        'blog': 'M0PXO',
+        'station': 'M0PXO',
+        'directed_to': 'M7PJO',
+        'frequency': 28078000,
+        'offset': 1500,
+        'cmd': '',
+        'rsp': 'OK',
+        'post_id': 39,
+        'post_date': '2023-02-13 01:15:22',
+        'title': 'NZ BRACED FOR CYCLONE',
+        'body': ''
+    },
+]
 
-# main.append_qso(
-#     "14:25:48 - (1800) - M0PXO: 2E0FGO  +M.L >2023-01-17\n"
-#     "25 - FALCONSAT-3 NEARS REENTRY\n"
-#     "26 - 2026 WORLD RADIOSPORT TEAM CHAMPIONSHIP NEWS\n"
-#     "27 - RSGB PROPOGATION NEWS\n"
-#     "28 - YAESU RADIOS DONATED TO ARRL\n"
-#     "29 - RSGB PROPOGATION NEWS\n"
-# )
-#
-# main.append_qso(
-#     "14:28:47 - (1800) - M0PXO: 2E0FGO  +M.G 25\n"
-#     "AMATEUR SATELLITE FALCONSAT-3 NEARS REENTRY\n\n"
-#     "2023-01-20\n"
-#     "FS-3 IS PREDICTED TO REENTER THE EARTHS ATMOSPHERE IN THE WEEK OF JANUARY 16 - 21, 2023."
-#     "  RADIO AMATEUR SATELLITE CORPORATION (AMSAT) BOARD MEMBER AND FS-3 CONTROL OPERATOR, MARK HAMMOND,"
-#     " N8MH, SAID HE WILL TRY TO HAVE THE SATELLITE OPERATIONAL FOR ITS FINAL HOURS.\n\n"
-#     "THE SATELLITE HAS ONLY BEEN AVAILABLE FOR APPROXIMATELY 24 HOURS EACH WEEKEND DUE TO WEAK BATTERIES.\n"
-# )
-
+for i, q in enumerate(latest):
+    with db:
+        c.execute("INSERT INTO qso VALUES (:qso_date, :blog, :station, :directed_to,"
+                  " :frequency, :offset, :cmd, :rsp, :post_id, :post_date, :title, :body)",
+                {
+                    'qso_date': time.mktime(time.strptime(q['qso_date'], "%Y-%m-%d %H:%M:%S")),
+                    'blog': q['blog'],
+                    'station': q['station'],
+                    'directed_to': q['directed_to'],
+                    'frequency': q['frequency'],
+                    'offset': q['offset'],
+                    'cmd': q['cmd'],
+                    'rsp': q['rsp'],
+                    'post_id': q['post_id'],
+                    'post_date': time.mktime(time.strptime(q['post_date'], "%Y-%m-%d %H:%M:%S")),
+                    'title': q['title'],
+                    'body': q['body'],
+                })
 
 db.close()

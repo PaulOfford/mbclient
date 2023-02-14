@@ -5,10 +5,6 @@ import time
 from settings import *
 import sqlite3
 
-max_post_list = 30
-max_qsos = 50
-max_blogs = 30
-
 root = tk.Tk()
 root.title("Microblog Client r2")
 root.geometry("1080x640")
@@ -235,10 +231,17 @@ class GuiHeader:
 
 
 class GuiLatestPosts:
-    latest_post_list = []
-    latest_btn_list = []
 
-    def __init__(self, frame):
+    latest_box = None
+
+    latest_cols = [
+        {'db_col': 'qso_date'},
+        {'db_col': 'blog'},
+        {'db_col': 'title'},
+    ]
+
+    def __init__(self, frame: tk.Frame):
+
         global max_post_list
         latest_list_hdr = tk.Label(
             frame,
@@ -247,126 +250,42 @@ class GuiLatestPosts:
             font=font_main_ul,
             justify=tk.LEFT,
             anchor=tk.W,
-            padx=4
+            padx=10, pady=12
         )
         latest_list_hdr.pack(anchor='ne', fill=tk.X)
 
-        for i in range(0, max_post_list):
-            self.latest_post_list.append(tk.StringVar())
+        self.latest_box = tk.Text(
+            frame, width=300, wrap=tk.WORD, padx=10, pady=5,
+            font=font_main, bg='#ffffff',
+            spacing1=1.1, spacing2=1.1,
+            borderwidth=0
+        )
+        self.latest_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
 
-        for index in range(0, max_post_list):
-            self.latest_btn_list.append(
-                tk.Button(
-                    frame,
-                    textvariable=self.latest_post_list[index],
-                    font=font_main,
-                    activebackground='#f0f0f0',
-                    bg='white',
-                    height=1,
-                    anchor=tk.W,
-                    padx=4,
-                    pady=3,
-                    relief='flat'
-                )
-            )
-            self.latest_btn_list[-1].pack(anchor='ne', fill=tk.X)
+    def latest_reload(self):
+        global max_latest
 
-    def prepend_latest(self, post_line: str):
-        list_length = len(self.latest_post_list)
-        for index in range(list_length - 1, 0, -1):  # index starts by addressing the last entry
-            self.latest_post_list[index].set(self.latest_post_list[index - 1].get())
-        self.latest_post_list[0].set(post_line)
+        qso_table = DbTable('qso')
+        db_values = qso_table.select(where=f"directed_to!='{my_call}'", order_by='qso_date', desc=True,
+                                     limit=max_latest, hdr_list=self.latest_cols)
 
+        self.latest_box.configure(state=tk.NORMAL)
+        self.latest_box.delete(1.0, 'end')
 
-# class GuiQsoBox:
-#
-#     qso_text = []
-#     qso_label = []
-#     qso_cols = [
-#         {'db_col': 'qso_date'},
-#         {'db_col': 'blog'},
-#         {'db_col': 'cmd'},
-#         {'db_col': 'rsp'},
-#         {'db_col': 'post_id'},
-#         {'db_col': 'post_date'},
-#         {'db_col': 'title'},
-#         {'db_col': 'body'},
-#     ]
-#
-#     def __init__(self, frame: tk.Frame):
-#
-#         self.qso_frame = frame
-#
-#         # ok - I'm not proud of this, but I have tried everything I can think of to get the scrollable
-#         # frame to expand
-#         junk_text = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t"
-#         junk = tk.Label(
-#             frame.scrollable_frame,
-#             text=junk_text,
-#             bg='#ffeaa7',
-#             font=font_main,
-#             justify=tk.LEFT,
-#             anchor=tk.W,
-#             padx=4,
-#             pady=3,
-#         )
-#         junk.pack(fill=tk.X, expand=1, anchor='ne')
-#
-#         global max_qsos
-#         for i in range(0, max_qsos):
-#             self.qso_text.append(tk.StringVar())
-#
-#         for index in range(0, max_qsos):
-#             self.qso_label.append(
-#                 tk.Label(
-#                     frame.scrollable_frame,
-#                     textvariable=self.qso_text[index],
-#                     font=font_main,
-#                     bg='#ffeaa7',
-#                     anchor=tk.W,
-#                     justify=tk.LEFT,
-#                     wraplength=360,
-#                     padx=10,
-#                     pady=3, relief='flat'
-#                 )
-#             )
-#             self.qso_label[-1].pack(anchor='ne', fill=tk.X)
-#
-#
-#     def append_qso(self, value: str):
-#         list_length = len(self.qso_text)
-#         for index in range(list_length - 1, 0, -1):  # index starts by addressing the last entry
-#             self.qso_text[index - 1].set(self.qso_text[index].get())
-#         self.qso_text[list_length - 1].set(value)
-#
-#     def qso_box_reload(self):
-#         # initialise the text of off the labels
-#         for i in range(0, len(self.qso_text)):
-#             self.qso_text[i].set('')
-#
-#         qso_table = DbTable('qso')
-#         db_values = qso_table.select(order_by='qso_date', desc=False, limit=max_qsos, hdr_list=self.qso_cols)
-#         qso_string = ''
-#
-#         for i, r in enumerate(db_values):
-#             if r['rsp'] == 'OK' and len(r['body']) > 0:
-#                 # it's a post entry
-#                 q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
-#                 if r['post_date'] > 0:
-#                     p_date = time.strftime("%Y-%m-%d", time.gmtime(r['post_date']))
-#                 else:
-#                     p_date = None
-#
-#                 qso_string = f"{q_date} | Blog: {r['blog']} | Post ID: {r['post_id']}"
-#                 if p_date:
-#                     qso_string += f" | Post Date: {p_date}"
-#                 if len(r['title']):
-#                     qso_string += f" | Title: {r['title']}"
-#                 qso_string += f"\n\n{r['body']}"
-#
-#                 self.qso_text[i].set(qso_string)
-#
-#         return
+        for r in db_values:
+            latest_string = ''
+
+            q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
+
+            latest_string += f"{q_date} - {r['blog']}"
+            latest_string += f" - {r['title']}"
+            latest_string += f"\n"
+
+            self.latest_box.insert(tk.END, latest_string)
+            self.latest_box.see(tk.END)
+
+        self.latest_box.configure(state=tk.DISABLED)
+        return
 
 
 class GuiQsoBox:
@@ -390,19 +309,18 @@ class GuiQsoBox:
 
         v = tk.Scrollbar(frame, orient='vertical')
         v.pack(side=tk.RIGHT, fill='y')
-        self.qso_box = tk.Text(frame, width=400, wrap=tk.WORD, padx=10, pady=10,
-                               font=font_main, bg='#ffeaa7', yscrollcommand=v.set)
+        self.qso_box = tk.Text(frame, width=480, wrap=tk.WORD, padx=10, pady=10,
+                               font=font_main, bg='#ffeaa7', yscrollcommand=v.set,
+                               spacing1=1.1, spacing2=1.1)
         v.config(command=self.qso_box.yview)
         self.qso_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
 
-
-    def append_qso(self, value: str):
-        self.qso_box.insert(tk.END, value)
-
     def qso_box_reload(self):
+        global my_call
 
         qso_table = DbTable('qso')
-        db_values = qso_table.select(order_by='qso_date', desc=False, limit=max_qsos, hdr_list=self.qso_cols)
+        db_values = qso_table.select(where=f"directed_to='{my_call}'", order_by='qso_date', desc=False,
+                                     limit=max_qsos, hdr_list=self.qso_cols)
 
         self.qso_box.configure(state=tk.NORMAL)
         self.qso_box.delete(1.0, 'end')
@@ -521,31 +439,33 @@ class GuiBlogList:
 
         # set the headers
         for col, blog_hdr in enumerate(self.blog_list_headers):
-            blog_hdr['widget'] = tk.Button(
-                frame,
-                text=self.blog_list_headers[col]['text'],
-                relief='flat',
-                bg='white',
-                font=font_main_ul,
-                justify=tk.CENTER,
-                anchor=tk.W
-            )
-            blog_hdr['widget'].grid(row=0, column=col)
+            if blog_hdr['text']:
+                blog_hdr['widget'] = tk.Button(
+                    frame,
+                    text=self.blog_list_headers[col]['text'],
+                    relief='flat',
+                    bg='white',
+                    font=font_main_ul,
+                    justify=tk.CENTER,
+                    anchor=tk.W
+                )
+                blog_hdr['widget'].grid(row=0, column=col)
 
         # add the blog list buttons to the grid
         row = 0
         for _ in self.blog_list:
             for col, blog in enumerate(self.blog_list[row]):
-                blog['widget'] = tk.Button(
-                    frame,
-                    textvariable=self.blog_list[row][col]['tv'],
-                    bg='white',
-                    font=font_main,
-                    justify=tk.CENTER,
-                    relief=tk.FLAT,
-                    width=14
-                )
-                blog['widget'].grid(column=col, row=row + 1)  # need to row+1 to allow for header
+                if self.blog_list_headers[col]['text']:
+                    blog['widget'] = tk.Button(
+                        frame,
+                        textvariable=self.blog_list[row][col]['tv'],
+                        bg='white',
+                        font=font_main,
+                        justify=tk.CENTER,
+                        relief=tk.FLAT,
+                        width=14
+                    )
+                    blog['widget'].grid(column=col, row=row + 1)  # need to row+1 to allow for header
 
             row = row + 1
 
@@ -557,7 +477,8 @@ class GuiBlogList:
                 blog['widget'].configure(bg='#ffffff')
 
         blogs_table = DbTable('blogs')
-        db_values = blogs_table.select(order_by='last_seen_date', desc=True, limit=30, hdr_list=self.blog_list_headers)
+        db_values = blogs_table.select(order_by='last_seen_date', desc=True, limit=30,
+                                       hdr_list=self.blog_list_headers)
 
         for row, db_row in enumerate(db_values):
             for col, col_name in enumerate(list(db_row)):
@@ -587,13 +508,13 @@ class GuiMain:
         pane_main.pack(fill='both', expand=1, side='top')
 
         frame_left = tk.Frame(pane_main, bg='white')
-        pane_main.add(frame_left)
+        pane_main.add(frame_left, width=300)
 
         frame_mid = tk.Frame(pane_main, bg='white')
-        pane_main.add(frame_mid, width=440)
+        pane_main.add(frame_mid, width=480)
 
         frame_right = tk.Frame(pane_main, bg='white')
-        pane_main.add(frame_right)
+        pane_main.add(frame_right, width=300)
 
         # Latest Posts area
         frame_latest_list = tk.Frame(frame_left, bg='white')
@@ -602,13 +523,10 @@ class GuiMain:
         self.latest_posts = GuiLatestPosts(frame_latest_list)
 
         # QSO Area follows - middle of main
-        frame_qso_outer = tk.Frame(frame_mid, width=480)
-        frame_qso_outer.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        frame_qso = tk.Frame(frame_mid)
+        frame_qso.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        # frame_qso = ScrollableFrame(frame_qso_outer)
-        # frame_qso.pack(side=tk.TOP, fill=tk.BOTH, expand=1, padx=4)
-
-        self.qso_box = GuiQsoBox(frame_qso_outer)
+        self.qso_box = GuiQsoBox(frame_qso)
 
         frame_cli = tk.Frame(frame_mid)
         frame_cli.pack(side=tk.BOTTOM, padx=4)
@@ -621,8 +539,8 @@ class GuiMain:
 
         self.blog_list = GuiBlogList(frame_blog_list)
 
-    def prepend_latest(self, value: str):
-        self.latest_posts.prepend_latest(value)
+    def latest_reload(self):
+        self.latest_posts.latest_reload()
 
     def set_selected_blog(self, blog: str):
         self.cli.set_selected_blog(blog)
@@ -654,8 +572,7 @@ header.clock_tick()
 
 main = GuiMain(frame=frame_main)  # populate the main area
 
-main.prepend_latest("2023-02-03 08:30 - K7RA Solar Update")
-main.prepend_latest("2023-02-07 11:04 - EmComms Due to Earthquake in Turkey")
+main.latest_reload()
 
 main.set_selected_blog('M0PXO')
 
