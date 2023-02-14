@@ -19,12 +19,29 @@ c.execute("""CREATE TABLE status (
     latest_updated integer,
     qso_updated integer,
     blogs_updated integer,
-    radio_frequency real,
-    user_frequency real,
+    radio_frequency integer,
+    user_frequency integer,
+    offset integer,
     is_scanning integer,
     req_outstanding integer,
-    selected_blog_id integer
+    callsign text
 )""")
+
+with db:
+    c.execute("INSERT INTO status VALUES (:hdr_updated, :latest_updated, :qso_updated, :blogs_updated,"
+          ":radio_frequency, :user_frequency, :offset, :is_scanning, :req_outstanding, :callsign)",
+          {
+              'hdr_updated': 0,
+              'latest_updated': 0,
+              'qso_updated': 0,
+              'blogs_updated': 0,
+              'radio_frequency': 0,
+              'user_frequency': 0,
+              'offset': 0,
+              'is_scanning': 0,
+              'req_outstanding': 0,
+              'callsign': ""
+          })
 
 c.execute("""CREATE TABLE qso (
     qso_date integer,
@@ -77,6 +94,17 @@ for i, b in enumerate(blog_list):
                     'last_seen_date': time.mktime(time.strptime(b['last_seen_date'], "%Y-%m-%d %H:%M")),
                     'is_selected': b['is_selected'],
                 })
+
+hdr_time = time.time()
+set_frequency = 14078000
+set_offset = 1800
+set_callsign = "2E0FGO"
+
+with db:
+    c.execute(
+        f"UPDATE status SET "
+        f"hdr_updated={hdr_time}, radio_frequency={set_frequency}, user_frequency={set_frequency}, "
+        f"offset={set_offset}, callsign='{set_callsign}'")
 
 
 qsos = [

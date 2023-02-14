@@ -4,19 +4,22 @@ import tkinter.font as font
 import time
 from settings import *
 import sqlite3
+import locale
 
 root = tk.Tk()
 root.title("Microblog Client r2")
 root.geometry("1080x640")
 
-font_btn = font.Font(family='Ariel', size=9, weight='normal')
-font_btn_bold = font.Font(family='Ariel', size=9, weight='bold')
-font_hdr = font.Font(family='Ariel', size=14, weight='normal')
-font_freq = font.Font(family='Seven Segment', size=24, weight='normal')
-font_main = font.Font(family='Ariel', size=8, weight='normal')
-font_main_ul = font.Font(family='Ariel', size=8, weight='normal', underline=True)
-font_main_hdr = font.Font(family='Ariel', size=10, weight='normal')
-font_main_bold = font.Font(family='Ariel', size=8, weight='bold')
+font_size = 8
+
+font_btn = font.Font(family='Ariel', size=(int(font_size*1.125)), weight='normal')
+font_btn_bold = font.Font(family='Ariel', size=(int(font_size*1.125)), weight='bold')
+font_hdr = font.Font(family='Ariel', size=(int(font_size*1.75)), weight='normal')
+font_freq = font.Font(family='Seven Segment', size=(int(font_size*3)), weight='normal')
+font_main = font.Font(family='Ariel', size=font_size, weight='normal')
+font_main_ul = font.Font(family='Ariel', size=font_size, weight='normal', underline=True)
+font_main_hdr = font.Font(family='Ariel', size=(int(font_size*1.25)), weight='normal')
+font_main_bold = font.Font(family='Ariel', size=font_size, weight='bold')
 
 
 class Timeout:
@@ -130,6 +133,7 @@ class GuiHeader:
     clock_label = None
 
     def __init__(self, header_frame):
+
         frame_hdr_left = tk.Frame(header_frame, bg='black')
         frame_hdr_left.pack(expand=True, fill='y', side='left')
         frame_hdr_mid = tk.Frame(header_frame, bg='black')
@@ -220,14 +224,37 @@ class GuiHeader:
             self.is_scanning = True
             self.scan_btn.configure(bg='#ff2222')
 
-    def set_frequency(self, freq):
-        self.freq_text.set(freq)
+    def set_frequency(self):
+        locale.setlocale(locale.LC_ALL, 'fr')
+        field = [{'db_col':'radio_frequency'}]
+        status_table = DbTable('status')
+        db_values = status_table.select(
+            where=None, order_by=None, desc=False,
+            limit=1, hdr_list=field
+        )
+        freq_str = locale.format_string("%d", db_values[0]['radio_frequency'], grouping=True)
 
-    def set_offset(self, offset):
-        self.offset_text.set(offset)
+        self.freq_text.set(freq_str)
 
-    def set_callsign(self, callsign):
-        self.callsign_text.set(callsign)
+    def set_offset(self):
+        field = [{'db_col':'offset'}]
+        status_table = DbTable('status')
+        db_values = status_table.select(
+            where=None, order_by=None, desc=False,
+            limit=1, hdr_list=field
+        )
+
+        self.offset_text.set(str(db_values[0]['offset']) + ' Hz')
+
+    def set_callsign(self):
+        field = [{'db_col':'callsign'}]
+        status_table = DbTable('status')
+        db_values = status_table.select(
+            where=None, order_by=None, desc=False,
+            limit=1, hdr_list=field
+        )
+
+        self.callsign_text.set(db_values[0]['callsign'])
 
 
 class GuiLatestPosts:
@@ -565,9 +592,9 @@ frame_main.pack(fill='both', expand=1, side='top', anchor='n', padx=4)
 
 # Now for the logic
 
-header.set_frequency('14.078 000')
-header.set_offset('1800 Hz')
-header.set_callsign('2E0FGO')
+header.set_frequency()
+header.set_offset()
+header.set_callsign()
 header.clock_tick()
 
 main = GuiMain(frame=frame_main)  # populate the main area
