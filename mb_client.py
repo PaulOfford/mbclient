@@ -1,124 +1,25 @@
 import tkinter as tk
-from tkinter import ttk
 import tkinter.font as font
-import time
 from settings import *
-import sqlite3
+from status import *
+from db_table import *
 import locale
+
+settings = Settings()
+status = Status()
 
 root = tk.Tk()
 root.title("Microblog Client r2")
-root.geometry("1080x640")
+root.geometry(settings.startup_dimensions)
 
-font_size = 8
-
-font_btn = font.Font(family='Ariel', size=(int(font_size*1.125)), weight='normal')
-font_btn_bold = font.Font(family='Ariel', size=(int(font_size*1.125)), weight='bold')
-font_hdr = font.Font(family='Ariel', size=(int(font_size*1.75)), weight='normal')
-font_freq = font.Font(family='Seven Segment', size=(int(font_size*3)), weight='normal')
-font_main = font.Font(family='Ariel', size=font_size, weight='normal')
-font_main_ul = font.Font(family='Ariel', size=font_size, weight='normal', underline=True)
-font_main_hdr = font.Font(family='Ariel', size=(int(font_size*1.25)), weight='normal')
-font_main_bold = font.Font(family='Ariel', size=font_size, weight='bold')
-
-
-class Timeout:
-    target_time = 0
-    timeout_value = 0
-
-    def __init__(self, to_in_secs: int):
-        self.to_value = to_in_secs
-
-    def start(self):
-        self.target_time = time.time() + self.timeout_value
-
-    def has_expired(self) -> bool:
-        if time.time() > self.target_time:
-            return True
-        else:
-            return False
-
-
-class DbTable:
-
-    col_names = None
-    result = None
-    has_is_selected = False
-
-    def __init__(self, table):
-        self.table = table
-
-        db = sqlite3.connect(db_file)
-        db.row_factory = sqlite3.Row
-        c = db.cursor()
-        c.execute(f"SELECT * FROM {table} LIMIT 1")
-        row = c.fetchone()
-        self.col_names = row.keys()
-        if 'is_selected' in self.col_names:
-            self.has_is_selected = True
-
-        c.close()
-
-    # This method returns a list of dictionaries with the columns selected by the
-    # hdr_list, in the order of the columns in the hdr_list.
-    # The hdr_list must contain a key db_col with a value of the name of a database column.
-    def select(self, where=None, order_by=None, desc=False, limit=0, hdr_list=None):
-
-        db = sqlite3.connect(db_file)
-        c = db.cursor()
-
-        select_cols = ''
-        for i, hdr_col in enumerate(hdr_list):
-            if i > 0:
-                select_cols += ','
-            select_cols += f" {hdr_col['db_col']}"
-
-        query = f"SELECT {select_cols} FROM {self.table}"
-        if where:
-            query += f" WHERE {where}"
-        if order_by:
-            query += f" ORDER BY {order_by}"
-        if desc:
-            query += f" DESC"
-        if limit > 0:
-            query += f" LIMIT {limit}"
-
-        c.execute(query)
-        list_of_tuples = c.fetchall()
-        db.close()
-
-        result = [{} for _ in range(0, len(list_of_tuples))]
-
-        # convert the list of tuples to a list of dictionaries based on the self.col_names values
-        for y, row in enumerate(list_of_tuples):
-            for x, col in enumerate(hdr_list):
-                abc = f"{col['db_col']}"
-                result[y][abc] = row[x]
-
-        return result
-
-
-class ScrollableFrame(ttk.Frame):  # ToDo: rewrite this class so that it expands correctly
-    def __init__(self, container, *args, **kwargs):
-        super().__init__(container, *args, **kwargs)
-        canvas = tk.Canvas(self)
-        scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
-
-        self.scrollable_frame = ttk.Frame(canvas)
-
-        self.scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(
-                scrollregion=canvas.bbox("all")
-            )
-        )
-
-        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+font_btn = font.Font(family='Ariel', size=(int(settings.font_size*1.125)), weight='normal')
+font_btn_bold = font.Font(family='Ariel', size=(int(settings.font_size*1.125)), weight='bold')
+font_hdr = font.Font(family='Ariel', size=(int(settings.font_size*1.75)), weight='normal')
+font_freq = font.Font(family='Seven Segment', size=(int(settings.font_size*3)), weight='normal')
+font_main = font.Font(family='Ariel', size=settings.font_size, weight='normal')
+font_main_ul = font.Font(family='Ariel', size=settings.font_size, weight='normal', underline=True)
+font_main_hdr = font.Font(family='Ariel', size=(int(settings.font_size*1.25)), weight='normal')
+font_main_bold = font.Font(family='Ariel', size=settings.font_size, weight='bold')
 
 
 class GuiHeader:
@@ -226,7 +127,7 @@ class GuiHeader:
 
     def set_frequency(self):
         locale.setlocale(locale.LC_ALL, 'fr')
-        field = [{'db_col':'radio_frequency'}]
+        field = [{'db_col': 'radio_frequency'}]
         status_table = DbTable('status')
         db_values = status_table.select(
             where=None, order_by=None, desc=False,
@@ -237,7 +138,7 @@ class GuiHeader:
         self.freq_text.set(freq_str)
 
     def set_offset(self):
-        field = [{'db_col':'offset'}]
+        field = [{'db_col': 'offset'}]
         status_table = DbTable('status')
         db_values = status_table.select(
             where=None, order_by=None, desc=False,
@@ -247,7 +148,7 @@ class GuiHeader:
         self.offset_text.set(str(db_values[0]['offset']) + ' Hz')
 
     def set_callsign(self):
-        field = [{'db_col':'callsign'}]
+        field = [{'db_col': 'callsign'}]
         status_table = DbTable('status')
         db_values = status_table.select(
             where=None, order_by=None, desc=False,
@@ -268,8 +169,6 @@ class GuiLatestPosts:
     ]
 
     def __init__(self, frame: tk.Frame):
-
-        global max_post_list
         latest_list_hdr = tk.Label(
             frame,
             text="Latest Posts",
@@ -290,11 +189,10 @@ class GuiLatestPosts:
         self.latest_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
 
     def latest_reload(self):
-        global max_latest
 
         qso_table = DbTable('qso')
-        db_values = qso_table.select(where=f"directed_to!='{my_call}'", order_by='qso_date', desc=True,
-                                     limit=max_latest, hdr_list=self.latest_cols)
+        db_values = qso_table.select(where=f"directed_to!='{status.callsign}'", order_by='qso_date', desc=True,
+                                     limit=settings.max_latest, hdr_list=self.latest_cols)
 
         self.latest_box.configure(state=tk.NORMAL)
         self.latest_box.delete(1.0, 'end')
@@ -343,16 +241,13 @@ class GuiQsoBox:
         self.qso_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
 
     def qso_box_reload(self):
-        global my_call
 
         qso_table = DbTable('qso')
-        db_values = qso_table.select(where=f"directed_to='{my_call}'", order_by='qso_date', desc=False,
-                                     limit=max_qsos, hdr_list=self.qso_cols)
+        db_values = qso_table.select(where=f"directed_to='{status.callsign}'", order_by='qso_date', desc=False,
+                                     limit=settings.max_qsos, hdr_list=self.qso_cols)
 
         self.qso_box.configure(state=tk.NORMAL)
         self.qso_box.delete(1.0, 'end')
-
-        qso_string = ''
 
         for i, r in enumerate(db_values):
             if r['rsp'] == 'OK' and len(r['body']) > 0:
@@ -399,6 +294,7 @@ class GuiQsoBox:
         self.qso_box.configure(state=tk.DISABLED)
         return
 
+
 class GuiCli:
 
     cli_hdr_text = tk.StringVar()
@@ -435,7 +331,6 @@ class GuiCli:
 class GuiBlogList:
 
     blog_list = None  # this is a list of blog entries, each of which is a dictionary
-    blog_list_headers = None  # this is a list of blog list headers, each of which is a dictionary
     blog_list_headers = [
         {'db_col': 'blog_name', 'type': 'Text', 'suffix': '', 'text': 'Mblog', 'widget': tk.Button()},
         {'db_col': 'station_name', 'type': 'Text', 'suffix': '', 'text': 'Station', 'widget': tk.Button()},
@@ -449,9 +344,8 @@ class GuiBlogList:
     ]
 
     def __init__(self, frame):
-        global max_blogs
 
-        self.blog_list = [[{} for _, _ in enumerate(self.blog_list_headers)] for _ in range(max_blogs)]
+        self.blog_list = [[{} for _, _ in enumerate(self.blog_list_headers)] for _ in range(settings.max_blogs)]
 
         for row, _ in enumerate(self.blog_list):
             for col, blog in enumerate(self.blog_list[row]):
@@ -509,7 +403,7 @@ class GuiBlogList:
 
         for row, db_row in enumerate(db_values):
             for col, col_name in enumerate(list(db_row)):
-                if col_name == 'is_selected':  # this marks the end of the list and we don't add it to the grid
+                if col_name == 'is_selected':  # this marks the end of the list, and we don't add it to the grid
                     break
 
                 if self.blog_list_headers[col]['type'] == 'Int':
@@ -579,7 +473,6 @@ class GuiMain:
         self.blog_list.blog_list_reload()
 
 
-# Code here is first to run
 frame_container = tk.Frame(root)
 frame_container.pack(fill='x', expand=1, side='top', anchor='n')
 
