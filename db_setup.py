@@ -47,13 +47,14 @@ c.execute("""CREATE TABLE status (
     offset integer,
     is_scanning integer,
     req_outstanding integer,
-    callsign text
+    callsign text,
+    selected_blog text
 )""")
 
 with db:
     c.execute(
         "INSERT INTO status VALUES (:hdr_updated, :latest_updated, :qso_updated, :blogs_updated,"
-        ":radio_frequency, :user_frequency, :offset, :is_scanning, :req_outstanding, :callsign)",
+        ":radio_frequency, :user_frequency, :offset, :is_scanning, :req_outstanding, :callsign, :selected_blog)",
         {
             'hdr_updated': 0,
             'latest_updated': 0,
@@ -64,7 +65,8 @@ with db:
             'offset': 0,
             'is_scanning': 0,
             'req_outstanding': 0,
-            'callsign': ""
+            'callsign': "Pending",
+            'selected_blog': ""
         }
     )
 

@@ -19,6 +19,9 @@ class Settings:
     max_blogs = 1
 
     def __init__(self):
+        self.reload_settings()
+
+    def reload_settings(self):
         settings_table = DbTable('settings')
         db_values = settings_table.select(
             where=None, order_by=None, desc=False,
@@ -31,3 +34,5 @@ class Settings:
         self.max_latest = db_values[0]['max_latest']
         self.max_qsos = db_values[0]['max_qsos']
         self.max_blogs = db_values[0]['max_blogs']
+
+settings = Settings()

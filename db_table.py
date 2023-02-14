@@ -59,3 +59,15 @@ class DbTable:
                 result[y][abc] = row[x]
 
         return result
+
+    def update(self, where=None, value_dictionary={}):
+        db = sqlite3.connect(db_file)
+        db.row_factory = sqlite3.Row
+        c = db.cursor()
+        key = list(value_dictionary.keys())[0]
+        value = value_dictionary[key]
+        query = f"UPDATE {self.table} SET {key}='{value}'"
+        if where:
+            query += f" WHERE {where}"
+        with db:
+            c.execute(query)
