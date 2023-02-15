@@ -336,33 +336,43 @@ class GuiBlogList:
 
     blog_list = None  # this is a list of blog entries, each of which is a dictionary
     blog_list_headers = [
-        {'db_col': 'blog_name', 'type': 'Text', 'suffix': '', 'text': 'Mblog', 'widget': tk.Button()},
-        {'db_col': 'station_name', 'type': 'Text', 'suffix': '', 'text': 'Station', 'widget': tk.Button()},
-        {'db_col': 'snr', 'type': 'Int', 'text': 'SNR', 'suffix': ' dB', 'widget': tk.Button()},
-        {'db_col': 'capabilities', 'type': 'Text', 'suffix': '', 'text': 'Cap.', 'widget': tk.Button()},
-        {'db_col': 'latest_post_date', 'type': 'Date', 'suffix': '', 'text': 'Latest\nPost Date',
-         'widget': tk.Button()},
-        {'db_col': 'latest_post_id', 'type': 'Int', 'suffix': '', 'text': 'Latest\nPost ID', 'widget': tk.Button()},
-        {'db_col': 'last_seen_date', 'type': 'Date', 'suffix': '', 'text': 'Last Seen', 'widget': tk.Button()},
-        {'db_col': 'is_selected', 'db_type': 'Int', 'suffix': '', 'text': None, 'widget': None},
+        {'db_col': 'blog_name', 'type': 'Text', 'suffix': '', 'width': 8,
+         'text': 'Mblog', 'widget': None},
+        {'db_col': 'station_name', 'type': 'Text', 'suffix': '', 'width': 8,
+         'text': 'Station', 'widget': None},
+        {'db_col': 'snr', 'type': 'Int', 'suffix': ' dB', 'width': 8,
+         'text': 'SNR', 'widget': None},
+        {'db_col': 'capabilities', 'type': 'Text', 'suffix': '', 'width': 8,
+         'text': 'Cap.', 'widget': None},
+        {'db_col': 'latest_post_date', 'type': 'Date', 'suffix': '', 'width': 14,
+         'text': 'Latest\nPost Date', 'widget': None},
+        {'db_col': 'latest_post_id', 'type': 'Int', 'suffix': '', 'width': 8,
+         'text': 'Latest\nPost ID', 'widget': None},
+        {'db_col': 'last_seen_date', 'type': 'Date', 'suffix': '', 'width': 14,
+         'text': 'Last Seen', 'widget': None},
+        {'db_col': 'is_selected', 'db_type': 'Int', 'suffix': '', 'width': 0,
+         'text': None, 'widget': None},
     ]
 
     def __init__(self, frame):
 
+        # construct the blog list grid
         self.blog_list = [[{} for _, _ in enumerate(self.blog_list_headers)] for _ in range(settings.max_blogs)]
 
+        # initialise the blog list grid
         for row, _ in enumerate(self.blog_list):
             for col, blog in enumerate(self.blog_list[row]):
                 blog['db_col'] = self.blog_list_headers[col]['db_col']
-                blog['tv'] = tk.StringVar()
-                blog['widget'] = tk.Button()
+                blog['tv'] = None
+                blog['widget'] = tk.Text()
                 blog['selected'] = tk.FALSE
 
+        # set the blog list columns to equal weight
         frame.grid(columnspan=len(self.blog_list_headers))
         for i, _ in enumerate(self.blog_list_headers):
             frame.columnconfigure(i, weight=1)
 
-        # set the headers
+        # set the blog list headers
         for col, blog_hdr in enumerate(self.blog_list_headers):
             if blog_hdr['text']:
                 blog_hdr['widget'] = tk.Button(
@@ -376,19 +386,19 @@ class GuiBlogList:
                 )
                 blog_hdr['widget'].grid(row=0, column=col)
 
-        # add the blog list buttons to the grid
+        # add the blog list Text widgets to the grid
         row = 0
-        for _ in self.blog_list:
+        for row, _ in enumerate(self.blog_list):
             for col, blog in enumerate(self.blog_list[row]):
                 if self.blog_list_headers[col]['text']:
-                    blog['widget'] = tk.Button(
+                    blog['widget'] = tk.Text(
                         frame,
-                        textvariable=self.blog_list[row][col]['tv'],
                         bg='white',
                         font=font_main,
-                        justify=tk.CENTER,
                         relief=tk.FLAT,
-                        width=14
+                        width=self.blog_list_headers[col]['width'],
+                        height=1,
+                        padx=10
                     )
                     blog['widget'].grid(column=col, row=row + 1)  # need to row+1 to allow for header
 
@@ -398,8 +408,7 @@ class GuiBlogList:
         # clear all entries
         for row, _ in enumerate(self.blog_list):
             for col, blog in enumerate(self.blog_list[row]):
-                blog['tv'].set(value='')
-                blog['widget'].configure(bg='#ffffff')
+                blog['widget'].delete(1.0, tk.END)
 
         blogs_table = DbTable('blogs')
         db_values = blogs_table.select(order_by='last_seen_date', desc=True, limit=30,
@@ -419,12 +428,15 @@ class GuiBlogList:
                     value = db_row[col_name] + self.blog_list_headers[col]['suffix']
 
                 blog_cell = self.blog_list[row][col]
-                blog_cell['tv'].set(value)
+                blog_cell['widget'].tag_configure('tag_all', justify='center')
+                blog_cell['widget'].insert('1.0', value)
+                blog_cell['widget'].tag_add('tag_all', '1.0', tk.END)
                 if db_row['is_selected']:  # check the selected flag
-                    blog_cell['widget'].configure(bg='#3498db')
-                    blog_cell['widget'].configure(fg='#000000')
+                    blog_cell['widget'].configure(bg='#3498db', fg='#000000')
         return
 
+    def select_blog(self, row):
+        pass  ### write this next
 
 class GuiMain:
 
