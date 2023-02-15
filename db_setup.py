@@ -41,6 +41,7 @@ c.execute("""CREATE TABLE status (
     hdr_updated integer,
     latest_updated integer,
     qso_updated integer,
+    cli_updated integer,
     blogs_updated integer,
     radio_frequency integer,
     user_frequency integer,
@@ -53,12 +54,16 @@ c.execute("""CREATE TABLE status (
 
 with db:
     c.execute(
-        "INSERT INTO status VALUES (:hdr_updated, :latest_updated, :qso_updated, :blogs_updated,"
-        ":radio_frequency, :user_frequency, :offset, :is_scanning, :req_outstanding, :callsign, :selected_blog)",
+        "INSERT INTO status VALUES ("
+        ":hdr_updated, :latest_updated, :qso_updated, :blogs_updated, :cli_updated, "
+        ":radio_frequency, :user_frequency, :offset, :is_scanning, :req_outstanding, "
+        ":callsign, :selected_blog"
+        ")",
         {
             'hdr_updated': 0,
             'latest_updated': 0,
             'qso_updated': 0,
+            'cli_updated': 0,
             'blogs_updated': 0,
             'radio_frequency': 0,
             'user_frequency': 0,

@@ -18,15 +18,31 @@
             all the data needs and are more complex to maintain.</p>
         <p>mbclient comprises two components:</p>
         <ul>
-            <li>Front-end - the GUI and code relating to presentation</li>
-            <li>Back-end - code that deals with communication and the main logic of the program</li>
+            <li>Frontend - the GUI and code relating to presentation</li>
+            <li>Backend - code that deals with communication and the main logic of the program</li>
         </ul>
         <p>Each of these components runs in its own Python thread.  Python multithreading does not equate
             to OS multithreading, i.e. it does not use multiple cores.  However, the client will spend a
             lot of time waiting for UI events and network IO (API calls to JS8Call) and so it should meet
-            our needs.  Python multiprocessing could be considered at a later stage, if neccessary.
-            Communication between the front-end and back-end is via a table in the SQLite database which
-            is used as a mailbox-style messaging mechanism.</p>
+            our needs.  Python multiprocessing could be considered at a later stage, if necessary.</p>
+        <p>Communication between the frontend and backend is via a list that operates as a FIFO buffer,
+            i.e. we insert new messages at the start of the list and the receiving program pops the entries
+            from the end of the list and processes them.  There is no synchronisation between requests from
+            the frontend to the backend and responses in the opposite direction.  In theory, the backend may
+            process multiple requests before a response is sent, and the responses are not guaranteed to be in
+            an order that matches the requests.</p>
+        <p>Although we have a message queue, the majority of backend to frontend data passing is via the database.
+            the job of the front end is to present the data in the database.  The frontend never makes changes to
+            the database.  When the frontend requires a change that affects the database, such as a change of
+            selected blog:</p>
+        <ul>
+            <li>Frontend sends a message to the backend with the new values</li>
+            <li>Backend makes the database changes needed to reflect the new values</li>
+            <li>Backend sets the current Epoch time in the appropriate xxxx_updated field</li>
+            <li>Frontend reloads the area of the GUI as per the xxxx_updated field</li>
+        </ul>
+        <p>So, how does the frontend known that the xxxx_updated field has changed?  The answer is that it polls it
+            five times per second.  This is driven off the GUI time-of-day clock function.</p>
         <h2>Database</h2>
     </div>
 </body>

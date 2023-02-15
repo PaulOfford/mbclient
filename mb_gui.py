@@ -1,6 +1,7 @@
 import tkinter as tk
 import tkinter.font as font
 import locale
+import functools as ft
 from settings import *
 from status import *
 
@@ -408,6 +409,7 @@ class GuiBlogList:
         # clear all entries
         for row, _ in enumerate(self.blog_list):
             for col, blog in enumerate(self.blog_list[row]):
+                blog['widget'].configure(state=tk.NORMAL)
                 blog['widget'].delete(1.0, tk.END)
 
         blogs_table = DbTable('blogs')
@@ -431,11 +433,15 @@ class GuiBlogList:
                 blog_cell['widget'].tag_configure('tag_all', justify='center')
                 blog_cell['widget'].insert('1.0', value)
                 blog_cell['widget'].tag_add('tag_all', '1.0', tk.END)
+                blog_cell['widget'].tag_bind('tag_all', '<Button-1>',
+                                             ft.partial(self.select_blog, param=row))
                 if db_row['is_selected']:  # check the selected flag
                     blog_cell['widget'].configure(bg='#3498db', fg='#000000')
+                blog_cell['widget'].configure(state=tk.DISABLED)
+
         return
 
-    def select_blog(self, row):
+    def select_blog(self, event, param):
         pass  ### write this next
 
 class GuiMain:
