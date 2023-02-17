@@ -4,6 +4,7 @@ import locale
 import functools as ft
 from settings import *
 from status import *
+from message_q import *
 
 root = tk.Tk()
 root.title("Microblog Client r2")
@@ -337,22 +338,22 @@ class GuiBlogList:
 
     blog_list = None  # this is a list of blog entries, each of which is a dictionary
     blog_list_headers = [
-        {'db_col': 'blog_name', 'type': 'Text', 'suffix': '', 'width': 8,
-         'text': 'Mblog', 'widget': None},
-        {'db_col': 'station_name', 'type': 'Text', 'suffix': '', 'width': 8,
-         'text': 'Station', 'widget': None},
+        {'db_col': 'blog', 'type': 'Text', 'suffix': '', 'width': 8,
+         'text': 'Mblog', 'widget': tk.Button()},
+        {'db_col': 'station', 'type': 'Text', 'suffix': '', 'width': 8,
+         'text': 'Station', 'widget': tk.Button()},
         {'db_col': 'snr', 'type': 'Int', 'suffix': ' dB', 'width': 8,
-         'text': 'SNR', 'widget': None},
+         'text': 'SNR', 'widget': tk.Button()},
         {'db_col': 'capabilities', 'type': 'Text', 'suffix': '', 'width': 8,
-         'text': 'Cap.', 'widget': None},
+         'text': 'Cap.', 'widget': tk.Button()},
         {'db_col': 'latest_post_date', 'type': 'Date', 'suffix': '', 'width': 14,
-         'text': 'Latest\nPost Date', 'widget': None},
+         'text': 'Latest\nPost Date', 'widget': tk.Button()},
         {'db_col': 'latest_post_id', 'type': 'Int', 'suffix': '', 'width': 8,
-         'text': 'Latest\nPost ID', 'widget': None},
+         'text': 'Latest\nPost ID', 'widget': tk.Button()},
         {'db_col': 'last_seen_date', 'type': 'Date', 'suffix': '', 'width': 14,
-         'text': 'Last Seen', 'widget': None},
+         'text': 'Last Seen', 'widget': tk.Button()},
         {'db_col': 'is_selected', 'db_type': 'Int', 'suffix': '', 'width': 0,
-         'text': None, 'widget': None},
+         'text': None, 'widget': tk.Button()},
     ]
 
     def __init__(self, frame):
@@ -388,7 +389,6 @@ class GuiBlogList:
                 blog_hdr['widget'].grid(row=0, column=col)
 
         # add the blog list Text widgets to the grid
-        row = 0
         for row, _ in enumerate(self.blog_list):
             for col, blog in enumerate(self.blog_list[row]):
                 if self.blog_list_headers[col]['text']:
@@ -401,9 +401,7 @@ class GuiBlogList:
                         height=1,
                         padx=10
                     )
-                    blog['widget'].grid(column=col, row=row + 1)  # need to row+1 to allow for header
-
-            row = row + 1
+                    blog['widget'].grid(column=col, row=(row + 1))  # need to row+1 to allow for header
 
     def blog_list_reload(self):
         # clear all entries
@@ -441,8 +439,22 @@ class GuiBlogList:
 
         return
 
-    def select_blog(self, event, param):
-        pass  ### write this next
+    def get_value_by_row_db_col(self, row: int, db_col: str):
+        for i, col in enumerate(self.blog_list_headers):
+            if col['db_col'] == db_col:
+                return self.blog_list[row][i]
+
+        return None
+
+    # noinspection PyGlobalUndefined
+    def select_blog(self, event, row: int):
+        global f2b_q
+        msg = F2bMessage()
+        msg.set_cmd('S')
+        msg.set_blog(self.get_value_by_row_db_col(row, 'blog'))
+        msg.set_ts()
+        f2b_q.put(msg.msg)
+
 
 class GuiMain:
 

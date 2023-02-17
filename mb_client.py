@@ -1,4 +1,6 @@
 from mb_gui import *
+from message_q import *
+import queue
 
 frame_container = tk.Frame(root)
 frame_container.pack(fill='x', expand=1, side='top', anchor='n')
