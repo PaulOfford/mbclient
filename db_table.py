@@ -66,7 +66,13 @@ class DbTable:
         c = db.cursor()
         key = list(value_dictionary.keys())[0]
         value = value_dictionary[key]
-        query = f"UPDATE {self.table} SET {key}='{value}'"
+
+        try:
+            value_int = int(value)
+            query = f"UPDATE {self.table} SET {key}={value_int}"
+        except ValueError:
+            query = f"UPDATE {self.table} SET {key}='{value}'"
+
         if where:
             query += f" WHERE {where}"
         with db:

@@ -38,6 +38,7 @@ with db:
               )
 
 c.execute("""CREATE TABLE status (
+    last_checked integer,
     hdr_updated integer,
     latest_updated integer,
     qso_updated integer,
@@ -49,17 +50,19 @@ c.execute("""CREATE TABLE status (
     is_scanning integer,
     req_outstanding integer,
     callsign text,
-    selected_blog text
+    selected_blog text,
+    selected_station text
 )""")
 
 with db:
     c.execute(
         "INSERT INTO status VALUES ("
-        ":hdr_updated, :latest_updated, :qso_updated, :blogs_updated, :cli_updated, "
+        ":last_checked, :hdr_updated, :latest_updated, :qso_updated, :blogs_updated, :cli_updated, "
         ":radio_frequency, :user_frequency, :offset, :is_scanning, :req_outstanding, "
-        ":callsign, :selected_blog"
+        ":callsign, :selected_blog, :selected_station"
         ")",
         {
+            'last_checked': 0,
             'hdr_updated': 0,
             'latest_updated': 0,
             'qso_updated': 0,
@@ -71,7 +74,8 @@ with db:
             'is_scanning': 0,
             'req_outstanding': 0,
             'callsign': "Pending",
-            'selected_blog': ""
+            'selected_blog': "",
+            'selected_station': ""
         }
     )
 
@@ -91,8 +95,8 @@ c.execute("""CREATE TABLE qso (
 )""")
 
 c.execute("""CREATE TABLE blogs (
-    blog_name text,
-    station_name text,
+    blog text,
+    station text,
     frequency integer,
     snr integer,
     capabilities text,
@@ -105,22 +109,22 @@ c.execute("""CREATE TABLE blogs (
 if load_samples:
 
     blog_list = [
-        {'blog_name': "AUSNEWS", 'station_name': "VK3WXY", 'frequency': 14078000, 'snr': -25,
+        {'blog': "AUSNEWS", 'station': "VK3WXY", 'frequency': 14078000, 'snr': -25,
          'capabilities': "LEGU", 'latest_post_date': "2023-02-07 23:10", 'latest_post_id': "405",
          'last_seen_date': "2023-02-09 18:02", 'is_selected': 0},
-        {'blog_name': "M0PXO", 'station_name': "M0PXO", 'frequency': 14078000, 'snr': 1,
+        {'blog': "M0PXO", 'station': "M0PXO", 'frequency': 14078000, 'snr': 1,
          'capabilities': "LEG", 'latest_post_date': "2023-02-03 10:06", 'latest_post_id': "29",
-         'last_seen_date': "2023-02-10 10:23", 'is_selected': 1},
-        {'blog_name': "NEWSEN", 'station_name': "K7GHI", 'frequency': 14078000, 'snr': -24,
+         'last_seen_date': "2023-02-10 10:23", 'is_selected': 0},
+        {'blog': "NEWSEN", 'station': "K7GHI", 'frequency': 14078000, 'snr': -24,
          'capabilities': "LEG", 'latest_post_date': "2023-01-31 11:23", 'latest_post_id': "36",
          'last_seen_date': "2023-02-05 22:10", 'is_selected': 0},
-        {'blog_name': "NEWSEN", 'station_name': "K7MNO", 'frequency': 14078000, 'snr': -13,
+        {'blog': "NEWSEN", 'station': "K7MNO", 'frequency': 14078000, 'snr': -13,
          'capabilities': "LEG", 'latest_post_date': "2023-01-30 07:03", 'latest_post_id': "35",
          'last_seen_date': "2023-02-06 07:45", 'is_selected': 0},
-        # {'blog_name': "NEWSSP", 'station_name': "K7MNO", 'frequency': 14078000, 'snr': -14,
+        # {'blog': "NEWSSP", 'station': "K7MNO", 'frequency': 14078000, 'snr': -14,
         # 'capabilities': "LEG", 'latest_post_date': "2023-01-27 09:45", 'latest_post_id': "14",
         # 'last_seen_date': "2023-02-06 07:18", 'is_selected': 0},
-        {'blog_name': "9Q1AB", 'station_name': "9Q1AB", 'frequency': 14078000, 'snr': -16,
+        {'blog': "9Q1AB", 'station': "9Q1AB", 'frequency': 14078000, 'snr': -16,
          'capabilities': "LEG", 'latest_post_date': "2023-02-07 13:44", 'latest_post_id': "182",
          'last_seen_date': "2023-02-10 10:25", 'is_selected': 0},
     ]
@@ -128,11 +132,11 @@ if load_samples:
     for i, b in enumerate(blog_list):
         with db:
             c.execute(
-                "INSERT INTO blogs VALUES (:blog_name, :station_name, :frequency, :snr, :capabilities,"
+                "INSERT INTO blogs VALUES (:blog, :station, :frequency, :snr, :capabilities,"
                 ":latest_post_id, :latest_post_date, :last_seen_date, :is_selected)",
                 {
-                    'blog_name': b['blog_name'],
-                    'station_name': b['station_name'],
+                    'blog': b['blog'],
+                    'station': b['station'],
                     'frequency': b['frequency'],
                     'snr': b['snr'],
                     'capabilities': b['capabilities'],

@@ -1,3 +1,4 @@
+import queue
 import tkinter as tk
 import tkinter.font as font
 import locale
@@ -31,7 +32,7 @@ class GuiHeader:
     scan_btn = None
     clock_label = None
 
-    def __init__(self, header_frame):
+    def __init__(self, header_frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
 
         frame_hdr_left = tk.Frame(header_frame, bg='black')
         frame_hdr_left.pack(expand=True, fill='y', side='left')
@@ -155,6 +156,11 @@ class GuiHeader:
 
         self.callsign_text.set(db_values[0]['callsign'])
 
+    def reload_header(self):
+        self.set_frequency()
+        self.set_offset()
+        self.set_callsign()
+
 
 class GuiLatestPosts:
 
@@ -166,7 +172,7 @@ class GuiLatestPosts:
         {'db_col': 'title'},
     ]
 
-    def __init__(self, frame: tk.Frame):
+    def __init__(self, frame: tk.Frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
         latest_list_hdr = tk.Label(
             frame,
             text="Latest Posts",
@@ -186,7 +192,11 @@ class GuiLatestPosts:
         )
         self.latest_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
 
-    def latest_reload(self):
+        self.reload_latest()
+
+    def reload_latest(self):
+
+        status = Status()
 
         qso_table = DbTable('qso')
         db_values = qso_table.select(where=f"directed_to!='{status.callsign}'", order_by='qso_date', desc=True,
@@ -228,7 +238,7 @@ class GuiQsoBox:
         {'db_col': 'body'},
     ]
 
-    def __init__(self, frame: tk.Frame):
+    def __init__(self, frame: tk.Frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
 
         v = tk.Scrollbar(frame, orient='vertical')
         v.pack(side=tk.RIGHT, fill='y')
@@ -238,7 +248,9 @@ class GuiQsoBox:
         v.config(command=self.qso_box.yview)
         self.qso_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
 
-    def qso_box_reload(self):
+    def reload_qso_box(self):
+
+        status = Status()
 
         qso_table = DbTable('qso')
         db_values = qso_table.select(where=f"directed_to='{status.callsign}'", order_by='qso_date', desc=False,
@@ -298,7 +310,7 @@ class GuiCli:
     cli_hdr_text = tk.StringVar()
     cli_text = None
 
-    def __init__(self, frame):
+    def __init__(self, frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
 
         cli_hdr = tk.Label(frame,
                            textvariable=self.cli_hdr_text,
@@ -322,16 +334,14 @@ class GuiCli:
             pady=4
         )
         self.cli_text.pack(fill=tk.X, padx=4, pady=4)
+        self.reload_cli()
 
     def reload_cli(self):
+        status = Status()
         self.cli_hdr_text.set(f"Directed to: {status.selected_blog}")
 
     def clear_cli_input(self):
         self.cli_text.delete(1.0, tk.END)
-
-    def set_selected_blog(self, blog: str):
-        status.set_selected_blog(blog)
-        self.reload_cli()
 
 
 class GuiBlogList:
@@ -356,7 +366,10 @@ class GuiBlogList:
          'text': None, 'widget': tk.Button()},
     ]
 
-    def __init__(self, frame):
+    def __init__(self, frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
+
+        self.f2b_q = f2b_q
+        self.b2f_q = b2f_q
 
         # construct the blog list grid
         self.blog_list = [[{} for _, _ in enumerate(self.blog_list_headers)] for _ in range(settings.max_blogs)]
@@ -403,7 +416,7 @@ class GuiBlogList:
                     )
                     blog['widget'].grid(column=col, row=(row + 1))  # need to row+1 to allow for header
 
-    def blog_list_reload(self):
+    def reload_blog_list(self):
         # clear all entries
         for row, _ in enumerate(self.blog_list):
             for col, blog in enumerate(self.blog_list[row]):
@@ -432,9 +445,11 @@ class GuiBlogList:
                 blog_cell['widget'].insert('1.0', value)
                 blog_cell['widget'].tag_add('tag_all', '1.0', tk.END)
                 blog_cell['widget'].tag_bind('tag_all', '<Button-1>',
-                                             ft.partial(self.select_blog, param=row))
+                                             ft.partial(self.select_blog, row))
                 if db_row['is_selected']:  # check the selected flag
-                    blog_cell['widget'].configure(bg='#3498db', fg='#000000')
+                    blog_cell['widget'].configure(bg='#3498db')
+                else:  # check the selected flag
+                    blog_cell['widget'].configure(bg='#ffffff')
                 blog_cell['widget'].configure(state=tk.DISABLED)
 
         return
@@ -442,23 +457,24 @@ class GuiBlogList:
     def get_value_by_row_db_col(self, row: int, db_col: str):
         for i, col in enumerate(self.blog_list_headers):
             if col['db_col'] == db_col:
-                return self.blog_list[row][i]
+                return self.blog_list[row][i]['widget'].get(1.0, tk.END).replace('\n', '')
 
         return None
 
     # noinspection PyGlobalUndefined
-    def select_blog(self, event, row: int):
-        global f2b_q
-        msg = F2bMessage()
-        msg.set_cmd('S')
-        msg.set_blog(self.get_value_by_row_db_col(row, 'blog'))
-        msg.set_ts()
-        f2b_q.put(msg.msg)
+    def select_blog(self, row, event):
+        req = F2bMessage()
+        req.set_cmd('S')
+        req.set_blog(self.get_value_by_row_db_col(row, 'blog'))
+        req.set_station(self.get_value_by_row_db_col(row, 'station'))
+        req.set_ts()
+        self.f2b_q.put(req.msg)
+        print(req.msg)
 
 
 class GuiMain:
 
-    def __init__(self, frame):
+    def __init__(self, frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
         pane_main = tk.PanedWindow(frame, bg='#606060')
         pane_main.pack(fill='both', expand=1, side='top')
 
@@ -475,33 +491,33 @@ class GuiMain:
         frame_latest_list = tk.Frame(frame_left, bg='white')
         frame_latest_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        self.latest_posts = GuiLatestPosts(frame_latest_list)
+        self.latest_posts = GuiLatestPosts(frame_latest_list, f2b_q, b2f_q)
 
         # QSO Area follows - middle of main
         frame_qso = tk.Frame(frame_mid)
         frame_qso.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        self.qso_box = GuiQsoBox(frame_qso)
+        self.qso_box = GuiQsoBox(frame_qso, f2b_q, b2f_q)
 
         frame_cli = tk.Frame(frame_mid)
         frame_cli.pack(side=tk.BOTTOM, padx=4)
 
-        self.cli = GuiCli(frame_mid)
+        self.cli = GuiCli(frame_mid, f2b_q, b2f_q)
 
         # Blog list area - right of main
         frame_blog_list = tk.Frame(frame_right, bg='white', padx=4, pady=4)
         frame_blog_list.pack()
 
-        self.blog_list = GuiBlogList(frame_blog_list)
+        self.blog_list = GuiBlogList(frame_blog_list, f2b_q, b2f_q)
 
-    def latest_reload(self):
-        self.latest_posts.latest_reload()
+    def reload_latest(self):
+        self.latest_posts.reload_latest()
 
-    def set_selected_blog(self, blog: str):
-        self.cli.set_selected_blog(blog)
+    def reload_qso_box(self):
+        self.qso_box.reload_qso_box()
 
-    def qso_box_reload(self):
-        self.qso_box.qso_box_reload()
+    def reload_cli(self):
+        self.cli.reload_cli()
 
-    def blog_list_reload(self):
-        self.blog_list.blog_list_reload()
+    def reload_blog_list(self):
+        self.blog_list.reload_blog_list()
