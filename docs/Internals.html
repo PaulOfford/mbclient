@@ -16,6 +16,7 @@
             the saving of settings.</p>
         <p>Python persistent object facilities (like <i>pickle</i>) were considered, but these wouldn't meet
             all the data needs and are more complex to maintain.</p>
+        <p><img src="images/components.jpg" width="640" /></p>
         <p>mbclient comprises two components:</p>
         <ul>
             <li>Frontend - the GUI and code relating to presentation</li>
@@ -25,24 +26,47 @@
             to OS multithreading, i.e. it does not use multiple cores.  However, the client will spend a
             lot of time waiting for UI events and network IO (API calls to JS8Call) and so it should meet
             our needs.  Python multiprocessing could be considered at a later stage, if necessary.</p>
-        <p>Communication between the frontend and backend is via a list that operates as a FIFO buffer,
-            i.e. we insert new messages at the start of the list and the receiving program pops the entries
-            from the end of the list and processes them.  There is no synchronisation between requests from
-            the frontend to the backend and responses in the opposite direction.  In theory, the backend may
+        <h2>Messaging</h2>
+        <p>Communication between the frontend and backend is via messages placed on one of two Python FIFO Queues;
+            f2b_q for frontend to backend messaging, and b2f_q for backend to frontend.  The sending code
+            puts a new messages on the queue, and the receiving code gets the message from the queue.  There are three
+            types of message:</p>
+        <ul>
+            <li>Request (req) - a command from the frontend to the backend</li>
+            <li>Response (rsp) - the response from the backend to an earlier command</li>
+            <li>Notification (ntf) - an async message from the backend to the frontend indicating some
+                change of state, e.g. the operator tunes the radio to another frequency</li>
+        </ul>
+        <p>Here's an example of a matching request and response:</p>
+        <p><code>
+            {'ts': 1676976154.154798, 'req_ts': 0.0, 'cmd': 'S', 'blog': 'NEWSEN', 'station': 'K7GHI', 'frequency': 0, 'post_id': 0, 'post_date': 0, 'op': '', 'param': '', 'rc': 0}</code></p>
+<p><code>{'ts': 1676976154.1837683, 'req_ts': 1676976154.154798, 'cmd': 'S', 'blog': 'NEWSEN', 'station': 'K7GHI', 'frequency': 0, 'post_id': 0, 'post_date': 0, 'op': '', 'param': '', 'rc': 0}
+        </code></p>
+        <p>In this example, the frontend is sending a request to the backend to change the currently selected blog in the blog list.
+            Notice how the req_ts value matches the ts value of the request.  A non-zero Response Code (rc) would indicate an error
+            has occurred in the backend, e.g. if we try to set the selected blog to a blog that doesn't exist in the list.</p>
+        <p>There is no synchronisation between requests and responses.  In theory, the backend may
             process multiple requests before a response is sent, and the responses are not guaranteed to be in
-            an order that matches the requests.</p>
-        <p>Although we have a message queue, the majority of backend to frontend data passing is via the database.
-            the job of the front end is to present the data in the database.  The frontend never makes changes to
+            an order that matches the requests.  There is, however, a correlation mechanism to match responses
+            to earlier requests.  Every message is timestamped.  A response contains a value req_ts which gives
+            the timestamp of the matching request message.</p>
+        <p>Although we have the message queues, the majority of backend to frontend data is passed via the database.
+            The job of the frontend is to present the data in the database.  The frontend never makes changes to
             the database.  When the frontend requires a change that affects the database, such as a change of
             selected blog:</p>
         <ul>
             <li>Frontend sends a message to the backend with the new values</li>
             <li>Backend makes the database changes needed to reflect the new values</li>
             <li>Backend sets the current Epoch time in the appropriate xxxx_updated field</li>
+            <li>The backend sends a response message to the frontend to indicate that the command completed</li>
+            <li>The frontend sees the response and checks for any xxxx_updated fields</li>
             <li>Frontend reloads the area of the GUI as per the xxxx_updated field</li>
         </ul>
-        <p>So, how does the frontend known that the xxxx_updated field has changed?  The answer is that it polls it
-            five times per second.  This is driven off the GUI time-of-day clock function.</p>
+        <p>The frontend checks for messages from the backend on the b2f_q queue by trying a non-blocking get for
+            a message every 200ms.  If the queue is empty, the get causes a queue.Empty exception, which is
+            handled and essentially ignored.  The method that does this work is process_updates() in the MbClient
+            class.  The process_updates() method is called via the tkinter callback mechanism; search the code
+            for <code>root.after(200, self.process_updates)</code></p>
         <h2>Database</h2>
     </div>
 </body>
