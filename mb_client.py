@@ -1,5 +1,6 @@
 import threading
 
+from queue import Empty
 from mb_gui import *
 from backend import *
 from status import *
@@ -15,31 +16,35 @@ class MbClient:
 
     def process_updates(self):
 
-        status = Status()
-
-        if status.hdr_updated > status.last_checked:
-            self.header.reload_header()
-
-        if status.latest_updated > status.last_checked:
-            self.main.reload_latest()
-
-        if status.qso_updated > status.last_checked:
-            self.main.reload_qso_box()
-
-        if status.cli_updated > status.last_checked:
-            self.main.reload_cli()
-
-        if status.blogs_updated > status.last_checked:
-            self.main.reload_blog_list()
-
         try:
-            msg = self.b2f_q.get(block=True, timeout=0.2)
-            self.b2f_q.task_done()
-        except Exception:
-            pass
+            msg = self.b2f_q.get(block=False)  # if no msg waiting, this will throw an exception
+            print(msg)
 
-        # if I comment out the following, the UI works OK but is reloading everything 5 times per second.
-        # status.update_last_checked()  # this is a problem - I think a race condition
+            # we have had a message from the backend -> check for updated sections
+            status = Status()
+
+            if status.hdr_updated > status.last_checked:
+                self.header.reload_header()
+
+            if status.latest_updated > status.last_checked:
+                self.main.reload_latest()
+
+            if status.qso_updated > status.last_checked:
+                self.main.reload_qso_box()
+
+            if status.cli_updated > status.last_checked:
+                self.main.reload_cli()
+                print("reload_cli()")
+
+            if status.blogs_updated > status.last_checked:
+                self.main.reload_blog_list()
+                print("reload_blog_list()")
+
+            status.update_last_checked()
+            self.b2f_q.task_done()
+
+        except queue.Empty:
+            pass
 
         root.after(200, self.process_updates)
 
