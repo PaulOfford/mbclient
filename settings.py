@@ -10,13 +10,13 @@ class Settings:
         {'db_col': 'max_qsos'},
         {'db_col': 'max_blogs'},
     ]
-    startup_width = 640
-    startup_height = 480
-    startup_dimensions = f"{startup_width}x{startup_height}"
-    font_size = 8
-    max_latest = 1
-    max_qsos = 1
-    max_blogs = 1
+    startup_width = None
+    startup_height = None
+    startup_dimensions = None
+    font_size = None
+    max_latest = None
+    max_qsos = None
+    max_blogs = None
 
     def __init__(self):
         self.reload_settings()
@@ -34,5 +34,6 @@ class Settings:
         self.max_latest = db_values[0]['max_latest']
         self.max_qsos = db_values[0]['max_qsos']
         self.max_blogs = db_values[0]['max_blogs']
+
 
 settings = Settings()
