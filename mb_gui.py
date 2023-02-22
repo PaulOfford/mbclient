@@ -3,6 +3,8 @@ import tkinter as tk
 import tkinter.font as font
 import locale
 import functools as ft
+import re
+
 from settings import *
 from status import *
 from message_q import *
@@ -108,6 +110,8 @@ class GuiHeader:
             font=font_hdr
         )
         hdr_blank.pack()
+
+        self.reload_header()
 
     def clock_tick(self, curtime=''):  # used for the header clock
         newtime = time.strftime('%Y-%m-%d %H:%M:%S')
@@ -310,7 +314,11 @@ class GuiCli:
     cli_hdr_text = tk.StringVar()
     cli_text = None
 
+    input_is_valid = False
+
     def __init__(self, frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
+
+        self.f2b_q = f2b_q
 
         cli_hdr = tk.Label(frame,
                            textvariable=self.cli_hdr_text,
@@ -325,23 +333,89 @@ class GuiCli:
         cli_hdr.pack(fill=tk.X, anchor=tk.W, padx=4, pady=4)
         self.cli_hdr_text.set("Directed to:")
 
-        self.cli_text = tk.Text(
+        self.cli_text = tk.Entry(
             frame,
             font=font_main,
             width=50,
-            height=1,
-            padx=4,
-            pady=4
         )
+        self.cli_text.bind('<Key>', self.go_cli)
         self.cli_text.pack(fill=tk.X, padx=4, pady=4)
         self.reload_cli()
 
     def reload_cli(self):
         status = Status()
         self.cli_hdr_text.set(f"Directed to: {status.selected_blog}")
+        self.cli_text.focus_set()
 
     def clear_cli_input(self):
-        self.cli_text.delete(1.0, tk.END)
+        self.cli_text.delete(0, tk.END)
+
+    def set_error(self):
+        self.cli_text.config({"background": "Pink"})
+
+    def go_cli(self, event):
+
+        req = F2bMessage()
+
+        command_informat = [
+            {'exp': '^L *(\\d+)$', 'op': 'eq', 'by': 'id'},
+            {'exp': '^L *> *(\\d+)$', 'op': 'gt', 'by': 'id'},
+            {'exp': '^L *(\\d{4}-\\d{2}-\\d{2})$', 'op': 'eq', 'by': 'date'},
+            {'exp': '^L *> *(\\d{4}-\\d{2}-\\d{2})$', 'op': 'gt', 'by': 'date'},
+            {'exp': '^L$', 'op': 'tail', 'by': None},
+
+            {'exp': '^E *(\\d+)$', 'op': 'eq', 'by': 'id'},
+            {'exp': '^E *> *(\\d+)$', 'op': 'gt', 'by': 'id'},
+            {'exp': '^E *(\\d{4}-\\d{2}-\\d{2})$', 'op': 'eq', 'by': 'date'},
+            {'exp': '^E *> *(\\d{4}-\\d{2}-\\d{2})$', 'op': 'gt', 'by': 'date'},
+            {'exp': '^E$', 'op': 'tail', 'by': None},
+
+            {'exp': '^G *(\\d+)', 'op': 'eq', 'by': 'id'},
+        ]
+
+        entry = None
+        result = None
+
+        self.cli_text.config({"background": "White"})
+
+        # check keystroke, if it's an Enter process else return
+        if event.char == '\r' and event.keysym == "Return":
+            self.input_is_valid = False
+            # get the text from the cli box
+            # shift to upper text and strip whitespace from start and end
+            input_text = self.cli_text.get().upper().strip()
+            # parse input using regex
+            for entry in command_informat:
+                # try to match the request
+                result = re.findall(entry['exp'], input_text)
+
+                if len(result) > 0:
+                    self.input_is_valid = True
+                    break
+                else:
+                    continue
+
+            if self.input_is_valid:
+                pass
+                # send message to backend
+                req.set_cmd(input_text[0:1])
+                req.set_op(entry['op'])
+
+                if entry['by'] == 'id':
+                    req.set_post_id(int(result[0]))
+                else:
+                    req.set_post_date(result[0])
+
+                req.set_ts()
+                self.f2b_q.put(req.msg)
+                print(req.msg)
+                # clear the text box
+                self.clear_cli_input()
+            else:
+                # turn cli box red if input is no good
+                self.set_error()
+
+        return
 
 
 class GuiBlogList:
@@ -506,7 +580,7 @@ class GuiMain:
 
         # Blog list area - right of main
         frame_blog_list = tk.Frame(frame_right, bg='white', padx=4, pady=4)
-        frame_blog_list.pack()
+        frame_blog_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
         self.blog_list = GuiBlogList(frame_blog_list, f2b_q, b2f_q)
 

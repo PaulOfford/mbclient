@@ -1,3 +1,4 @@
+import re
 import queue
 
 from db_table import *
@@ -18,7 +19,8 @@ class BeProcessor:
     def process_info_cmd(self, msg: dict, b2f_q: queue.Queue):
         pass
 
-    def process_set_cmd(self, req: dict, b2f_q: queue.Queue):
+    @staticmethod
+    def process_set_cmd(req: dict, b2f_q: queue.Queue):
         blog = req['blog']
         station = req['station']
         if len(blog) > 0:
@@ -41,7 +43,6 @@ class BeProcessor:
                 rsp.msg['rc'] = 0
                 b2f_q.put(rsp.msg)
 
-
     def process_config_cmd(self, msg: dict, b2f_q: queue.Queue):
         pass
 
@@ -49,6 +50,7 @@ class BeProcessor:
         pass
 
     def preprocess(self, msg: dict, b2f_q: queue.Queue):
+
         if msg['cmd'] == 'L':
             self.process_list_cmd(msg, b2f_q)
         elif msg['cmd'] == 'E':
@@ -70,7 +72,7 @@ class BeProcessor:
             if msg:
                 self.preprocess(msg, b2f_q)
                 f2b_q.task_done()
-        except Exception:
+        except queue.Empty:
             pass  # nothing on the queue - do nothing
 
 

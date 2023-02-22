@@ -56,14 +56,14 @@ class MbClient:
         t.start()
 
         frame_container = tk.Frame(root)
-        frame_container.pack(fill='x', expand=1, side='top', anchor='n')
+        frame_container.pack(fill='both', expand=1, side='top', anchor='n')
 
         frame_hdr = tk.Frame(frame_container, background="black", height=100, pady=10)
-        frame_hdr.pack(fill='x', expand=1, side='top', anchor='n')
+        frame_hdr.pack(fill='x', side='top', anchor='n')
         self.header = GuiHeader(header_frame=frame_hdr, f2b_q=self.f2b_q, b2f_q=self.b2f_q)  # populate the header
 
         frame_main = tk.Frame(frame_container, pady=4)
-        frame_main.pack(fill='both', expand=1, side='top', anchor='n', padx=4)
+        frame_main.pack(fill=tk.BOTH, expand=1, side='top', anchor='n', padx=4)
 
         self.header.clock_tick()
 
