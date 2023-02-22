@@ -48,12 +48,23 @@ class MbClient:
 
         root.after(200, self.process_updates)
 
+    def client_shutdown(self):
+        req = F2bMessage()
+        req.set_cmd('X')
+        req.set_op('exit')
+        self.f2b_q.put(req.msg)
+
+        root.destroy()
+
     def run_client(self):
         # put queues here
         # start backend thread
         backend = Backend()
         t = threading.Thread(target=backend.backend_loop, args=[self.f2b_q, self.b2f_q])
         t.start()
+
+        # we need to ensure closing the window stops the backend
+        root.protocol("WM_DELETE_WINDOW", self.client_shutdown)
 
         frame_container = tk.Frame(root)
         frame_container.pack(fill='both', expand=1, side='top', anchor='n')

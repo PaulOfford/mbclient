@@ -371,6 +371,8 @@ class GuiCli:
             {'exp': '^E$', 'op': 'tail', 'by': None},
 
             {'exp': '^G *(\\d+)', 'op': 'eq', 'by': 'id'},
+
+            {'exp': '^X$', 'op': 'exit', 'by': None},
         ]
 
         entry = None
@@ -396,8 +398,10 @@ class GuiCli:
                     continue
 
             if self.input_is_valid:
-                pass
+                status = Status()
                 # send message to backend
+                req.set_blog(status.selected_blog)
+                req.set_station(status.selected_station)
                 req.set_cmd(input_text[0:1])
                 req.set_op(entry['op'])
 

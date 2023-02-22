@@ -7,7 +7,46 @@ from message_q import *
 
 class BeProcessor:
 
+    def check_cache(self, blog: str, station: str, range_start: int, range_end: int):
+        fields = [
+            {'db_col': 'post_id'},
+            {'db_col': 'post_date'},
+            {'db_col': 'title'},
+            {'db_col': 'body'},
+        ]
+
+        # {'post_id': 0, 'has_entry': False, 'has_date': False, 'has_title': False, 'has_body': False}
+
+        return_values = [{} for _ in range(range_end - range_start + 1)]
+
+        qso_table = DbTable('qso')
+        db_values = qso_table.select(
+            order_by='post_id', desc=True,
+            where=f"blog='{blog}' and station='{station}' and post_id>={range_start} and post_id<={range_end}",
+            hdr_list=fields
+        )
+        return return_values
+
+    def get_posts_tail(self, blog: str, station: str):
+        fields = [
+            {'db_col': 'post_id'},
+            {'db_col': 'post_date'},
+        ]
+        blogs_table = DbTable('blogs')
+        db_values = blogs_table.select(order_by='post_id', desc=True, limit=5,
+                                       where=f"blog='{blog}' and station='{station}'", hdr_list=fields)
+        return db_values
+
     def process_list_cmd(self, msg: dict, b2f_q: queue.Queue):
+        range_start = 26
+        range_end = 30
+        # do we have any of the information in the cache
+        posts_list = self.check_cache(msg['blog'], msg['station'], range_start, range_end)
+        if posts_list == False:
+            # we need to use JS8Call to get the information
+            pass
+        # do we have any of the information in the cache
+            # search cache by blog and criteria
         pass
 
     def process_extended_cmd(self, msg: dict, b2f_q: queue.Queue):
@@ -65,6 +104,8 @@ class BeProcessor:
             self.process_config_cmd(msg, b2f_q)
         elif msg['cmd'] == 'P':
             self.process_scan_cmd(msg, b2f_q)
+        elif msg['cmd'] == 'X':
+            exit(0)
 
     def check_for_msg(self, f2b_q: queue.Queue, b2f_q: queue.Queue):
         try:
