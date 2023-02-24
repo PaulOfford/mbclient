@@ -1,6 +1,5 @@
 import threading
 
-from queue import Empty
 from mb_gui import *
 from backend import *
 from status import *
@@ -59,8 +58,8 @@ class MbClient:
     def run_client(self):
         # put queues here
         # start backend thread
-        backend = Backend()
-        t = threading.Thread(target=backend.backend_loop, args=[self.f2b_q, self.b2f_q])
+        backend = Backend(self.f2b_q, self.b2f_q)
+        t = threading.Thread(target=backend.backend_loop)
         t.start()
 
         # we need to ensure closing the window stops the backend

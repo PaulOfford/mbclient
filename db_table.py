@@ -60,7 +60,7 @@ class DbTable:
 
         return result
 
-    def update(self, where=None, value_dictionary={}):
+    def update(self, where=None, value_dictionary=None):
         db = sqlite3.connect(db_file)
         db.row_factory = sqlite3.Row
         c = db.cursor()
@@ -77,3 +77,22 @@ class DbTable:
             query += f" WHERE {where}"
         with db:
             c.execute(query)
+
+    def insert(self, row: dict):
+        db = sqlite3.connect(db_file)
+        db.row_factory = sqlite3.Row
+        c = db.cursor()
+
+        values = ""
+
+        for column in row:
+            if len(values) > 0:
+                values += f", "
+
+            if isinstance(row[column], str):
+                values += f"'{row[column]}'"
+            else:
+                values += f"{row[column]}"
+
+        with db:
+            c.execute(f"INSERT INTO {self.table} VALUES ({values})")

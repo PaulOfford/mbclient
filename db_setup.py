@@ -75,13 +75,16 @@ with db:
             'is_scanning': 0,
             'req_outstanding': 0,
             'callsign': "Pending",
-            'selected_blog': "",
+            'selected_blog': "SELECT A BLOG",
             'selected_station': ""
         }
     )
 
+# qso types are cmd, listing, post or progress
+
 c.execute("""CREATE TABLE qso (
     qso_date integer,
+    type text,
     blog text,
     station text,
     directed_to text,
@@ -162,6 +165,7 @@ if load_samples:
     qsos = [
         {
             'qso_date': '2023-02-07 14:25:48',
+            'type': 'listing',
             'blog': 'M0PXO',
             'station': 'M0PXO',
             'directed_to': '2E0FGO',
@@ -176,6 +180,7 @@ if load_samples:
         },
         {
             'qso_date': '2023-02-07 14:25:48',
+            'type': 'listing',
             'blog': 'M0PXO',
             'station': 'M0PXO',
             'directed_to': '2E0FGO',
@@ -190,6 +195,7 @@ if load_samples:
         },
         {
             'qso_date': '2023-02-07 14:25:48',
+            'type': 'listing',
             'blog': 'M0PXO',
             'station': 'M0PXO',
             'directed_to': '2E0FGO',
@@ -204,6 +210,7 @@ if load_samples:
         },
         {
             'qso_date': '2023-02-07 14:25:48',
+            'type': 'listing',
             'blog': 'M0PXO',
             'station': 'M0PXO',
             'directed_to': '2E0FGO',
@@ -218,6 +225,7 @@ if load_samples:
         },
         {
             'qso_date': '2023-02-07 14:25:48',
+            'type': 'listing',
             'blog': 'M0PXO',
             'station': 'M0PXO',
             'directed_to': '2E0FGO',
@@ -233,6 +241,7 @@ if load_samples:
 
         {
             'qso_date': '2023-02-07 18:07:28',
+            'type': 'listing',
             'blog': 'M0PXO',
             'station': 'M0PXO',
             'directed_to': '2E0FGO',
@@ -247,6 +256,7 @@ if load_samples:
         },
         {
             'qso_date': '2023-02-07 18:07:28',
+            'type': 'listing',
             'blog': 'M0PXO',
             'station': 'M0PXO',
             'directed_to': '2E0FGO',
@@ -261,6 +271,7 @@ if load_samples:
         },
         {
             'qso_date': '2023-02-07 18:07:28',
+            'type': 'listing',
             'blog': 'M0PXO',
             'station': 'M0PXO',
             'directed_to': '2E0FGO',
@@ -275,6 +286,7 @@ if load_samples:
         },
         {
             'qso_date': '2023-02-07 18:07:28',
+            'type': 'listing',
             'blog': 'M0PXO',
             'station': 'M0PXO',
             'directed_to': '2E0FGO',
@@ -289,6 +301,7 @@ if load_samples:
         },
         {
             'qso_date': '2023-02-07 18:07:28',
+            'type': 'listing',
             'blog': 'M0PXO',
             'station': 'M0PXO',
             'directed_to': '2E0FGO',
@@ -303,6 +316,7 @@ if load_samples:
         },
         {
             'qso_date': '2023-02-07 18:10:02',
+            'type': 'post',
             'blog': 'M0PXO',
             'station': 'M0PXO',
             'directed_to': '2E0FGO',
@@ -323,6 +337,7 @@ if load_samples:
         },
         {
             'qso_date': '2023-02-07 14:28:47',
+            'type': 'post',
             'blog': 'M0PXO',
             'station': 'M0PXO',
             'directed_to': '2E0FGO',
@@ -346,10 +361,11 @@ if load_samples:
     for i, q in enumerate(qsos):
         with db:
             c.execute(
-                "INSERT INTO qso VALUES (:qso_date, :blog, :station, :directed_to,"
+                "INSERT INTO qso VALUES (:qso_date, :type, :blog, :station, :directed_to,"
                 " :frequency, :offset, :cmd, :rsp, :post_id, :post_date, :title, :body)",
                 {
                     'qso_date': time.mktime(time.strptime(q['qso_date'], "%Y-%m-%d %H:%M:%S")),
+                    'type': q['type'],
                     'blog': q['blog'],
                     'station': q['station'],
                     'directed_to': q['directed_to'],
@@ -367,6 +383,7 @@ if load_samples:
     latest = [
         {
             'qso_date': '2023-02-13 22:24:48',
+            'type': 'listing',
             'blog': 'M0PXO',
             'station': 'M0PXO',
             'directed_to': 'M7PJO',
@@ -381,6 +398,7 @@ if load_samples:
         },
         {
             'qso_date': '2023-02-13 01:25:48',
+            'type': 'listing',
             'blog': 'M0PXO',
             'station': 'M0PXO',
             'directed_to': 'M7PJO',
@@ -398,10 +416,11 @@ if load_samples:
     for i, q in enumerate(latest):
         with db:
             c.execute(
-                "INSERT INTO qso VALUES (:qso_date, :blog, :station, :directed_to,"
+                "INSERT INTO qso VALUES (:qso_date, :type, :blog, :station, :directed_to,"
                 " :frequency, :offset, :cmd, :rsp, :post_id, :post_date, :title, :body)",
                 {
                     'qso_date': time.mktime(time.strptime(q['qso_date'], "%Y-%m-%d %H:%M:%S")),
+                    'type': q['type'],
                     'blog': q['blog'],
                     'station': q['station'],
                     'directed_to': q['directed_to'],

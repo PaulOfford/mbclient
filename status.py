@@ -69,3 +69,28 @@ class Status:
         status_table.update(value_dictionary={'selected_blog': blog})
         status_table.update(value_dictionary={'selected_station': station})
         self.reload_status()
+
+    def set_hdr_updated(self):
+        status_table = DbTable('status')
+        status_table.update(value_dictionary={'hdr_updated': time.time()})
+        self.reload_status()
+
+    def set_latest_updated(self):
+        status_table = DbTable('status')
+        status_table.update(value_dictionary={'latest_updated': time.time()})
+        self.reload_status()
+
+    def set_qso_updated(self):
+        status_table = DbTable('status')
+        status_table.update(value_dictionary={'qso_updated': time.time()})
+        self.reload_status()
+
+    def set_cli_updated(self):
+        status_table = DbTable('status')
+        status_table.update(value_dictionary={'qso_updated': time.time()})
+        self.reload_status()
+
+    def set_blogs_updated(self):
+        status_table = DbTable('status')
+        status_table.update(value_dictionary={'qso_updated': time.time()})
+        self.reload_status()

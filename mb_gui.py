@@ -233,7 +233,9 @@ class GuiQsoBox:
 
     qso_cols = [
         {'db_col': 'qso_date'},
+        {'db_col': 'type'},
         {'db_col': 'blog'},
+        {'db_col': 'station'},
         {'db_col': 'cmd'},
         {'db_col': 'rsp'},
         {'db_col': 'post_id'},
@@ -264,7 +266,7 @@ class GuiQsoBox:
         self.qso_box.delete(1.0, 'end')
 
         for i, r in enumerate(db_values):
-            if r['rsp'] == 'OK' and len(r['body']) > 0:
+            if r['type'] == 'post':
                 # it's a post entry
                 qso_string = "\n----------------------------------------------\n"
                 q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
@@ -278,13 +280,13 @@ class GuiQsoBox:
                     qso_string += f" {p_date}"
                 if len(r['title']):
                     qso_string += f" {r['title']}"
-                qso_string += f"\n\n{r['body']}"
+                qso_string += f"\n\n{r['body']}\n"
 
                 self.qso_box.insert(tk.END, qso_string)
                 self.qso_box.see(tk.END)
                 self.prev_is_listing = False
 
-            elif r['rsp'] == 'OK' and len(r['body']) == 0:
+            elif r['type'] == 'listing':
                 # it's a listing
                 qso_string = ''
                 if not self.prev_is_listing:
@@ -301,6 +303,24 @@ class GuiQsoBox:
 
                 qso_string += f" {r['title']}\n"
 
+                self.qso_box.insert(tk.END, qso_string)
+                self.qso_box.see(tk.END)
+                self.prev_is_listing = True
+
+            elif r['type'] == 'cmd':
+                # it's an echoed command
+                qso_string = ''
+                q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
+                qso_string += f"\n{q_date} {r['blog']} {r['cmd']} {r['rsp']}\n"
+                self.qso_box.insert(tk.END, qso_string)
+                self.qso_box.see(tk.END)
+                self.prev_is_listing = True
+
+            elif r['type'] == 'progress':
+                # it's an echoed command
+                qso_string = ''
+                q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
+                qso_string += f"{q_date} {r['blog']} {r['cmd']} {r['rsp']}\n"
                 self.qso_box.insert(tk.END, qso_string)
                 self.qso_box.see(tk.END)
                 self.prev_is_listing = True
@@ -400,6 +420,7 @@ class GuiCli:
                 # send message to backend
                 req.set_blog(status.selected_blog)
                 req.set_station(status.selected_station)
+                req.set_cli_input(input_text)
                 req.set_cmd(input_text[0:1])
                 req.set_op(entry['op'])
 

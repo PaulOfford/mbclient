@@ -17,6 +17,7 @@ class Settings:
     max_latest = None
     max_qsos = None
     max_blogs = None
+    max_listing = 5  # ToDo: put this in the database
 
     def __init__(self):
         self.reload_settings()
@@ -35,5 +36,6 @@ class Settings:
         self.max_qsos = db_values[0]['max_qsos']
         self.max_blogs = db_values[0]['max_blogs']
 
+# ToDo: pivot this table to contain one row per setting; each row a key/value pair
 
 settings = Settings()
