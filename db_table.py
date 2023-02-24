@@ -25,7 +25,7 @@ class DbTable:
     # This method returns a list of dictionaries with the columns selected by the
     # hdr_list, in the order of the columns in the hdr_list.
     # The hdr_list must contain a key db_col with a value of the name of a database column.
-    def select(self, where=None, order_by=None, desc=False, limit=0, hdr_list=None):
+    def select(self, where=None, order_by=None, desc=False, limit=0, group_by=None, hdr_list=None):
 
         db = sqlite3.connect(db_file)
         c = db.cursor()
@@ -39,6 +39,8 @@ class DbTable:
         query = f"SELECT {select_cols} FROM {self.table}"
         if where:
             query += f" WHERE {where}"
+        if group_by:
+            query += f" GROUP BY {group_by}"
         if order_by:
             query += f" ORDER BY {order_by}"
         if desc:
@@ -90,7 +92,8 @@ class DbTable:
                 values += f", "
 
             if isinstance(row[column], str):
-                values += f"'{row[column]}'"
+                temp = row[column].replace("'", "''")
+                values += f"'{temp}'"
             else:
                 values += f"{row[column]}"
 

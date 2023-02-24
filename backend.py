@@ -95,17 +95,22 @@ class BeProcessor:
 
         # form a sql WHERE clause based on command
         where_clause = f"blog='{blog}' and post_id>={range_start} and post_id<={range_end}"
+
+        limit = settings.max_listing
+
         if cmd == 'L':
             where_clause += " and title<>''"
         elif cmd == 'E':
             where_clause += " and title<>'' and post_date>0"
         elif cmd == 'G':
             where_clause += " and body<>''"
+            limit = 1
 
         qso_table = DbTable('qso')
         db_values = qso_table.select(
-            order_by='post_id, body, title', desc=True,
             where=where_clause,
+            group_by='post_id',
+            order_by='post_id, body, title', desc=True,
             hdr_list=self.qso_fields
         )
 
@@ -130,10 +135,16 @@ class BeProcessor:
         if len(svr_request_list) == 0:
             return return_values
 
+        posts_needed = ''
+        for post in svr_request_list:
+            if len(posts_needed) > 0:
+                posts_needed += ','
+            posts_needed += str(post)
+
         # form a request to get the posts in the svr_request_list
         self.qso_append_progress('Requesting details from the server for: ', f"{svr_request_list}")
 
-        mblog_api_req = f"{cmd}{svr_request_list}"
+        mblog_api_req = f"{cmd}{posts_needed}~"
 
         return return_values
 
@@ -163,7 +174,7 @@ class BeProcessor:
             post_ids.append(req['post_id'])
         elif req['op'] == 'gt':
             for i in range(settings.max_listing):
-                post_ids.append(req['post_id'] + i)
+                post_ids.append(req['post_id'] + 1 + i)
         elif req['op'] == 'tail':
             # get the latest post id for this blog
             latest_post = self.get_posts_tail(req['blog'], req['station'])
@@ -182,16 +193,20 @@ class BeProcessor:
         notify.signal_reload('qso')
         return
 
-    def process_extended_cmd(self, req: dict, b2f_q: queue.Queue):
+    def process_extended_cmd(self, req: dict):
+        self.process_list_cmd(req)
+
+    def process_get_cmd(self, req: dict):
+        post_ids = [req['post_id']]
+        self.get_posts_via_cache(req, post_ids)
+        notify = B2fMessage(self.b2f_q)
+        notify.signal_reload('qso')
+        return
+
+    def process_info_cmd(self, req: dict):
         pass
 
-    def process_get_cmd(self, req: dict, b2f_q: queue.Queue):
-        pass
-
-    def process_info_cmd(self, req: dict, b2f_q: queue.Queue):
-        pass
-
-    def process_set_cmd(self, req: dict, b2f_q: queue.Queue):
+    def process_set_cmd(self, req: dict):
         blog = req['blog']
         station = req['station']
         if len(blog) > 0:
@@ -212,12 +227,12 @@ class BeProcessor:
                 rsp = B2fMessage(self.b2f_q)
                 rsp.clone_req_msg(req)
                 rsp.msg['rc'] = 0
-                b2f_q.put(rsp.msg)
+                self.b2f_q.put(rsp.msg)
 
-    def process_config_cmd(self, msg: dict, b2f_q: queue.Queue):
+    def process_config_cmd(self, msg: dict):
         pass
 
-    def process_scan_cmd(self, msg: dict, b2f_q: queue.Queue):
+    def process_scan_cmd(self, msg: dict):
         pass
 
     def preprocess(self, msg: dict):
@@ -227,17 +242,17 @@ class BeProcessor:
         if msg['cmd'] == 'L':
             self.process_list_cmd(msg)
         elif msg['cmd'] == 'E':
-            self.process_extended_cmd(msg, self.b2f_q)
+            self.process_extended_cmd(msg)
         elif msg['cmd'] == 'G':
-            self.process_get_cmd(msg, self.b2f_q)
+            self.process_get_cmd(msg)
         elif msg['cmd'] == 'I':
-            self.process_info_cmd(msg, self.b2f_q)
+            self.process_info_cmd(msg)
         elif msg['cmd'] == 'S':
-            self.process_set_cmd(msg, self.b2f_q)
+            self.process_set_cmd(msg)
         elif msg['cmd'] == 'C':
-            self.process_config_cmd(msg, self.b2f_q)
+            self.process_config_cmd(msg)
         elif msg['cmd'] == 'P':
-            self.process_scan_cmd(msg, self.b2f_q)
+            self.process_scan_cmd(msg)
         elif msg['cmd'] == 'X':
             exit(0)
 
