@@ -268,7 +268,8 @@ class GuiQsoBox:
         for i, r in enumerate(db_values):
             if r['type'] == 'post':
                 # it's a post entry
-                qso_string = "\n----------------------------------------------\n"
+                qso_string = ''
+
                 q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
                 if r['post_date'] > 0:
                     p_date = time.strftime("%Y-%m-%d", time.gmtime(r['post_date']))
@@ -390,7 +391,7 @@ class GuiCli:
             {'exp': '^E *> *(\\d{4}-\\d{2}-\\d{2})$', 'op': 'gt', 'by': 'date'},
             {'exp': '^E$', 'op': 'tail', 'by': None},
 
-            {'exp': '^G *(\\d+)', 'op': 'eq', 'by': 'id'},
+            {'exp': '^G *(\\d+)$', 'op': 'eq', 'by': 'id'},
         ]
 
         entry = None
