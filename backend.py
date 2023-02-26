@@ -1,7 +1,7 @@
-import queue
-
 from settings import *
 from message_q import *
+from logging import *
+from time import sleep
 
 
 class BeProcessor:
@@ -24,23 +24,28 @@ class BeProcessor:
 
     f2b_q = None
     b2f_q = None
+    comms_tx_q = None
+    comms_rx_q = None
+    status = Status()
 
-    def __init__(self, f2b_q: queue.Queue, b2f_q: queue.Queue):
+    def __init__(self, f2b_q: queue.Queue, b2f_q: queue.Queue, comms_tx_q: queue.Queue, comms_rx_q: queue.Queue):
         self.f2b_q = f2b_q
         self.b2f_q = b2f_q
+        self.comms_tx_q = comms_tx_q
+        self.comms_rx_q = comms_rx_q
 
     def qso_append_cli_input(self, cli_input: str, rsp_text: str):
-        status = Status()
+        self.status.reload_status()
         qso_table = DbTable('qso')
         db_values = qso_table.select(limit=1, hdr_list=self.qso_fields)
         for row in db_values:
             row['qso_date'] = time.time()
             row['type'] = 'cmd'
-            row['blog'] = status.selected_blog
-            row['station'] = status.selected_station
-            row['directed_to'] = status.callsign
-            row['frequency'] = status.user_frequency
-            row['offset'] = status.offset
+            row['blog'] = self.status.selected_blog
+            row['station'] = self.status.selected_station
+            row['directed_to'] = self.status.callsign
+            row['frequency'] = self.status.user_frequency
+            row['offset'] = self.status.offset
             row['cmd'] = cli_input
             row['rsp'] = rsp_text
             row['post_id'] = 0
@@ -52,17 +57,17 @@ class BeProcessor:
         notify.signal_reload('qso')
 
     def qso_append_progress(self, cli_input: str, rsp_text: str):
-        status = Status()
+        self.status.reload_status()
         qso_table = DbTable('qso')
         db_values = qso_table.select(limit=1, hdr_list=self.qso_fields)
         for row in db_values:
             row['qso_date'] = time.time()
             row['type'] = 'progress'
-            row['blog'] = status.selected_blog
-            row['station'] = status.selected_station
-            row['directed_to'] = status.callsign
-            row['frequency'] = status.user_frequency
-            row['offset'] = status.offset
+            row['blog'] = self.status.selected_blog
+            row['station'] = self.status.selected_station
+            row['directed_to'] = self.status.callsign
+            row['frequency'] = self.status.user_frequency
+            row['offset'] = self.status.offset
             row['cmd'] = cli_input
             row['rsp'] = rsp_text
             row['post_id'] = 0
@@ -96,15 +101,12 @@ class BeProcessor:
         # form a sql WHERE clause based on command
         where_clause = f"blog='{blog}' and post_id>={range_start} and post_id<={range_end}"
 
-        limit = settings.max_listing
-
         if cmd == 'L':
             where_clause += " and title<>''"
         elif cmd == 'E':
             where_clause += " and title<>'' and post_date>0"
         elif cmd == 'G':
             where_clause += " and body<>''"
-            limit = 1
 
         qso_table = DbTable('qso')
         db_values = qso_table.select(
@@ -114,7 +116,7 @@ class BeProcessor:
             hdr_list=self.qso_fields
         )
 
-        status = Status()  # we'll need status data a bit later
+        self.status.reload_status()  # we'll need status data a bit later
 
         for i, value in enumerate(return_values):
             value.update({'post_id': post_id_list[i]})
@@ -124,7 +126,7 @@ class BeProcessor:
                         {'has_entry': True, 'date': row['post_date'], 'title': row['title'], 'body': row['body']}
                     )
                     row['qso_date'] = time.time()
-                    row['directed_to'] = status.callsign
+                    row['directed_to'] = self.status.callsign
                     qso_table.insert(row)
                     break
 
@@ -144,7 +146,20 @@ class BeProcessor:
         # form a request to get the posts in the svr_request_list
         self.qso_append_progress('Requesting details from the server for: ', f"{svr_request_list}")
 
-        mblog_api_req = f"{cmd}{posts_needed}~"
+        payload = f"{cmd}{posts_needed}~"
+        logmsg(3, 'comms: send: ' + str(payload))
+        mblog_api_req = CommsMsg(self.comms_tx_q)
+
+        mblog_api_req.set_ts(time.time())
+        mblog_api_req.set_direction('tx')
+        mblog_api_req.set_source(self.status.callsign)
+        mblog_api_req.set_destination(self.status.selected_station)
+        mblog_api_req.set_snr(0)
+        mblog_api_req.set_typ('mb_req')
+        mblog_api_req.set_target('mb_service')
+        mblog_api_req.set_obj('service')
+        mblog_api_req.set_payload(str(payload))
+        self.comms_tx_q.put(mblog_api_req)
 
         return return_values
 
@@ -256,31 +271,74 @@ class BeProcessor:
         elif msg['cmd'] == 'X':
             exit(0)
 
+    def process_mb_rsp(self, comms_msg: dict):
+        pass
+
+    def process_mb_notify(self, comms_msg: dict):
+        pass
+
+    def process_status_radio_frequency(self, comms_msg: dict):
+        pass
+
+    def process_status_offset(self, comms_msg: dict):
+        pass
+
+    def process_status_callsign(self, comms_msg: dict):
+        pass
+
+    def process_comms_rx(self, comms_msg: dict):
+        if comms_msg.get('typ') == 'mb_rsp':
+            self.process_mb_rsp(comms_msg)
+        elif comms_msg.get('typ') == 'mb_notify':
+            self.process_mb_notify(comms_msg)
+        elif comms_msg.get('typ') == 'control' and comms_msg.get('target') == 'status'\
+                and comms_msg.get('obj') == 'radio_frequency':
+            self.process_status_radio_frequency(comms_msg)
+        elif comms_msg.get('typ') == 'control' and comms_msg.get('target') == 'status'\
+                and comms_msg.get('obj') == 'offset':
+            self.process_status_offset(comms_msg)
+        elif comms_msg.get('typ') == 'control' and comms_msg.get('target') == 'status'\
+                and comms_msg.get('obj') == 'callsign':
+            self.process_status_callsign(comms_msg)
+
+        pass
+
     def check_for_msg(self):
+        # check for messages from the frontend
         try:
-            msg = self.f2b_q.get(block=True, timeout=0.2)
-            if msg:
-                self.preprocess(msg)
+            fe_msg = self.f2b_q.get(block=False)
+            if fe_msg:
+                logging.logmsg(3, f"be: {fe_msg}")
+                self.preprocess(fe_msg)
                 self.f2b_q.task_done()
         except queue.Empty:
             pass  # nothing on the queue - do nothing
+
+        # check for messages from the comms driver
+        try:
+            comms_rx = self.comms_rx_q.get(block=False)  # if no msg waiting, this will throw an exception
+            logging.logmsg(3, f"comms: {comms_rx}")
+            self.process_comms_rx(comms_rx)
+            self.comms_rx_q.task_done()
+        except queue.Empty:
+            pass
 
 
 class Backend:
 
     proc = None  # for backend processor
 
-    def __init__(self, f2b_q: queue.Queue, b2f_q: queue.Queue):
-        self.proc = BeProcessor(f2b_q, b2f_q)
+    def __init__(self, f2b_q: queue.Queue, b2f_q: queue.Queue, comms_tx_q: queue.Queue, comms_rx_q: queue.Queue):
+        self.proc = BeProcessor(f2b_q, b2f_q, comms_tx_q, comms_rx_q)
         pass
 
     def backend_loop(self):
         while True:
             # check for f2b message and process
             self.proc.check_for_msg()
+            sleep(0.5)  # we need this else the backend thread hogs the cpu
     
             # check for js8call message
     
             # run optimizing algorithms, e.g. harvesting info heard and caching
-
         pass

@@ -5,6 +5,7 @@ import locale
 import functools as ft
 import re
 
+import logging
 from settings import *
 from status import *
 from message_q import *
@@ -432,7 +433,7 @@ class GuiCli:
 
                 req.set_ts()
                 self.f2b_q.put(req.msg)
-                print(req.msg)
+                logging.logmsg(3, f"fe: {req.msg}")
                 # clear the text box
                 self.clear_cli_input()
             else:
@@ -567,7 +568,7 @@ class GuiBlogList:
         req.set_station(self.get_value_by_row_db_col(row, 'station'))
         req.set_ts()
         self.f2b_q.put(req.msg)
-        print(req.msg)
+        logging.logmsg(3, f"fe: {req.msg}")
 
 
 class GuiMain:

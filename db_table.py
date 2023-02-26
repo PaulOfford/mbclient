@@ -1,4 +1,6 @@
 import sqlite3
+
+import logging
 from db_root import *
 
 
@@ -14,7 +16,9 @@ class DbTable:
         db = sqlite3.connect(db_file)
         db.row_factory = sqlite3.Row
         c = db.cursor()
-        c.execute(f"SELECT * FROM {table} LIMIT 1")
+        query = f"SELECT * FROM {table} LIMIT 1"
+        c.execute(query)
+        logging.logmsg(3, query)
         row = c.fetchone()
         self.col_names = row.keys()
         if 'is_selected' in self.col_names:
@@ -48,6 +52,8 @@ class DbTable:
         if limit > 0:
             query += f" LIMIT {limit}"
 
+        logging.logmsg(3, query)
+
         c.execute(query)
         list_of_tuples = c.fetchall()
         db.close()
@@ -79,6 +85,7 @@ class DbTable:
             query += f" WHERE {where}"
         with db:
             c.execute(query)
+            logging.logmsg(3, query)
 
     def insert(self, row: dict):
         db = sqlite3.connect(db_file)
@@ -97,5 +104,8 @@ class DbTable:
             else:
                 values += f"{row[column]}"
 
+        query = f"INSERT INTO {self.table} VALUES ({values})"
+        logging.logmsg(3, query)
+
         with db:
-            c.execute(f"INSERT INTO {self.table} VALUES ({values})")
+            c.execute(query)

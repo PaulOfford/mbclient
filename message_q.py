@@ -1,4 +1,4 @@
-import time
+import queue
 
 from status import *
 
@@ -141,3 +141,111 @@ class B2fMessage:
         self.set_rc(0)
         self.b2f_q.put(self.msg)
         return
+
+
+class CommsMsg:
+    msg = {'ts': 0.0, 'req_ts': 0.0, 'direction': '', 'source': "", 'destination': "", 'frequency': 0,
+           'offset': 0, 'snr': 0, 'typ': "", 'target': '', 'obj': "", 'payload': "", 'rc': 0}
+
+    # Although the following refers to Js8Call, we need to keep this abstract enough such
+    # that another transport mechanism could be used.
+    # direction - tx to Js8Call, rx from Js8Call
+    # source - call id of the source of this message
+    # destination - call id of the destination this message; may be our callid or another
+    # frequency - the dial frequency that a message was received on
+    # snr - the signal-to-noise ratio for any received messages
+    # typ - control, mb_req, mb_rsp, mb_notify
+    # target:obj -
+    #   * mb_server:service - mb_req
+    #   * mb_client:receiver - mb_rsp and mb_notify
+    #   * set:radio_frequency - control request
+    #   * set:offset - control request
+    #   * set:exit - control request
+    #   * status:radio_frequency - control notification
+    #   * status:offset - control notification
+    #   * status:callsign - control notification
+    #   * ui_header:tx_led - control notification
+    #   * ui_header:rx_led - control notification
+
+    msg_q = None
+
+    def __init__(self, msg_q: queue.Queue):
+        self.msg_q = msg_q
+
+    def put(self):
+        self.msg_q.put(self.msg)
+
+    def set_ts(self, ts: float):
+        self.msg['ts'] = ts
+
+    def set_req_ts(self, ts: float):
+        self.msg['req_ts'] = ts
+
+    def set_direction(self, direction: str):
+        self.msg['direction'] = direction
+
+    def set_source(self, source: str):
+        self.msg['source'] = source
+
+    def set_destination(self, destination: str):
+        self.msg['destination'] = destination
+
+    def set_frequency(self, frequency: int):
+        self.msg['frequency'] = frequency
+
+    def set_offset(self, offset: int):
+        self.msg['offset'] = offset
+
+    def set_snr(self, snr: int):
+        self.msg['snr'] = snr
+
+    def set_typ(self, typ: str):
+        self.msg['typ'] = typ
+
+    def set_target(self, target: str):
+        self.msg['target'] = target
+
+    def set_obj(self, obj: str):
+        self.msg['obj'] = obj
+
+    def set_payload(self, payload: str):
+        self.msg['payload'] = payload
+
+    def set_rc(self, rc: int):
+        self.msg['rc'] = rc
+
+    def get_ts(self) -> float:
+        return self.msg['ts']
+
+    def get_req_ts(self) -> float:
+        return self.msg['req_ts']
+
+    def get_direction(self) -> str:
+        return self.msg['direction']
+
+    def get_source(self) -> str:
+        return self.msg['source']
+
+    def get_destination(self) -> str:
+        return self.msg['destination']
+
+    def get_frequency(self) -> int:
+        return self.msg['frequency']
+
+    def get_snr(self) -> int:
+        return self.msg['snr']
+
+    def get_typ(self) -> str:
+        return self.msg['typ']
+
+    def get_target(self) -> str:
+        return self.msg['target']
+
+    def get_obj(self) -> str:
+        return self.msg['obj']
+
+    def get_payload(self) -> str:
+        return self.msg['payload']
+
+    def get_rc(self) -> int:
+        return self.msg['rc']
