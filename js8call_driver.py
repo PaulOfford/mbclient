@@ -17,7 +17,7 @@ import select
 
 js8call_addr = ('127.0.0.1', 2442)
 debug = False
-mock = False
+mock = True
 
 
 class Js8CallApi:
@@ -59,6 +59,8 @@ class Js8CallApi:
             logmsg(5, 'js8drv: recv: ' + str(content))
 
             if content:
+                # remove the terminator
+                content = content.replace(bytes('♢', 'utf8'), bytes('', 'utf8'))
                 # we have to tidy the content in case there are multiple responses in a single socket recv
                 content = content.replace(bytes('}\n{', 'utf8'), bytes('},{', 'utf8'))
                 content = bytes('[', 'utf8') + content

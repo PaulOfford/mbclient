@@ -1,9 +1,9 @@
 import re
+import time
 
 from settings import *
 from message_q import *
 from logging import *
-from time import sleep
 
 class MbRspProcessors:
 
@@ -58,7 +58,7 @@ class MbRspProcessors:
         notify = B2fMessage(self.b2f_q)
         notify.signal_reload('qso')
 
-    def process_listing(self, req: list):
+    def process_listing(self, req: list, is_extended=False):
 
         # the req list has source station [0], destination station [1],
         # + or - for good or bad response [2], the original command [3],
@@ -68,9 +68,16 @@ class MbRspProcessors:
         qso_table = DbTable('qso')
         rsp_lines = str(req[5]).split('\n')  # this is the list output
         for line in rsp_lines:
-            details = re.findall(r"(\d+) - ([\S\s]+)", line)
-            self.post_id = int(details[0][0])
-            self.title = details[0][1]
+            if is_extended:
+                details = re.findall(r"(\d+) - (\d{4}-\d{2}-\d{2}) - ([\S\s]+)", line)
+                self.post_id = int(details[0][0])
+                date_string = details[0][1]
+                self.post_date = time.mktime(time.strptime(details[0][1], "%Y-%m-%d"))
+                self.title = details[0][2]
+            else:
+                details = re.findall(r"(\d+) - ([\S\s]+)", line)
+                self.post_id = int(details[0][0])
+                self.title = details[0][1]
             qso_table = DbTable('qso')
             db_values = qso_table.select(limit=1, hdr_list=self.qso_fields)
             for row in db_values:
@@ -91,12 +98,15 @@ class MbRspProcessors:
             notify = B2fMessage(self.b2f_q)
             notify.signal_reload('qso')
 
+    def process_extended(self, req: list):
+        self.process_listing(req, True)
+
     def parse_rx_message(self, mb_rsp_string: str):
         rsp_patterns = [
             {'exp': "^(\\S+): +(\\S+) +([+-])(L)([\\d,]*)~\n([\\S\\s]+)", 'proc': 'process_listing'},
             {'exp': "^(\\S+): +(\\S+) +([+-])([LM][EG])(\\d*)~\n([\\S\\s]+)", 'proc': 'process_listing'},
-            {'exp': "^(\\S+): +(\\S+) +([+-])(E)([\\d,]*)~\n([\\S\\s]+)", 'proc': 'process_listing'},
-            {'exp': "^(\\S+): +(\\S+) +([+-])([EF][EG])(\\d*)~\n([\\S\\s]+)", 'proc': 'process_listing'},
+            {'exp': "^(\\S+): +(\\S+) +([+-])(E)([\\d,]*)~\n([\\S\\s]+)", 'proc': 'process_extended'},
+            {'exp': "^(\\S+): +(\\S+) +([+-])([EF][EG])(\\d*)~\n([\\S\\s]+)", 'proc': 'process_extended'},
             {'exp': "^(\\S+): +(\\S+) +([+-])(G)(\\d+)~\n([\\S\\s]+)", 'proc': 'process_post'}
         ]
         for entry in rsp_patterns:
@@ -435,7 +445,7 @@ class Backend:
         while True:
             # check for f2b message and process
             self.proc.check_for_msg()
-            sleep(0.5)  # we need this else the backend thread hogs the cpu
+            time.sleep(0.5)  # we need this else the backend thread hogs the cpu
     
             # check for js8call message
     
