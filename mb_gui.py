@@ -1,13 +1,10 @@
-import queue
 import tkinter as tk
 import tkinter.font as font
 import locale
 import functools as ft
 import re
 
-import logging
 from settings import *
-from status import *
 from message_q import *
 
 root = tk.Tk()

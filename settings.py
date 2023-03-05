@@ -29,6 +29,6 @@ class Settings:
         self.max_qsos = db_values[0]['max_qsos']
         self.max_blogs = db_values[0]['max_blogs']
 
-# ToDo: pivot this table to contain one row per setting; each row a key/value pair
 
+# ToDo: pivot this table to contain one row per setting; each row a key/value pair
 settings = Settings()

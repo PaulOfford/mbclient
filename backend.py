@@ -1,9 +1,9 @@
 import re
-import time
 
 from settings import *
 from message_q import *
 from logging import *
+
 
 class MbRspProcessors:
 
@@ -25,7 +25,7 @@ class MbRspProcessors:
     title = ''
     body = ''
 
-    # we use __init__ to preload some of the meta data we will need to create a qso entry
+    # we use __init__ to preload some metadata we will need to create a qso entry
     def __init__(self, js8_msg, b2f_q: queue.Queue):
         self.b2f_q = b2f_q
         self.mb_status = Status()
@@ -65,13 +65,11 @@ class MbRspProcessors:
         # a post_id or post_date or list of dates [4], and list entries separated by \n character [5]
 
         # push the data into the database
-        qso_table = DbTable('qso')
         rsp_lines = str(req[5]).split('\n')  # this is the list output
         for line in rsp_lines:
             if is_extended:
                 details = re.findall(r"(\d+) - (\d{4}-\d{2}-\d{2}) - ([\S\s]+)", line)
                 self.post_id = int(details[0][0])
-                date_string = details[0][1]
                 self.post_date = time.mktime(time.strptime(details[0][1], "%Y-%m-%d"))
                 self.title = details[0][2]
             else:
@@ -275,7 +273,7 @@ class BeProcessor:
 
     @staticmethod
     def get_posts_tail(blog: str, station: str):
-        fields = ['latest_post_id','latest_post_date']
+        fields = ['latest_post_id', 'latest_post_date']
 
         blogs_table = DbTable('blogs')
         db_values = blogs_table.select(order_by='latest_post_id', desc=True, limit=1,
@@ -381,7 +379,7 @@ class BeProcessor:
     def process_mb_rsp(self, comms_msg: dict):
         processor = MbRspProcessors(comms_msg, self.b2f_q)
         # check to see if this is a listing, extended listing or post and process accordingly
-        blahblah = processor.parse_rx_message(comms_msg['payload'])
+        processor.parse_rx_message(comms_msg['payload'])
 
     def process_mb_notify(self, comms_msg: dict):
         pass

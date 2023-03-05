@@ -1,6 +1,5 @@
 import threading
 
-import logging
 from mb_gui import *
 from backend import *
 from js8call_driver import *

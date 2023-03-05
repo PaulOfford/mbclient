@@ -17,7 +17,7 @@ import select
 
 js8call_addr = ('127.0.0.1', 2442)
 debug = False
-mock = True
+mock = False
 
 
 class Js8CallApi:
