@@ -9,6 +9,7 @@ from socket import socket, AF_INET, SOCK_STREAM
 import message_q
 from logging import *
 from message_q import *
+from client_mocking import js8call_mock_listen
 
 import json
 import time
@@ -16,6 +17,7 @@ import select
 
 js8call_addr = ('127.0.0.1', 2442)
 debug = False
+mock = False
 
 
 class Js8CallApi:
@@ -160,8 +162,11 @@ class Js8CallDriver:
                 # process messages from the backend
                 self.process_tx_q()
 
-                # process messages from Js8Call
-                messages = self.js8call_api.listen()
+                if mock:
+                    messages = js8call_mock_listen()
+                else:
+                    # process messages from Js8Call
+                    messages = self.js8call_api.listen()
 
                 for message in messages:
                     logmsg(1, 'js8drv: recv: ' + str(message))

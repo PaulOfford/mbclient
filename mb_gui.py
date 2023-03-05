@@ -131,7 +131,7 @@ class GuiHeader:
 
     def set_frequency(self):
         locale.setlocale(locale.LC_ALL, 'fr')
-        field = [{'db_col': 'radio_frequency'}]
+        field = ['radio_frequency']
         status_table = DbTable('status')
         db_values = status_table.select(
             where=None, order_by=None, desc=False,
@@ -142,7 +142,7 @@ class GuiHeader:
         self.freq_text.set(freq_str)
 
     def set_offset(self):
-        field = [{'db_col': 'offset'}]
+        field = ['offset']
         status_table = DbTable('status')
         db_values = status_table.select(
             where=None, order_by=None, desc=False,
@@ -152,7 +152,7 @@ class GuiHeader:
         self.offset_text.set(str(db_values[0]['offset']) + ' Hz')
 
     def set_callsign(self):
-        field = [{'db_col': 'callsign'}]
+        field = ['callsign']
         status_table = DbTable('status')
         db_values = status_table.select(
             where=None, order_by=None, desc=False,
@@ -171,11 +171,7 @@ class GuiLatestPosts:
 
     latest_box = None
 
-    latest_cols = [
-        {'db_col': 'qso_date'},
-        {'db_col': 'blog'},
-        {'db_col': 'title'},
-    ]
+    latest_cols = ['qso_date', 'blog', 'title']
 
     def __init__(self, frame: tk.Frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
         latest_list_hdr = tk.Label(
@@ -232,18 +228,8 @@ class GuiQsoBox:
 
     prev_is_listing = False
 
-    qso_cols = [
-        {'db_col': 'qso_date'},
-        {'db_col': 'type'},
-        {'db_col': 'blog'},
-        {'db_col': 'station'},
-        {'db_col': 'cmd'},
-        {'db_col': 'rsp'},
-        {'db_col': 'post_id'},
-        {'db_col': 'post_date'},
-        {'db_col': 'title'},
-        {'db_col': 'body'},
-    ]
+    qso_cols = ['qso_date', 'type', 'blog', 'station', 'cmd', 'rsp', 'post_id', 'post_date', 'title',
+                'body']
 
     def __init__(self, frame: tk.Frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
 
@@ -523,8 +509,13 @@ class GuiBlogList:
                 blog['widget'].delete(1.0, tk.END)
 
         blogs_table = DbTable('blogs')
+
+        fields = []
+        for field in self.blog_list_headers:
+            fields.append(field['db_col'])
+
         db_values = blogs_table.select(order_by='last_seen_date', desc=True, limit=30,
-                                       hdr_list=self.blog_list_headers)
+                                       hdr_list=fields)
 
         for row, db_row in enumerate(db_values):
             for col, col_name in enumerate(list(db_row)):

@@ -1,26 +1,126 @@
+import re
+
 from settings import *
 from message_q import *
 from logging import *
 from time import sleep
 
+class MbRspProcessors:
+
+    qso_fields = ['qso_date', 'type', 'blog', 'station', 'directed_to', 'frequency',
+                  'offset', 'cmd', 'rsp', 'post_id', 'post_date', 'title', 'body']
+
+    mb_status = None
+    qso_date = 0
+    blog = ''
+    station = ''
+    directed_to = ''
+    frequency = 0
+    offset = 0
+    snr = 0
+    cmd = ''
+    rsp = ''
+    post_id = 0
+    post_date = 0
+    title = ''
+    body = ''
+
+    # we use __init__ to preload some of the meta data we will need to create a qso entry
+    def __init__(self, js8_msg, b2f_q: queue.Queue):
+        self.b2f_q = b2f_q
+        self.mb_status = Status()
+        self.qso_date = js8_msg['ts']
+        self.station = js8_msg['source']
+        self.directed_to = js8_msg['destination']
+        self.frequency = js8_msg['frequency']
+        self.offset = js8_msg['offset']
+        self.snr = js8_msg['snr']
+
+    def qso_append_error(self, cli_input: str, rsp_text: str):
+        self.mb_status.reload_status()
+        qso_table = DbTable('qso')
+        db_values = qso_table.select(limit=1, hdr_list=self.qso_fields)
+        for row in db_values:
+            row['qso_date'] = self.qso_date
+            row['type'] = 'cmd'
+            row['blog'] = self.blog
+            row['station'] = self.station
+            row['directed_to'] = self.directed_to
+            row['frequency'] = self.frequency
+            row['offset'] = self.offset
+            row['cmd'] = cli_input
+            row['rsp'] = rsp_text
+            row['post_id'] = 0
+            row['post_date'] = 0
+            row['title'] = ''
+            row['body'] = ''
+            qso_table.insert(row)
+        notify = B2fMessage(self.b2f_q)
+        notify.signal_reload('qso')
+
+    def process_listing(self, req: list):
+
+        # the req list has source station [0], destination station [1],
+        # + or - for good or bad response [2], the original command [3],
+        # a post_id or post_date or list of dates [4], and list entries separated by \n character [5]
+
+        # push the data into the database
+        qso_table = DbTable('qso')
+        rsp_lines = str(req[5]).split('\n')  # this is the list output
+        for line in rsp_lines:
+            details = re.findall(r"(\d+) - ([\S\s]+)", line)
+            self.post_id = int(details[0][0])
+            self.title = details[0][1]
+            qso_table = DbTable('qso')
+            db_values = qso_table.select(limit=1, hdr_list=self.qso_fields)
+            for row in db_values:
+                row['qso_date'] = self.qso_date
+                row['type'] = 'listing'
+                row['blog'] = self.station
+                row['station'] = self.station
+                row['directed_to'] = self.directed_to
+                row['frequency'] = self.frequency
+                row['offset'] = self.offset
+                row['cmd'] = self.cmd
+                row['rsp'] = self.rsp
+                row['post_id'] = self.post_id
+                row['post_date'] = self.post_date
+                row['title'] = self.title
+                row['body'] = self.body
+                qso_table.insert(row)
+            notify = B2fMessage(self.b2f_q)
+            notify.signal_reload('qso')
+
+    def parse_rx_message(self, mb_rsp_string: str):
+        rsp_patterns = [
+            {'exp': "^(\\S+): +(\\S+) +([+-])(L)([\\d,]*)~\n([\\S\\s]+)", 'proc': 'process_listing'},
+            {'exp': "^(\\S+): +(\\S+) +([+-])([LM][EG])(\\d*)~\n([\\S\\s]+)", 'proc': 'process_listing'},
+            {'exp': "^(\\S+): +(\\S+) +([+-])(E)([\\d,]*)~\n([\\S\\s]+)", 'proc': 'process_listing'},
+            {'exp': "^(\\S+): +(\\S+) +([+-])([EF][EG])(\\d*)~\n([\\S\\s]+)", 'proc': 'process_listing'},
+            {'exp': "^(\\S+): +(\\S+) +([+-])(G)(\\d+)~\n([\\S\\s]+)", 'proc': 'process_post'}
+        ]
+        for entry in rsp_patterns:
+            # try to match the request
+            result = re.findall(entry['exp'], mb_rsp_string)
+            if len(result) == 0:
+                continue
+            else:
+                result = result[0]  # pull the result out of the list
+                self.cmd = f"{result[2]}{result[3]}{result[4]}~"
+                # process if the result was positive
+                if result[2] == '+':
+                    mb_rsp = getattr(MbRspProcessors, entry['proc'])(self, result)
+                else:
+                    self.mb_status.reload_status()
+                    if result[1] == self.mb_status.callsign:  # we only need to show an error if this rsp was for us
+                        self.qso_append_error(f"{result[2]}{result[3]}{result[4]}~", f"{result[5]}")
+                break
+
 
 class BeProcessor:
 
-    qso_fields = [
-        {'db_col': 'qso_date'},
-        {'db_col': 'type'},
-        {'db_col': 'blog'},
-        {'db_col': 'station'},
-        {'db_col': 'directed_to'},
-        {'db_col': 'frequency'},
-        {'db_col': 'offset'},
-        {'db_col': 'cmd'},
-        {'db_col': 'rsp'},
-        {'db_col': 'post_id'},
-        {'db_col': 'post_date'},
-        {'db_col': 'title'},
-        {'db_col': 'body'},
-    ]
+    qso_fields = ['qso_date', 'type', 'blog', 'station', 'directed_to', 'frequency',
+                  'offset', 'cmd', 'rsp', 'post_id', 'post_date', 'title', 'body']
 
     f2b_q = None
     b2f_q = None
@@ -165,10 +265,7 @@ class BeProcessor:
 
     @staticmethod
     def get_posts_tail(blog: str, station: str):
-        fields = [
-            {'db_col': 'latest_post_id'},
-            {'db_col': 'latest_post_date'},
-        ]
+        fields = ['latest_post_id','latest_post_date']
 
         blogs_table = DbTable('blogs')
         db_values = blogs_table.select(order_by='latest_post_id', desc=True, limit=1,
@@ -272,7 +369,9 @@ class BeProcessor:
             exit(0)
 
     def process_mb_rsp(self, comms_msg: dict):
-        pass
+        processor = MbRspProcessors(comms_msg, self.b2f_q)
+        # check to see if this is a listing, extended listing or post and process accordingly
+        blahblah = processor.parse_rx_message(comms_msg['payload'])
 
     def process_mb_notify(self, comms_msg: dict):
         pass

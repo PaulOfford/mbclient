@@ -3,22 +3,9 @@ from db_table import *
 
 
 class Status:
-    status_cols = [
-        {'db_col': 'last_checked'},
-        {'db_col': 'hdr_updated'},
-        {'db_col': 'latest_updated'},
-        {'db_col': 'qso_updated'},
-        {'db_col': 'cli_updated'},
-        {'db_col': 'blogs_updated'},
-        {'db_col': 'radio_frequency'},
-        {'db_col': 'user_frequency'},
-        {'db_col': 'offset'},
-        {'db_col': 'is_scanning'},
-        {'db_col': 'req_outstanding'},
-        {'db_col': 'callsign'},
-        {'db_col': 'selected_blog'},
-        {'db_col': 'selected_station'},
-    ]
+    status_cols = ['last_checked', 'hdr_updated', 'latest_updated', 'qso_updated', 'cli_updated', 'blogs_updated',
+                   'radio_frequency', 'user_frequency', 'offset', 'is_scanning', 'req_outstanding', 'callsign',
+                   'selected_blog', 'selected_station']
 
     last_checked = 0  # timestamp of the last time we checked for updates
     hdr_updated = 0

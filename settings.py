@@ -2,14 +2,7 @@ from db_table import *
 
 
 class Settings:
-    settings_cols = [
-        {'db_col': 'startup_width'},
-        {'db_col': 'startup_height'},
-        {'db_col': 'font_size'},
-        {'db_col': 'max_latest'},
-        {'db_col': 'max_qsos'},
-        {'db_col': 'max_blogs'},
-    ]
+    settings_cols = ['startup_width', 'startup_height', 'font_size', 'max_latest', 'max_qsos', 'max_blogs']
     startup_width = None
     startup_height = None
     startup_dimensions = None

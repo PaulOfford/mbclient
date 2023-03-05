@@ -38,7 +38,7 @@ class DbTable:
         for i, hdr_col in enumerate(hdr_list):
             if i > 0:
                 select_cols += ','
-            select_cols += f" {hdr_col['db_col']}"
+            select_cols += f" {hdr_col}"
 
         query = f"SELECT {select_cols} FROM {self.table}"
         if where:
@@ -63,7 +63,7 @@ class DbTable:
         # convert the list of tuples to a list of dictionaries based on the self.col_names values
         for y, row in enumerate(list_of_tuples):
             for x, col in enumerate(hdr_list):
-                abc = f"{col['db_col']}"
+                abc = f"{col}"
                 result[y][abc] = row[x]
 
         return result
@@ -99,7 +99,7 @@ class DbTable:
                 values += f", "
 
             if isinstance(row[column], str):
-                temp = row[column].replace("'", "''")
+                temp = row[column].replace("'", "''")  # double quote any quotes in the string
                 values += f"'{temp}'"
             else:
                 values += f"{row[column]}"
