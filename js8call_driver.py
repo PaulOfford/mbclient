@@ -61,6 +61,7 @@ class Js8CallApi:
             if content:
                 # remove the terminator
                 content = content.replace(bytes('♢', 'utf8'), bytes('', 'utf8'))
+                content = content.replace(bytes("  '}", 'utf8'), bytes("'}", 'utf8'))
                 # we have to tidy the content in case there are multiple responses in a single socket recv
                 content = content.replace(bytes('}\n{', 'utf8'), bytes('},{', 'utf8'))
                 content = bytes('[', 'utf8') + content

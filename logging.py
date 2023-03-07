@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 mb_revision = '8'
 msg_terminator = '♢'
 
-current_log_level = 2
+current_log_level = 5
 
 def logmsg(log_level, msg_text):
     if log_level <= current_log_level:

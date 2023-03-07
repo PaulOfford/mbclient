@@ -197,7 +197,8 @@ class GuiLatestPosts:
         status = Status()
 
         qso_table = DbTable('qso')
-        db_values = qso_table.select(where=f"directed_to!='{status.callsign}'", order_by='qso_date', desc=True,
+        db_values = qso_table.select(where=f"directed_to!='{status.callsign}' AND title IS NOT ''",
+                                     order_by='qso_date', desc=True,
                                      limit=settings.max_latest, hdr_list=self.latest_cols)
 
         self.latest_box.configure(state=tk.NORMAL)
@@ -260,7 +261,7 @@ class GuiQsoBox:
                 else:
                     p_date = None
 
-                qso_string += f"{q_date} {r['blog']} #{r['post_id']}"
+                qso_string += f"\n{q_date} {r['blog']} +{r['cmd']}"
                 if p_date:
                     qso_string += f" {p_date}"
                 if len(r['title']):

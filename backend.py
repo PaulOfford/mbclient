@@ -99,6 +99,43 @@ class MbRspProcessors:
     def process_extended(self, req: list):
         self.process_listing(req, True)
 
+    def process_post(self, req: list):
+        # push the data into the database
+        qso_table = DbTable('qso')
+
+        # do we have the title for this blog
+        self.post_id = int(req[4])
+        db_values = qso_table.select(where=f"blog='{self.blog}' AND post_id={self.post_id} AND title IS NOT ''",
+                                     limit=1, hdr_list=['title'])
+        for row in db_values:
+            self.title = row['title']
+
+        # do we have the date for this blog
+        self.post_id = int(req[4])
+        db_values = qso_table.select(where=f"blog='{self.blog}' AND post_id={self.post_id} AND post_date > 0",
+                                     limit=1, hdr_list=['post_date'])
+        for row in db_values:
+            self.title = int(row['post_date'])
+
+        db_values = qso_table.select(limit=1, hdr_list=self.qso_fields)
+        for row in db_values:
+            row['qso_date'] = self.qso_date
+            row['type'] = 'post'
+            row['blog'] = self.station
+            row['station'] = self.station
+            row['directed_to'] = self.directed_to
+            row['frequency'] = self.frequency
+            row['offset'] = self.offset
+            row['cmd'] = f'{req[3]}{req[4]}~'
+            row['rsp'] = self.rsp
+            row['post_id'] = int(req[4])
+            row['post_date'] = 0
+            row['title'] = ''
+            row['body'] = req[5]
+            qso_table.insert(row)
+        # notify = B2fMessage(self.b2f_q)
+        # notify.signal_reload('qso')
+
     def parse_rx_message(self, mb_rsp_string: str):
         rsp_patterns = [
             {'exp': "^(\\S+): +(\\S+) +([+-])(L)([\\d,]*)~\n([\\S\\s]+)", 'proc': 'process_listing'},
@@ -380,8 +417,16 @@ class BeProcessor:
         processor = MbRspProcessors(comms_msg, self.b2f_q)
         # check to see if this is a listing, extended listing or post and process accordingly
         processor.parse_rx_message(comms_msg['payload'])
+        notify = B2fMessage(self.b2f_q)
+        notify.signal_reload('qso')
 
     def process_mb_notify(self, comms_msg: dict):
+        # ToDo: we should only insert an entry in qso if we don't have an entry already
+        processor = MbRspProcessors(comms_msg, self.b2f_q)
+        # check to see if this is a listing, extended listing or post and process accordingly
+        processor.parse_rx_message(comms_msg['payload'])
+        notify = B2fMessage(self.b2f_q)
+        notify.signal_reload('latest')
         pass
 
     def process_status_radio_frequency(self, comms_msg: dict):
