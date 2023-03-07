@@ -51,7 +51,7 @@ class Js8CallApi:
     def listen(self):
         # the following block of code provides a socket recv with a 10-second timeout
         # we need this so that we call the @MB announcement code periodically
-        messages = [{}]
+        messages = []
         self.sock.setblocking(False)
         ready = select.select([self.sock], [], [], 0.5)
         if ready[0]:
@@ -70,6 +70,9 @@ class Js8CallApi:
                     messages = json.loads(content)
                 except ValueError:
                     pass
+            else:
+                self.connected = False
+                logmsg(1, 'js8drv: ctrl: Connection to JS8Call has closed')
 
         return messages  # we return a list of messages, typically with a length of one
 
