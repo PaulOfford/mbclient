@@ -4,19 +4,33 @@ import time
 sample_msgs = [
     {
         'params': {
-            'CMD': ' ', 'DIAL': 14078010, 'EXTRA': '', 'FREQ': 14079645,
-            'FROM': 'M0PXO', 'GRID': '',
-            'OFFSET': 1635, 'SNR': 2, 'SPEED': 0, 'TDRIFT': 1.5,
-            'TEXT': 'M0PXO: M7PJO  +L30~\n'
-                    '30 - OHIO TRAIN DERAILMENT DETAILS',
-            'TO': 'M7PJO',
-            'UTC': 1678215129000,
+            'CMD': ' HEARTBEAT', 'DIAL': 14078010, 'EXTRA': '', 'FREQ': 14078697,
+            'FROM': 'YJ9MX5IVS', 'GRID': 'RF77',
+            'OFFSET': 687, 'SNR': -20, 'SPEED': 1,
+            'TDRIFT': -1.5,
+            'TEXT': 'YJ9MX5IVS: @MB AUSNEW 407 2023-03-08 12:34',
+            'TO': '@MB',
+            'UTC': 1677341768425,
             '_ID': -1
         },
         'type': 'RX.DIRECTED',
-        'value': 'M0PXO: M7PJO  +L30~\n'
-            '30 - OHIO TRAIN DERAILMENT DETAILS'
+        'value': 'YJ9MX5IVS: @MB AUSNEW 407 2023-03-08 12:34'
     },
+    # {
+    #     'params': {
+    #         'CMD': ' ', 'DIAL': 14078010, 'EXTRA': '', 'FREQ': 14079645,
+    #         'FROM': 'M0PXO', 'GRID': '',
+    #         'OFFSET': 1635, 'SNR': 2, 'SPEED': 0, 'TDRIFT': 1.5,
+    #         'TEXT': 'M0PXO: M7PJO  +L30~\n'
+    #                 '30 - OHIO TRAIN DERAILMENT DETAILS',
+    #         'TO': 'M7PJO',
+    #         'UTC': 1678215129000,
+    #         '_ID': -1
+    #     },
+    #     'type': 'RX.DIRECTED',
+    #     'value': 'M0PXO: M7PJO  +L30~\n'
+    #         '30 - OHIO TRAIN DERAILMENT DETAILS'
+    # },
     # {
     #     'params': {
     #         'CMD': ' ', 'DIAL': 14078010, 'EXTRA': '', 'FREQ': 14079645,

@@ -74,10 +74,10 @@ class Status:
 
     def set_cli_updated(self):
         status_table = DbTable('status')
-        status_table.update(value_dictionary={'qso_updated': time.time()})
+        status_table.update(value_dictionary={'cli_updated': time.time()})
         self.reload_status()
 
     def set_blogs_updated(self):
         status_table = DbTable('status')
-        status_table.update(value_dictionary={'qso_updated': time.time()})
+        status_table.update(value_dictionary={'blogs_updated': time.time()})
         self.reload_status()

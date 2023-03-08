@@ -523,8 +523,12 @@ class GuiBlogList:
                 if self.blog_list_headers[col]['type'] == 'Int':
                     value = str(db_row[col_name]) + self.blog_list_headers[col]['suffix']
                 elif self.blog_list_headers[col]['type'] == 'Date':
-                    value = time.strftime("%Y-%m-%d %H:%M", time.gmtime(db_row[col_name]))\
-                            + self.blog_list_headers[col]['suffix']
+                    if int(db_row[col_name]) > 0:
+                        value = time.strftime(
+                            "%Y-%m-%d %H:%M", time.gmtime(db_row[col_name])
+                        ) + self.blog_list_headers[col]['suffix']
+                    else:
+                        value = 'unknown'
                 else:
                     value = db_row[col_name] + self.blog_list_headers[col]['suffix']
 

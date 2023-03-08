@@ -58,6 +58,31 @@ class MbRspProcessors:
         notify = B2fMessage(self.b2f_q)
         notify.signal_reload('qso')
 
+    def process_announcement(self, req: list):
+        station = req[0]
+        blog = req[2]
+        post_id = req[3]
+        latest_post_date = time.mktime(time.strptime(req[4], "%Y-%m-%d %H:%M"))
+        mb_status = Status()
+        # do we have a blog entry for this blog at this station
+        blogs_table = DbTable('blogs')
+        results = blogs_table.select(
+            where=f"blog='{blog}' AND station='{station}'",
+            limit=1, hdr_list=['latest_post_id']
+        )
+        if len(results) > 0:
+            columns = results[0]
+        else:
+            # no existing blogs entry so create one
+            blogs_table.insert(
+                row={'blog': blog, 'station': station, 'frequency': self.frequency,
+                     'snr': self.snr, 'capabilities': 'LEG', 'post_id': post_id,
+                     'latest_post_date': latest_post_date, 'last_seen_date': time.time(),
+                     'is_selected': 0}
+            )
+        notify = B2fMessage(self.b2f_q)
+        notify.signal_reload('blogs')
+
     def process_listing(self, req: list, is_extended=False):
 
         # the req list has source station [0], destination station [1],
@@ -138,6 +163,8 @@ class MbRspProcessors:
 
     def parse_rx_message(self, mb_rsp_string: str):
         rsp_patterns = [
+            {'exp': "^([A-Z,0-9]+): +(@)MB +([A-Z,0-9]*) +(\\d+) +(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2})",
+             'proc': 'process_announcement'},
             {'exp': "^(\\S+): +(\\S+) +([+-])(L)([\\d,]*)~\n([\\S\\s]+)", 'proc': 'process_listing'},
             {'exp': "^(\\S+): +(\\S+) +([+-])([LM][EG])(\\d*)~\n([\\S\\s]+)", 'proc': 'process_listing'},
             {'exp': "^(\\S+): +(\\S+) +([+-])(E)([\\d,]*)~\n([\\S\\s]+)", 'proc': 'process_extended'},
@@ -151,9 +178,11 @@ class MbRspProcessors:
                 continue
             else:
                 result = result[0]  # pull the result out of the list
-                self.cmd = f"{result[2]}{result[3]}{result[4]}~"
                 # process if the result was positive
                 if result[2] == '+':
+                    self.cmd = f"{result[2]}{result[3]}{result[4]}~"
+                    mb_rsp = getattr(MbRspProcessors, entry['proc'])(self, result)
+                elif result[1] == '@':
                     mb_rsp = getattr(MbRspProcessors, entry['proc'])(self, result)
                 else:
                     self.mb_status.reload_status()
