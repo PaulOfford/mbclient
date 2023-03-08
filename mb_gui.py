@@ -443,7 +443,7 @@ class GuiBlogList:
          'text': 'Latest\nPost Date', 'widget': tk.Button()},
         {'db_col': 'latest_post_id', 'type': 'Int', 'suffix': '', 'width': 8,
          'text': 'Latest\nPost ID', 'widget': tk.Button()},
-        {'db_col': 'last_seen_date', 'type': 'Date', 'suffix': '', 'width': 14,
+        {'db_col': 'last_seen_date', 'type': 'DateTime', 'suffix': '', 'width': 14,
          'text': 'Last Seen', 'widget': tk.Button()},
         {'db_col': 'is_selected', 'db_type': 'Int', 'suffix': '', 'width': 0,
          'text': None, 'widget': tk.Button()},
@@ -523,6 +523,14 @@ class GuiBlogList:
                 if self.blog_list_headers[col]['type'] == 'Int':
                     value = str(db_row[col_name]) + self.blog_list_headers[col]['suffix']
                 elif self.blog_list_headers[col]['type'] == 'Date':
+                    if int(db_row[col_name]) > 0:
+                        value = time.strftime(
+                            "%Y-%m-%d", time.gmtime(db_row[col_name])
+                        ) + self.blog_list_headers[col]['suffix']
+                    else:
+                        value = 'unknown'
+
+                elif self.blog_list_headers[col]['type'] == 'DateTime':
                     if int(db_row[col_name]) > 0:
                         value = time.strftime(
                             "%Y-%m-%d %H:%M", time.gmtime(db_row[col_name])

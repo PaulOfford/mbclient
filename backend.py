@@ -62,7 +62,7 @@ class MbRspProcessors:
         station = req[0]
         blog = req[2]
         post_id = req[3]
-        latest_post_date = time.mktime(time.strptime(req[4], "%Y-%m-%d %H:%M"))
+        latest_post_date = time.mktime(time.strptime(req[4], "%Y-%m-%d"))
         mb_status = Status()
         # do we have a blog entry for this blog at this station
         blogs_table = DbTable('blogs')
@@ -163,7 +163,7 @@ class MbRspProcessors:
 
     def parse_rx_message(self, mb_rsp_string: str):
         rsp_patterns = [
-            {'exp': "^([A-Z,0-9]+): +(@)MB +([A-Z,0-9]*) +(\\d+) +(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2})",
+            {'exp': "^([A-Z,0-9]+): +(@)MB +([A-Z,0-9]*) +(\\d+) +(\\d{4}-\\d{2}-\\d{2})",
              'proc': 'process_announcement'},
             {'exp': "^(\\S+): +(\\S+) +([+-])(L)([\\d,]*)~\n([\\S\\s]+)", 'proc': 'process_listing'},
             {'exp': "^(\\S+): +(\\S+) +([+-])([LM][EG])(\\d*)~\n([\\S\\s]+)", 'proc': 'process_listing'},
