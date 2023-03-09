@@ -132,7 +132,7 @@ class MbRspProcessors:
             for row in db_values:
                 row['qso_date'] = self.qso_date
                 row['type'] = 'listing'
-                row['blog'] = self.station
+                row['blog'] = self.blog
                 row['station'] = self.station
                 row['directed_to'] = self.directed_to
                 row['frequency'] = self.frequency
@@ -146,6 +146,7 @@ class MbRspProcessors:
                 qso_table.insert(row)
             notify = B2fMessage(self.b2f_q)
             notify.signal_reload('qso')
+            self.update_blog_list(self.blog, self.station, self.post_id, self.post_date)
 
     def process_extended(self, req: list):
         self.process_listing(req, True)
@@ -172,7 +173,7 @@ class MbRspProcessors:
         for row in db_values:
             row['qso_date'] = self.qso_date
             row['type'] = 'post'
-            row['blog'] = self.station
+            row['blog'] = self.blog
             row['station'] = self.station
             row['directed_to'] = self.directed_to
             row['frequency'] = self.frequency
@@ -204,6 +205,9 @@ class MbRspProcessors:
                 continue
             else:
                 result = result[0]  # pull the result out of the list
+                self.station = result[0]
+                # ToDo: the following line must be changed once we implement the blog namespace
+                self.blog = result[0]
                 # process if the result was positive
                 if result[2] == '+':
                     self.cmd = f"{result[2]}{result[3]}{result[4]}~"
