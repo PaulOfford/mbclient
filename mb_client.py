@@ -66,6 +66,7 @@ class MbClient:
     def client_shutdown(self):
         be_sig = F2bMessage()
         be_sig.set_cmd('X')
+        be_sig.set_cli_input('MB Client Shutdown')
         be_sig.set_op('exit')
         self.f2b_q.put(be_sig.msg)
         comms_sig = CommsMsg(self.comms_tx_q)
