@@ -8,11 +8,11 @@ sample_msgs = [
             'FROM': 'M0PXO', 'GRID': ' JO01',
             'OFFSET': 1652, 'SNR': -1, 'SPEED': 1,
             'TDRIFT': 1.2999999523162842,
-            'TEXT': 'M0PXO: @MB  M0PXO 29 2023-01-27  ',
+            'TEXT': 'M0PXO: @MB  M0PXO 30 2023-02-12  ',
             'TO': '@MB', 'UTC': 1678314667724, '_ID': -1
         },
         'type': 'RX.DIRECTED',
-        'value': 'M0PXO: @MB  M0PXO 29 2023-01-27  '
+        'value': 'M0PXO: @MB  M0PXO 30 2023-02-12  '
     },
     # {
     #     'params': {

@@ -36,6 +36,49 @@ class MbRspProcessors:
         self.offset = js8_msg['offset']
         self.snr = js8_msg['snr']
 
+    def update_blog_list(self, blog: str, station: str, post_id: int, post_date: float = 0):
+        # do we have a blog entry for this blog at this station
+        blogs_table = DbTable('blogs')
+        results = blogs_table.select(
+            where=f"blog='{blog}' AND station='{station}'",
+            limit=1, hdr_list=['latest_post_id', 'latest_post_date']
+        )
+        if len(results) > 0:
+            latest_post_id = results[0]['latest_post_id']
+
+            # Although the post_id in an @MB Announcement should always be the latest, if we are updating
+            # the blog details based on other details, we only want to do that if the post ID in that message
+            # is later than or equal to that of the existing blog list entry.
+            # We need to cover the equal to variant in case we don't have the latest_post_date in the current
+            # blog list entry, but we do have that detail in the message we are handling.
+            if post_id >= latest_post_id:
+                # update the existing entry
+                blogs_table.update(
+                    value_dictionary={
+                        'latest_post_id': post_id,
+                        'latest_post_date': post_date,
+                        'last_seen_date': time.time()
+                    },
+                    where=f"blog='{blog}' AND station='{station}'"
+                )
+            else:
+                blogs_table.update(
+                    value_dictionary={
+                        'last_seen_date': time.time()
+                    },
+                    where=f"blog='{blog}' AND station='{station}'"
+                )
+        else:
+            # no existing blogs entry so create one
+            blogs_table.insert(
+                row={'blog': blog, 'station': station, 'frequency': self.frequency,
+                     'snr': self.snr, 'capabilities': 'LEG', 'post_id': post_id,
+                     'latest_post_date': post_date, 'last_seen_date': time.time(),
+                     'is_selected': 0}
+            )
+        notify = B2fMessage(self.b2f_q)
+        notify.signal_reload('blogs')
+
     def qso_append_error(self, cli_input: str, rsp_text: str):
         self.mb_status.reload_status()
         qso_table = DbTable('qso')
@@ -61,36 +104,10 @@ class MbRspProcessors:
     def process_announcement(self, req: list):
         station = req[0]
         blog = req[2]
-        announcement_post_id = req[3]
+        announcement_post_id = int(req[3])
         announcement_post_date = time.mktime(time.strptime(req[4], "%Y-%m-%d"))
-        mb_status = Status()
-        # do we have a blog entry for this blog at this station
-        blogs_table = DbTable('blogs')
-        results = blogs_table.select(
-            where=f"blog='{blog}' AND station='{station}'",
-            limit=1, hdr_list=['latest_post_id', 'latest_post_date']
-        )
-        if len(results) > 0:
-            columns = results[0]
-            # update the existing entry
-            blogs_table.update(
-                value_dictionary={
-                    'latest_post_id': announcement_post_id,
-                    'latest_post_date': announcement_post_date,
-                    'last_seen_date': time.time()
-                },
-                where=f"blog='{blog}' AND station='{station}'"
-            )
-        else:
-            # no existing blogs entry so create one
-            blogs_table.insert(
-                row={'blog': blog, 'station': station, 'frequency': self.frequency,
-                     'snr': self.snr, 'capabilities': 'LEG', 'post_id': announcement_post_id,
-                     'latest_post_date': announcement_post_date, 'last_seen_date': time.time(),
-                     'is_selected': 0}
-            )
-        notify = B2fMessage(self.b2f_q)
-        notify.signal_reload('blogs')
+
+        self.update_blog_list(blog, station, announcement_post_id, announcement_post_date)
 
     def process_listing(self, req: list, is_extended=False):
 
@@ -190,9 +207,9 @@ class MbRspProcessors:
                 # process if the result was positive
                 if result[2] == '+':
                     self.cmd = f"{result[2]}{result[3]}{result[4]}~"
-                    mb_rsp = getattr(MbRspProcessors, entry['proc'])(self, result)
+                    getattr(MbRspProcessors, entry['proc'])(self, result)
                 elif result[1] == '@':
-                    mb_rsp = getattr(MbRspProcessors, entry['proc'])(self, result)
+                    getattr(MbRspProcessors, entry['proc'])(self, result)
                 else:
                     self.mb_status.reload_status()
                     if result[1] == self.mb_status.callsign:  # we only need to show an error if this rsp was for us
@@ -265,7 +282,6 @@ class BeProcessor:
     def get_posts_via_cache(self, req: dict, post_id_list: list):
 
         blog = req['blog']
-        station = req['station']
         cmd = req['cmd']
 
         svr_request_list = []  # this is a list of post_ids we will need to request from the server

@@ -74,6 +74,7 @@ class Js8CallApi:
             else:
                 self.connected = False
                 logmsg(1, 'js8drv: ctrl: Connection to JS8Call has closed')
+                # ToDo: signal connection loss to backend, which should then add a QSO box entry
 
         return messages  # we return a list of messages, typically with a length of one
 
