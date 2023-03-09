@@ -72,14 +72,20 @@ class DbTable:
         db = sqlite3.connect(db_file)
         db.row_factory = sqlite3.Row
         c = db.cursor()
-        key = list(value_dictionary.keys())[0]
-        value = value_dictionary[key]
 
-        try:
-            value_int = int(value)
-            query = f"UPDATE {self.table} SET {key}={value_int}"
-        except ValueError:
-            query = f"UPDATE {self.table} SET {key}='{value}'"
+        key_list = list(value_dictionary.keys())
+        query = f"UPDATE {self.table} SET "
+        for i, key in enumerate(key_list):
+            value = value_dictionary[key]
+
+            if i > 0:
+                query += ", "
+
+            try:
+                value_int = int(value)
+                query += f"{key}={value_int}"
+            except ValueError:
+                query += f"{key}='{value}'"
 
         if where:
             query += f" WHERE {where}"

@@ -61,23 +61,32 @@ class MbRspProcessors:
     def process_announcement(self, req: list):
         station = req[0]
         blog = req[2]
-        post_id = req[3]
-        latest_post_date = time.mktime(time.strptime(req[4], "%Y-%m-%d"))
+        announcement_post_id = req[3]
+        announcement_post_date = time.mktime(time.strptime(req[4], "%Y-%m-%d"))
         mb_status = Status()
         # do we have a blog entry for this blog at this station
         blogs_table = DbTable('blogs')
         results = blogs_table.select(
             where=f"blog='{blog}' AND station='{station}'",
-            limit=1, hdr_list=['latest_post_id']
+            limit=1, hdr_list=['latest_post_id', 'latest_post_date']
         )
         if len(results) > 0:
             columns = results[0]
+            # update the existing entry
+            blogs_table.update(
+                value_dictionary={
+                    'latest_post_id': announcement_post_id,
+                    'latest_post_date': announcement_post_date,
+                    'last_seen_date': time.time()
+                },
+                where=f"blog='{blog}' AND station='{station}'"
+            )
         else:
             # no existing blogs entry so create one
             blogs_table.insert(
                 row={'blog': blog, 'station': station, 'frequency': self.frequency,
-                     'snr': self.snr, 'capabilities': 'LEG', 'post_id': post_id,
-                     'latest_post_date': latest_post_date, 'last_seen_date': time.time(),
+                     'snr': self.snr, 'capabilities': 'LEG', 'post_id': announcement_post_id,
+                     'latest_post_date': announcement_post_date, 'last_seen_date': time.time(),
                      'is_selected': 0}
             )
         notify = B2fMessage(self.b2f_q)
