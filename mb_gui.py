@@ -197,9 +197,15 @@ class GuiLatestPosts:
         status = Status()
 
         qso_table = DbTable('qso')
-        db_values = qso_table.select(where=f"directed_to!='{status.callsign}' AND title IS NOT ''",
-                                     order_by='qso_date', desc=True,
-                                     limit=settings.max_latest, hdr_list=self.latest_cols)
+        # ToDo: this select needs to be much more selective - getting duplicate entries
+        db_values = qso_table.select(
+            where=f"directed_to!='{status.callsign}' AND title IS NOT ''",
+            group_by='post_id',
+            order_by='qso_date',
+            desc=True,
+            limit=settings.max_latest,
+            hdr_list=self.latest_cols
+        )
 
         self.latest_box.configure(state=tk.NORMAL)
         self.latest_box.delete(1.0, 'end')

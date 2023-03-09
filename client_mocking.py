@@ -33,15 +33,15 @@ sample_msgs = [
             'CMD': ' ', 'DIAL': 14078010, 'EXTRA': '', 'FREQ': 14079645,
             'FROM': 'M0PXO', 'GRID': '',
             'OFFSET': 1635, 'SNR': 2, 'SPEED': 0, 'TDRIFT': 1.5,
-            'TEXT': 'M0PXO: M7PJO  +L30~\n'
-                    '30 - OHIO TRAIN DERAILMENT DETAILS',
+            'TEXT': 'M0PXO: M7PJO  +E30~\n'
+                    '30 - 2023-02-27 - OHIO TRAIN DERAILMENT DETAILS',
             'TO': 'M7PJO',
             'UTC': 1678215129000,
             '_ID': -1
         },
         'type': 'RX.DIRECTED',
-        'value': 'M0PXO: M7PJO  +L30~\n'
-            '30 - OHIO TRAIN DERAILMENT DETAILS'
+        'value': 'M0PXO: M7PJO  +E30~\n'
+            '30 - 2023-02-27 - OHIO TRAIN DERAILMENT DETAILS'
     },
     # {
     #     'params': {
