@@ -197,7 +197,6 @@ class GuiLatestPosts:
         status = Status()
 
         qso_table = DbTable('qso')
-        # ToDo: this select needs to be much more selective - getting duplicate entries
         db_values = qso_table.select(
             where=f"directed_to!='{status.callsign}' AND title IS NOT ''",
             group_by='post_id',
