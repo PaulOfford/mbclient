@@ -238,22 +238,23 @@ class BeProcessor:
         self.comms_tx_q = comms_tx_q
         self.comms_rx_q = comms_rx_q
 
-    def qso_append_cli_input(self, cli_input: str, rsp_text: str):
+    def qso_append_cli_input(self, msg):
+
         self.status.reload_status()
         qso_table = DbTable('qso')
         db_values = qso_table.select(limit=1, hdr_list=self.qso_fields)
         for row in db_values:
             row['qso_date'] = time.time()
             row['type'] = 'cmd'
-            row['blog'] = self.status.selected_blog
-            row['station'] = self.status.selected_station
+            row['blog'] = msg['blog']
+            row['station'] = msg['station']
             row['directed_to'] = self.status.callsign
             row['frequency'] = self.status.user_frequency
             row['offset'] = self.status.offset
-            row['cmd'] = cli_input
-            row['rsp'] = rsp_text
-            row['post_id'] = 0
-            row['post_date'] = 0
+            row['cmd'] = msg['cli_input']
+            row['rsp'] = ''
+            row['post_id'] = msg['post_id']
+            row['post_date'] = msg['post_date']
             row['title'] = ''
             row['body'] = ''
             qso_table.insert(row)
@@ -356,8 +357,9 @@ class BeProcessor:
         mblog_api_req.set_ts(time.time())
         mblog_api_req.set_direction('tx')
         mblog_api_req.set_source(self.status.callsign)
-        mblog_api_req.set_destination(self.status.selected_station)
+        mblog_api_req.set_destination(blog)  # ToDo: change once we implement blog namespace
         mblog_api_req.set_snr(0)
+        mblog_api_req.set_blog(blog)
         mblog_api_req.set_typ('mb_req')
         mblog_api_req.set_target('mb_service')
         mblog_api_req.set_obj('service')
@@ -441,6 +443,7 @@ class BeProcessor:
                 # send OK back to the frontend
                 rsp = B2fMessage(self.b2f_q)
                 rsp.clone_req_msg(req)
+                rsp.set_blog(blog)
                 rsp.msg['rc'] = 0
                 self.b2f_q.put(rsp.msg)
 
@@ -452,7 +455,7 @@ class BeProcessor:
 
     def preprocess(self, msg: dict):
 
-        self.qso_append_cli_input(msg['cli_input'], '')
+        self.qso_append_cli_input(msg)
 
         if msg['cmd'] == 'L':
             self.process_list_cmd(msg)
@@ -470,6 +473,7 @@ class BeProcessor:
             self.process_scan_cmd(msg)
         elif msg['cmd'] == 'X':
             exit(0)
+
 
     def process_mb_rsp(self, comms_msg: dict):
         processor = MbRspProcessors(comms_msg, self.b2f_q)

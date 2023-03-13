@@ -199,6 +199,9 @@ class CommsMsg:
     def set_snr(self, snr: int):
         self.msg['snr'] = snr
 
+    def set_blog(self, blog: str):
+        self.msg['blog'] = blog
+
     def set_typ(self, typ: str):
         self.msg['typ'] = typ
 
@@ -234,6 +237,9 @@ class CommsMsg:
 
     def get_snr(self) -> int:
         return self.msg['snr']
+
+    def get_blog(self) -> str:
+        return self.msg['blog']
 
     def get_typ(self) -> str:
         return self.msg['typ']

@@ -8,7 +8,7 @@ from settings import *
 from message_q import *
 
 root = tk.Tk()
-root.title("Microblog Client r2")
+root.title("Microblog Client r3")
 root.geometry(settings.startup_dimensions)
 
 font_btn = font.Font(family='Ariel', size=(int(settings.font_size*1.125)), weight='normal')
@@ -166,11 +166,14 @@ class GuiHeader:
 
 class GuiLatestPosts:
 
+    f2b_q = None
     latest_box = None
+    latest_cols = ['post_id', 'qso_date', 'blog', 'station', 'title']
 
-    latest_cols = ['qso_date', 'blog', 'title']
+    def __init__(self, frame: tk.Frame, f2b_q: queue.Queue):
 
-    def __init__(self, frame: tk.Frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
+        self.f2b_q = f2b_q
+
         latest_list_hdr = tk.Label(
             frame,
             text="Latest Posts",
@@ -192,6 +195,21 @@ class GuiLatestPosts:
 
         self.reload_latest()
 
+    def get_post(self, blog: str, station: str, post_id: int, event):
+
+        req = F2bMessage()
+
+        req.set_blog(blog)
+        req.set_station(station)
+        req.set_cli_input(f'G {post_id}')
+        req.set_cmd('G')
+        req.set_op('eq')
+        req.set_post_id(post_id)
+        req.set_post_date(0)
+        req.set_ts()
+        self.f2b_q.put(req.msg)
+        logging.logmsg(3, f"fe: {req.msg}")
+
     def reload_latest(self):
 
         status = Status()
@@ -209,7 +227,7 @@ class GuiLatestPosts:
         self.latest_box.configure(state=tk.NORMAL)
         self.latest_box.delete(1.0, 'end')
 
-        for r in db_values:
+        for i, r in enumerate(db_values):
             latest_string = ''
 
             q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
@@ -218,8 +236,16 @@ class GuiLatestPosts:
             latest_string += f" - {r['title']}"
             latest_string += f"\n"
 
+            tag_name = 'tag_latest_row_' + str(i)
+
+            self.latest_box.tag_configure(tag_name, justify='left')
             self.latest_box.insert(tk.END, latest_string)
             self.latest_box.see(tk.END)
+            coords_start = f'{i+1}.0'
+            coords_end = f'{i+1}.{len(latest_string)}'
+            self.latest_box.tag_add(tag_name, coords_start, coords_end)
+            self.latest_box.tag_bind(tag_name, '<Button-1>',
+                                     ft.partial(self.get_post, r['blog'], r['station'], r['post_id']))
 
         self.latest_box.configure(state=tk.DISABLED)
         return
@@ -570,8 +596,10 @@ class GuiBlogList:
     def select_blog(self, row, event):
         req = F2bMessage()
         req.set_cmd('S')
+        station = self.get_value_by_row_db_col(row, 'station')
+        req.set_cli_input(f'@ {station} is now the selected blog')
         req.set_blog(self.get_value_by_row_db_col(row, 'blog'))
-        req.set_station(self.get_value_by_row_db_col(row, 'station'))
+        req.set_station(station)
         req.set_ts()
         self.f2b_q.put(req.msg)
         logging.logmsg(3, f"fe: {req.msg}")
@@ -596,7 +624,7 @@ class GuiMain:
         frame_latest_list = tk.Frame(frame_left, bg='white')
         frame_latest_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        self.latest_posts = GuiLatestPosts(frame_latest_list, f2b_q, b2f_q)
+        self.latest_posts = GuiLatestPosts(frame_latest_list, f2b_q)
 
         # QSO Area follows - middle of main
         frame_qso = tk.Frame(frame_mid)
