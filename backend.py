@@ -428,7 +428,7 @@ class BeProcessor:
 
         blog = req['blog']
         station = req['station']
-        frequency =req['frequency']
+        frequency = req['frequency']
 
         if len(blog) > 0:
             if len(station) > 0:
@@ -455,6 +455,16 @@ class BeProcessor:
                         'blogs_updated': time.time()
                     }
                 )
+
+                # signal to the comms driver that the frequency must be changed
+                comms_sig = CommsMsg(self.comms_tx_q)
+                comms_sig.set_ts(time.time())
+                comms_sig.set_direction('tx')
+                comms_sig.set_typ('control')
+                comms_sig.set_target('set')
+                comms_sig.set_obj('radio_frequency')
+                comms_sig.set_payload(frequency)
+                self.comms_tx_q.put(comms_sig)
 
                 # send OK back to the frontend
                 rsp = B2fMessage(self.b2f_q)
@@ -493,7 +503,6 @@ class BeProcessor:
             self.process_config_cmd(msg)
         elif msg['cmd'] == 'P':
             self.process_scan_cmd(msg)
-
 
     def process_mb_rsp(self, comms_msg: dict):
         processor = MbRspProcessors(comms_msg, self.b2f_q)

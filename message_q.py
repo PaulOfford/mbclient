@@ -211,7 +211,7 @@ class CommsMsg:
     def set_obj(self, obj: str):
         self.msg['obj'] = obj
 
-    def set_payload(self, payload: str):
+    def set_payload(self, payload: [str, int]):
         self.msg['payload'] = payload
 
     def set_rc(self, rc: int):

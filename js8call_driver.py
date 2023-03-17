@@ -91,7 +91,7 @@ class Js8CallApi:
             kwargs['params'] = params
         message = self.to_message(*args, **kwargs)
 
-        if args[1]:  # if no args must be an api call that doesn't send a message
+        if len(args) > 1:  # if no args must be an api call that doesn't send a message
             # under normal circumstances, we don't want to fill the log with post content
             # only log the message content if running at log level 2 or above
             if current_log_level >= 2:
@@ -99,16 +99,18 @@ class Js8CallApi:
             else:
                 temp = args[1].split('\n', 1)
                 log_line = temp[0]
-            logmsg(2, 'js8drv: omsg: ' + self.my_station + ': ' + log_line)  # console trace of messages sent
+            logmsg(2, 'js8drv: omsg: ' + self.my_station + ': ' + str(log_line))  # console trace of messages sent
 
         message = message.replace('\n\n', '\n \n')  # this seems to help with the JS8Call message window format
         logmsg(2, 'js8drv: send: ' + message)
 
-        if args[1] and debug:
+        if len(args) > 1 and debug:
             logmsg(3, 'js8drv: info: MB message not sent as we are in debug mode')
             # this avoids hamlib errors in JS8Call if the radio isn't connected
         else:
             self.sock.send((message + '\n').encode())   # newline suffix is required
+
+    # def set_rig_freq(self, freq):
 
     def close(self):
         self.sock.close()
@@ -128,6 +130,12 @@ class Js8CallDriver:
         self.js8call_api = Js8CallApi()
         self.js8call_api.connect()
 
+    def set_radio_frequency(self, freq: int):
+        logmsg(2, 'js8drv: call: RIG.SET_FREQ')
+        kwargs = {'params': {'DIAL': freq}}
+        self.js8call_api.send('RIG.SET_FREQ', **kwargs)
+        pass
+
     def process_comms_tx(self, message: message_q.CommsMsg):
         # msg = {'ts': 0.0, 'req_ts': 0.0, 'direction': '', 'source': "", 'destination': "", 'frequency': 0,
         #        'snr': 0, 'typ': "", 'target': '', 'obj': "", 'payload': "", 'rc': 0}
@@ -136,6 +144,8 @@ class Js8CallDriver:
             if message.get_target() == 'set':
                 if message.get_obj() == 'exit':
                     exit(0)
+                elif message.get_obj() == 'radio_frequency':
+                    self.set_radio_frequency(message.get_payload())
         elif message.get_typ() == 'mb_req':
             req_msg = f"{message.get_destination()} {message.get_payload()}"
             self.js8call_api.send('TX.SEND_MESSAGE', req_msg)

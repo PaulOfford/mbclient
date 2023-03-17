@@ -127,14 +127,16 @@ class GuiHeader:
             self.scan_btn.configure(bg='#ff2222')
 
     def set_frequency(self):
-        locale.setlocale(locale.LC_ALL, 'fr')
         field = ['radio_frequency']
         status_table = DbTable('status')
         db_values = status_table.select(
             where=None, order_by=None, desc=False,
             limit=1, hdr_list=field
         )
+        locale.setlocale(locale.LC_ALL, 'fr')
         freq_str = locale.format_string("%d", db_values[0]['radio_frequency'], grouping=True)
+        locale.setlocale(locale.LC_ALL, 'en_GB')
+
 
         self.freq_text.set(freq_str)
 
