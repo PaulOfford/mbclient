@@ -122,7 +122,7 @@ if load_samples:
         {'blog': "NEWSEN", 'station': "K7GHI", 'frequency': 14078000, 'snr': -24,
          'capabilities': "LEG", 'latest_post_date': "2023-01-31 11:23", 'latest_post_id': "36",
          'last_seen_date': "2023-02-05 22:10", 'is_selected': 0},
-        {'blog': "NEWSEN", 'station': "K7MNO", 'frequency': 14078000, 'snr': -13,
+        {'blog': "NEWSEN", 'station': "K7MNO", 'frequency': 7078000, 'snr': -13,
          'capabilities': "LEG", 'latest_post_date': "2023-01-30 07:03", 'latest_post_id': "35",
          'last_seen_date': "2023-02-06 07:45", 'is_selected': 0},
         # {'blog': "NEWSSP", 'station': "K7MNO", 'frequency': 14078000, 'snr': -14,

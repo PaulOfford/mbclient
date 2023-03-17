@@ -81,3 +81,15 @@ class Status:
         status_table = DbTable('status')
         status_table.update(value_dictionary={'blogs_updated': time.time()})
         self.reload_status()
+
+    def set_current_blog(self, blog: str, station: str, frequency: int):
+        status_table = DbTable('status')
+        status_table.update(
+            value_dictionary={
+                'selected_blog': blog,
+                'selected_station': station,
+                'user_frequency': frequency,
+                'radio_frequency': frequency
+            }
+        )
+        self.set_blogs_updated()

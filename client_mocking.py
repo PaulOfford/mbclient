@@ -150,7 +150,7 @@ count = 0
 
 def js8call_mock_listen():
     global count
-    time.sleep(0.1)
+    time.sleep(5)
     if count <= 0:
         count += 1
         return sample_msgs

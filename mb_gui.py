@@ -168,7 +168,7 @@ class GuiLatestPosts:
 
     f2b_q = None
     latest_box = None
-    latest_cols = ['post_id', 'qso_date', 'blog', 'station', 'title']
+    latest_cols = ['post_id', 'qso_date', 'blog', 'station', 'frequency', 'title']
 
     def __init__(self, frame: tk.Frame, f2b_q: queue.Queue):
 
@@ -195,12 +195,13 @@ class GuiLatestPosts:
 
         self.reload_latest()
 
-    def get_post(self, blog: str, station: str, post_id: int, event):
+    def get_post(self, blog: str, station: str, frequency: int, post_id: int, event):
 
         req = F2bMessage()
 
         req.set_blog(blog)
         req.set_station(station)
+        req.set_frequency(frequency)
         req.set_cli_input(f'G {post_id}')
         req.set_cmd('G')
         req.set_op('eq')
@@ -244,8 +245,10 @@ class GuiLatestPosts:
             coords_start = f'{i+1}.0'
             coords_end = f'{i+1}.{len(latest_string)}'
             self.latest_box.tag_add(tag_name, coords_start, coords_end)
-            self.latest_box.tag_bind(tag_name, '<Button-1>',
-                                     ft.partial(self.get_post, r['blog'], r['station'], r['post_id']))
+            self.latest_box.tag_bind(
+                tag_name, '<Button-1>',
+                ft.partial(self.get_post, r['blog'], r['station'], r['frequency'], r['post_id'])
+            )
 
         self.latest_box.configure(state=tk.DISABLED)
         return
@@ -466,17 +469,19 @@ class GuiBlogList:
          'text': 'Mblog', 'widget': tk.Button()},
         {'db_col': 'station', 'type': 'Text', 'suffix': '', 'width': 8,
          'text': 'Station', 'widget': tk.Button()},
-        {'db_col': 'latest_post_id', 'type': 'Int', 'suffix': '', 'width': 8,
+        {'db_col': 'frequency', 'type': 'Float', 'divisor': 1000000, 'suffix': ' MHz', 'width': 12,
+         'text': 'Freq', 'widget': tk.Button()},
+        {'db_col': 'latest_post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 8,
          'text': 'Latest\nPost ID', 'widget': tk.Button()},
         {'db_col': 'latest_post_date', 'type': 'Date', 'suffix': '', 'width': 12,
          'text': 'Latest\nPost Date', 'widget': tk.Button()},
-        {'db_col': 'last_seen_date', 'type': 'DateTime', 'suffix': '', 'width': 14,
+        {'db_col': 'last_seen_date', 'type': 'DateTime', 'suffix': '', 'width': 16,
          'text': 'Last Seen', 'widget': tk.Button()},
-        {'db_col': 'snr', 'type': 'Int', 'suffix': ' dB', 'width': 8,
+        {'db_col': 'snr', 'type': 'Int', 'divisor': 1, 'suffix': ' dB', 'width': 8,
          'text': 'SNR', 'widget': tk.Button()},
         {'db_col': 'capabilities', 'type': 'Text', 'suffix': '', 'width': 8,
          'text': 'Cap.', 'widget': tk.Button()},
-        {'db_col': 'is_selected', 'db_type': 'Int', 'suffix': '', 'width': 0,
+        {'db_col': 'is_selected', 'db_type': 'Int', 'divisor': 1, 'suffix': '', 'width': 0,
          'text': None, 'widget': tk.Button()},
     ]
 
@@ -552,7 +557,15 @@ class GuiBlogList:
                     break
 
                 if self.blog_list_headers[col]['type'] == 'Int':
-                    value = str(db_row[col_name]) + self.blog_list_headers[col]['suffix']
+                    number = int(int(db_row[col_name])/int(self.blog_list_headers[col]['divisor']))
+                    value = locale.format_string("%d", number, grouping=True)\
+                            + self.blog_list_headers[col]['suffix']
+
+                elif self.blog_list_headers[col]['type'] == 'Float':
+                    number = float(float(db_row[col_name])/float(self.blog_list_headers[col]['divisor']))
+                    value = locale.format_string("%0.3f", number, grouping=True)\
+                            + self.blog_list_headers[col]['suffix']
+
                 elif self.blog_list_headers[col]['type'] == 'Date':
                     if int(db_row[col_name]) > 0:
                         value = time.strftime(
@@ -600,6 +613,11 @@ class GuiBlogList:
         req.set_cli_input(f'@ {station} is now the selected blog')
         req.set_blog(self.get_value_by_row_db_col(row, 'blog'))
         req.set_station(station)
+        freq_string = self.get_value_by_row_db_col(row, 'frequency')
+        # annoyingly, we must convert a string in the form 14,078 MHz back into an integer
+        freq_string = re.findall(r"([0-9]*)[\.,]?([0-9]+) MHz", freq_string)
+        freq = (int(freq_string[0][0]) * 1000000) + (int(freq_string[0][1]) * 1000)
+        req.set_frequency(freq)
         req.set_ts()
         self.f2b_q.put(req.msg)
         logging.logmsg(3, f"fe: {req.msg}")

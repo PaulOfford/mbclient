@@ -84,6 +84,29 @@ class MbClient:
 
     def run_client(self):
 
+        # set up the menu bar
+        top_menu = tk.Menu(root)
+        root.config(menu=top_menu)
+
+        file_menu = tk.Menu(top_menu)
+        top_menu.add_cascade(label='File', menu=file_menu)
+        file_menu.add_command(label='Settings    F2')
+        file_menu.add_separator()
+        file_menu.add_command(label='Exit', command=self.client_shutdown)
+
+        band_menu = tk.Menu(top_menu)
+        top_menu.add_cascade(label='Band', menu=band_menu)
+        band_menu.add_command(label='160m:   1.842 000 MHz')
+        band_menu.add_command(label='80m:    3.578 000 MHz')
+        band_menu.add_command(label='40m:    7.708 000 MHz')
+        band_menu.add_command(label='30m:    10.130 000 MHz')
+        band_menu.add_command(label='17m:    18.104 000 MHz')
+        band_menu.add_command(label='15m:    21.078 000 MHz')
+        band_menu.add_command(label='12m:    24.922 000 MHz')
+        band_menu.add_command(label='10m:    28.078 000 MHz')
+        band_menu.add_command(label='6m:     50.318 000 MHz')
+        band_menu.add_command(label='2m:     144.178 000 MHz')
+
         # we need to ensure closing the window stops the backend
         root.protocol("WM_DELETE_WINDOW", self.client_shutdown)
 
