@@ -28,20 +28,32 @@ sample_msgs = [
     #     'type': 'RX.DIRECTED',
     #     'value': 'YJ9MX5IVS: @MB AUSNEW 407 2023-03-08'
     # },
+    # {
+    #     'params': {
+    #         'CMD': ' ', 'DIAL': 14078010, 'EXTRA': '', 'FREQ': 14079645,
+    #         'FROM': 'M0PXO', 'GRID': '',
+    #         'OFFSET': 1635, 'SNR': 2, 'SPEED': 0, 'TDRIFT': 1.5,
+    #         'TEXT': 'M0PXO: M7PJO  +E30~\n'
+    #                 '30 - 2023-02-27 - OHIO TRAIN DERAILMENT DETAILS',
+    #         'TO': 'M7PJO',
+    #         'UTC': 1678215129000,
+    #         '_ID': -1
+    #     },
+    #     'type': 'RX.DIRECTED',
+    #     'value': 'M0PXO: M7PJO  +E30~\n'
+    #         '30 - 2023-02-27 - OHIO TRAIN DERAILMENT DETAILS'
+    # },
+    # {
+    #     'params': {
+    #         'DIAL': 14078000, 'FREQ': 14079635, 'OFFSET': 1635, 'SELECTED': '', 'SPEED': 1, '_ID': '179793501498'
+    #     },
+    #     'type': 'STATION.STATUS', 'value': ''
+    # },
     {
         'params': {
-            'CMD': ' ', 'DIAL': 14078010, 'EXTRA': '', 'FREQ': 14079645,
-            'FROM': 'M0PXO', 'GRID': '',
-            'OFFSET': 1635, 'SNR': 2, 'SPEED': 0, 'TDRIFT': 1.5,
-            'TEXT': 'M0PXO: M7PJO  +E30~\n'
-                    '30 - 2023-02-27 - OHIO TRAIN DERAILMENT DETAILS',
-            'TO': 'M7PJO',
-            'UTC': 1678215129000,
-            '_ID': -1
+            'BAND': '40m', 'DIAL': 7078000, 'FREQ': 7078811, 'OFFSET': 811, '_ID': -1
         },
-        'type': 'RX.DIRECTED',
-        'value': 'M0PXO: M7PJO  +E30~\n'
-            '30 - 2023-02-27 - OHIO TRAIN DERAILMENT DETAILS'
+        'type': 'RIG.FREQ', 'value': ''
     },
     # {
     #     'params': {
@@ -150,7 +162,7 @@ count = 0
 
 def js8call_mock_listen():
     global count
-    time.sleep(5)
+    time.sleep(1)
     if count <= 0:
         count += 1
         return sample_msgs

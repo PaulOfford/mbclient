@@ -83,7 +83,7 @@ class DbTable:
 
             try:
                 value_int = int(value)
-                query += f"{key}={value_int}"
+                query += f"{key}={value}"
             except ValueError:
                 query += f"{key}='{value}'"
 

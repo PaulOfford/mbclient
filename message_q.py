@@ -1,5 +1,3 @@
-import queue
-
 from status import *
 
 
@@ -60,11 +58,6 @@ class B2fMessage:
     msg = {'ts': 0.0, 'req_ts': 0.0, 'cli_input': "", 'cmd': "", 'blog': "", 'station': "",
            'frequency': 0, 'post_id': 0, 'post_date': 0, 'op': "", 'param': "", 'rc': 0}
 
-    b2f_q = None
-
-    def __init__(self, msg_q):
-        self.b2f_q = msg_q
-
     def set_ts(self):
         self.msg['ts'] = time.time()
 
@@ -115,33 +108,6 @@ class B2fMessage:
         self.set_param(req['param'])
         self.set_rc(req['rc'])
 
-    def signal_reload(self, ui_area):
-        status = Status()
-        if ui_area == 'header':
-            status.set_hdr_updated()
-        elif ui_area == 'latest':
-            status.set_latest_updated()
-        elif ui_area == 'qso':
-            status.set_qso_updated()
-        elif ui_area == 'cli':
-            status.set_cli_updated()
-        elif ui_area == 'blogs':
-            status.set_blogs_updated()
-
-        self.set_ts()
-        self.set_req_ts(0)
-        self.set_cmd('Notify')
-        self.set_blog('')
-        self.set_station('')
-        self.set_frequency(0)
-        self.set_post_id(0)
-        self.set_post_date(0)
-        self.set_op('reload')
-        self.set_param(ui_area)
-        self.set_rc(0)
-        self.b2f_q.put(self.msg)
-        return
-
 
 class CommsMsg:
     msg = {'ts': 0.0, 'req_ts': 0.0, 'direction': '', 'source': "", 'destination': "", 'frequency': 0,
@@ -166,14 +132,6 @@ class CommsMsg:
     #   * status:callsign - control notification
     #   * ui_header:tx_led - control notification
     #   * ui_header:rx_led - control notification
-
-    msg_q = None
-
-    def __init__(self, msg_q: queue.Queue):
-        self.msg_q = msg_q
-
-    def put(self):
-        self.msg_q.put(self.msg)
 
     def set_ts(self, ts: float):
         self.msg['ts'] = ts
@@ -234,6 +192,9 @@ class CommsMsg:
 
     def get_frequency(self) -> int:
         return self.msg['frequency']
+
+    def get_offset(self) -> int:
+        return self.msg['offset']
 
     def get_snr(self) -> int:
         return self.msg['snr']

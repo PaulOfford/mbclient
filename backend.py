@@ -1,3 +1,4 @@
+import queue
 import re
 
 from settings import *
@@ -26,15 +27,44 @@ class MbRspProcessors:
     body = ''
 
     # we use __init__ to preload some metadata we will need to create a qso entry
-    def __init__(self, js8_msg, b2f_q: queue.Queue):
+    def __init__(self, js8_msg: CommsMsg, b2f_q: queue.Queue):
         self.b2f_q = b2f_q
         self.mb_status = Status()
-        self.qso_date = js8_msg['ts']
-        self.station = js8_msg['source']
-        self.directed_to = js8_msg['destination']
-        self.frequency = js8_msg['frequency']
-        self.offset = js8_msg['offset']
-        self.snr = js8_msg['snr']
+        self.qso_date = js8_msg.get_ts()
+        self.station = js8_msg.get_source()
+        self.directed_to = js8_msg.get_destination()
+        self.frequency = js8_msg.get_frequency()
+        self.offset = js8_msg.get_offset()
+        self.snr = js8_msg.get_snr()
+
+    def signal_reload(self, ui_area):
+        status = Status()
+        if ui_area == 'header':
+            status.set_hdr_updated()
+        elif ui_area == 'latest':
+            status.set_latest_updated()
+        elif ui_area == 'qso':
+            status.set_qso_updated()
+        elif ui_area == 'cli':
+            status.set_cli_updated()
+        elif ui_area == 'blogs':
+            status.set_blogs_updated()
+
+        notify_msg = B2fMessage()
+
+        notify_msg.set_ts()
+        notify_msg.set_req_ts(0)
+        notify_msg.set_cmd('Notify')
+        notify_msg.set_blog('')
+        notify_msg.set_station('')
+        notify_msg.set_frequency(0)
+        notify_msg.set_post_id(0)
+        notify_msg.set_post_date(0)
+        notify_msg.set_op('reload')
+        notify_msg.set_param(ui_area)
+        notify_msg.set_rc(0)
+        self.b2f_q.put(notify_msg)
+        return
 
     def update_blog_list(self, blog: str, station: str, post_id: int, post_date: float = 0):
         # do we have a blog entry for this blog at this station
@@ -76,8 +106,7 @@ class MbRspProcessors:
                      'latest_post_date': post_date, 'last_seen_date': time.time(),
                      'is_selected': 0}
             )
-        notify = B2fMessage(self.b2f_q)
-        notify.signal_reload('blogs')
+        self.signal_reload('blogs')
 
     def qso_append_error(self, cli_input: str, rsp_text: str):
         self.mb_status.reload_status()
@@ -98,8 +127,7 @@ class MbRspProcessors:
             row['title'] = ''
             row['body'] = ''
             qso_table.insert(row)
-        notify = B2fMessage(self.b2f_q)
-        notify.signal_reload('qso')
+        self.signal_reload('qso')
 
     def process_announcement(self, req: list):
         station = req[0]
@@ -144,8 +172,8 @@ class MbRspProcessors:
                 row['title'] = self.title
                 row['body'] = self.body
                 qso_table.insert(row)
-            notify = B2fMessage(self.b2f_q)
-            notify.signal_reload('qso')
+
+            self.signal_reload('qso')
             self.update_blog_list(self.blog, self.station, self.post_id, self.post_date)
 
     def process_extended(self, req: list):
@@ -238,6 +266,35 @@ class BeProcessor:
         self.comms_tx_q = comms_tx_q
         self.comms_rx_q = comms_rx_q
 
+    def signal_reload(self, ui_area):
+        status = Status()
+        if ui_area == 'header':
+            status.set_hdr_updated()
+        elif ui_area == 'latest':
+            status.set_latest_updated()
+        elif ui_area == 'qso':
+            status.set_qso_updated()
+        elif ui_area == 'cli':
+            status.set_cli_updated()
+        elif ui_area == 'blogs':
+            status.set_blogs_updated()
+
+        notify_msg = B2fMessage()
+
+        notify_msg.set_ts()
+        notify_msg.set_req_ts(0)
+        notify_msg.set_cmd('Notify')
+        notify_msg.set_blog('')
+        notify_msg.set_station('')
+        notify_msg.set_frequency(0)
+        notify_msg.set_post_id(0)
+        notify_msg.set_post_date(0)
+        notify_msg.set_op('reload')
+        notify_msg.set_param(ui_area)
+        notify_msg.set_rc(0)
+        self.b2f_q.put(notify_msg)
+        return
+
     def qso_append_cli_input(self, msg):
 
         self.status.reload_status()
@@ -258,8 +315,8 @@ class BeProcessor:
             row['title'] = ''
             row['body'] = ''
             qso_table.insert(row)
-        notify = B2fMessage(self.b2f_q)
-        notify.signal_reload('qso')
+
+        self.signal_reload('qso')
 
     def qso_append_progress(self, blog, station, cli_input: str, rsp_text: str):
         self.status.reload_status()
@@ -280,8 +337,8 @@ class BeProcessor:
             row['title'] = ''
             row['body'] = ''
             qso_table.insert(row)
-        notify = B2fMessage(self.b2f_q)
-        notify.signal_reload('qso')
+
+        self.signal_reload('qso')
 
     # when we call this function, the post_id_list must contain post_ids in numerical order
     def get_posts_via_cache(self, req: dict, post_id_list: list):
@@ -353,7 +410,7 @@ class BeProcessor:
 
         payload = f"{cmd}{posts_needed}~"
         logmsg(3, 'comms: send: ' + str(payload))
-        mblog_api_req = CommsMsg(self.comms_tx_q)
+        mblog_api_req = CommsMsg()
 
         mblog_api_req.set_ts(time.time())
         mblog_api_req.set_direction('tx')
@@ -407,8 +464,7 @@ class BeProcessor:
         self.get_posts_via_cache(req, post_ids)
 
         # get the frontend to reload the qso box
-        notify = B2fMessage(self.b2f_q)
-        notify.signal_reload('qso')
+        self.signal_reload('qso')
         return
 
     def process_extended_cmd(self, req: dict):
@@ -417,9 +473,30 @@ class BeProcessor:
     def process_get_cmd(self, req: dict):
         post_ids = [req['post_id']]
         self.get_posts_via_cache(req, post_ids)
-        notify = B2fMessage(self.b2f_q)
-        notify.signal_reload('qso')
+
+        self.signal_reload('qso')
         return
+
+    def set_hdr_freq(self, frequency: int):
+        s = DbTable('status')
+        s.update(
+            where=None, value_dictionary={
+                'radio_frequency': frequency,
+                'user_frequency': frequency
+            }
+        )
+
+        self.signal_reload('header')
+
+    def set_hdr_offset(self, offset: int):
+        s = DbTable('status')
+        s.update(
+            where=None, value_dictionary={
+                'offset': offset
+            }
+        )
+
+        self.signal_reload('header')
 
     def process_info_cmd(self, req: dict):
         pass
@@ -457,7 +534,7 @@ class BeProcessor:
                 )
 
                 # signal to the comms driver that the frequency must be changed
-                comms_sig = CommsMsg(self.comms_tx_q)
+                comms_sig = CommsMsg()
                 comms_sig.set_ts(time.time())
                 comms_sig.set_direction('tx')
                 comms_sig.set_typ('control')
@@ -467,7 +544,7 @@ class BeProcessor:
                 self.comms_tx_q.put(comms_sig)
 
                 # send OK back to the frontend
-                rsp = B2fMessage(self.b2f_q)
+                rsp = B2fMessage()
                 rsp.clone_req_msg(req)
                 rsp.set_blog(blog)
                 rsp.msg['rc'] = 0
@@ -504,44 +581,44 @@ class BeProcessor:
         elif msg['cmd'] == 'P':
             self.process_scan_cmd(msg)
 
-    def process_mb_rsp(self, comms_msg: dict):
+    def process_mb_rsp(self, comms_msg: CommsMsg):
         processor = MbRspProcessors(comms_msg, self.b2f_q)
         # check to see if this is a listing, extended listing or post and process accordingly
-        processor.parse_rx_message(comms_msg['payload'])
-        notify = B2fMessage(self.b2f_q)
-        notify.signal_reload('qso')
+        processor.parse_rx_message(comms_msg.get_payload())
 
-    def process_mb_notify(self, comms_msg: dict):
+        self.signal_reload('qso')
+
+    def process_mb_notify(self, comms_msg: CommsMsg):
         # ToDo: we should only insert an entry in qso if we don't have an entry already
         processor = MbRspProcessors(comms_msg, self.b2f_q)
         # check to see if this is a listing, extended listing or post and process accordingly
-        processor.parse_rx_message(comms_msg['payload'])
-        notify = B2fMessage(self.b2f_q)
-        notify.signal_reload('latest')
+        processor.parse_rx_message(comms_msg.get_payload())
+
+        self.signal_reload('latest')
         pass
 
-    def process_status_radio_frequency(self, comms_msg: dict):
+    def process_status_radio_frequency(self, comms_msg: CommsMsg):
+        self.set_hdr_freq(comms_msg.get_frequency())
+
+    def process_status_offset(self, comms_msg: CommsMsg):
+        self.set_hdr_offset(comms_msg.get_offset())
+
+    def process_status_callsign(self, comms_msg: CommsMsg):
         pass
 
-    def process_status_offset(self, comms_msg: dict):
-        pass
-
-    def process_status_callsign(self, comms_msg: dict):
-        pass
-
-    def process_comms_rx(self, comms_msg: dict):
-        if comms_msg.get('typ') == 'mb_rsp':
+    def process_comms_rx(self, comms_msg: CommsMsg):
+        if comms_msg.get_typ() == 'mb_rsp':
             self.process_mb_rsp(comms_msg)
-        elif comms_msg.get('typ') == 'mb_notify':
+        elif comms_msg.get_typ() == 'mb_notify':
             self.process_mb_notify(comms_msg)
-        elif comms_msg.get('typ') == 'control' and comms_msg.get('target') == 'status'\
-                and comms_msg.get('obj') == 'radio_frequency':
+        elif comms_msg.get_typ() == 'control' and comms_msg.get_target() == 'status'\
+                and comms_msg.get_obj() == 'radio_frequency':
             self.process_status_radio_frequency(comms_msg)
-        elif comms_msg.get('typ') == 'control' and comms_msg.get('target') == 'status'\
-                and comms_msg.get('obj') == 'offset':
+        elif comms_msg.get_typ() == 'control' and comms_msg.get_target() == 'status'\
+                and comms_msg.get_obj() == 'offset':
             self.process_status_offset(comms_msg)
-        elif comms_msg.get('typ') == 'control' and comms_msg.get('target') == 'status'\
-                and comms_msg.get('obj') == 'callsign':
+        elif comms_msg.get_typ() == 'control' and comms_msg.get_target() == 'status'\
+                and comms_msg.get_obj() == 'callsign':
             self.process_status_callsign(comms_msg)
 
         pass
@@ -559,8 +636,8 @@ class BeProcessor:
 
         # check for messages from the comms driver
         try:
-            comms_rx = self.comms_rx_q.get(block=False)  # if no msg waiting, this will throw an exception
-            logging.logmsg(3, f"comms: {comms_rx}")
+            comms_rx = self.comms_rx_q.get(block=True, timeout=0.1)  # if no msg waiting, this will throw an exception
+            logging.logmsg(3, f"backend: {comms_rx}")
             self.process_comms_rx(comms_rx)
             self.comms_rx_q.task_done()
         except queue.Empty:
@@ -579,7 +656,7 @@ class Backend:
         while True:
             # check for f2b message and process
             self.proc.check_for_msg()
-            time.sleep(0.5)  # we need this else the backend thread hogs the cpu
+            time.sleep(0.2)  # we need this else the backend thread hogs the cpu
     
             # check for js8call message
     

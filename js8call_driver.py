@@ -6,6 +6,7 @@
 # resulting from the use of the program code.
 from socket import socket, AF_INET, SOCK_STREAM
 
+import queue
 import message_q
 from logging import *
 from message_q import *
@@ -145,7 +146,7 @@ class Js8CallDriver:
                 if message.get_obj() == 'exit':
                     exit(0)
                 elif message.get_obj() == 'radio_frequency':
-                    self.set_radio_frequency(message.get_payload())
+                    self.set_radio_frequency(int(message.get_payload()))
         elif message.get_typ() == 'mb_req':
             req_msg = f"{message.get_destination()} {message.get_payload()}"
             self.js8call_api.send('TX.SEND_MESSAGE', req_msg)
@@ -197,20 +198,20 @@ class Js8CallDriver:
                     elif typ == 'STATION.CALLSIGN':
                         logmsg(3, 'comms: rsp: ' + value)
 
-                        rx_status_callsign = CommsMsg(self.comms_rx_q)
+                        rx_status_callsign = CommsMsg()
                         rx_status_callsign.set_ts(float(params.get('_ID'))/1000)
                         rx_status_callsign.set_direction('rx')
                         rx_status_callsign.set_typ('control')
                         rx_status_callsign.set_target('status')
                         rx_status_callsign.set_obj('call_sign')
                         rx_status_callsign.set_payload(value)
-                        rx_status_callsign.put()
+                        self.comms_rx_q.put(rx_status_callsign)
 
                     elif typ == 'RIG.FREQ':
-                        logmsg(3, 'comms: rsp: ' + value)
+                        logmsg(3, 'comms: rsp: RIG.FREQ' + value)
 
                         # send message to backend re frequency
-                        rx_status_radio_frequency = CommsMsg(self.comms_rx_q)
+                        rx_status_radio_frequency = CommsMsg()
                         rx_status_radio_frequency.set_ts(float(params.get('_ID'))/1000)
                         rx_status_radio_frequency.set_direction('rx')
                         rx_status_radio_frequency.set_typ('control')
@@ -219,10 +220,14 @@ class Js8CallDriver:
                         rx_status_radio_frequency.set_frequency(int(params['DIAL']))
                         rx_status_radio_frequency.set_offset(int(params['OFFSET']))
                         rx_status_radio_frequency.set_payload(str(params['DIAL']))
-                        rx_status_radio_frequency.put()
+                        self.comms_rx_q.put(rx_status_radio_frequency)
+                        logmsg(3, 'js8drv: q_put: REG_FREQ - radio_frequency: ' + str(params['DIAL']))
+                        # ToDo: Eliminate the following join.
+                        # If I don't have this the backend never gets the radio_frequency message
+                        self.comms_rx_q.join()
 
                         # send message to backend re offset
-                        rx_status_offset = CommsMsg(self.comms_rx_q)
+                        rx_status_offset = CommsMsg()
                         rx_status_offset.set_ts(float(params.get('_ID'))/1000)
                         rx_status_offset.set_direction('rx')
                         rx_status_offset.set_typ('control')
@@ -231,11 +236,44 @@ class Js8CallDriver:
                         rx_status_offset.set_frequency(int(params['DIAL']))
                         rx_status_offset.set_offset(int(params['OFFSET']))
                         rx_status_offset.set_payload(str(params['OFFSET']))
-                        rx_status_offset.put()
+                        self.comms_rx_q.put(rx_status_offset)
+                        logmsg(3, 'js8drv: q_put: REG_FREQ - offset: ' + str(params['OFFSET']))
+
+                    elif typ == 'STATION.STATUS':
+                        logmsg(3, 'js8drv: in: STATION.STATUS' + value)
+
+                        # send message to backend re frequency
+                        rx_status_radio_frequency = CommsMsg()
+                        rx_status_radio_frequency.set_ts(float(params.get('_ID'))/1000)
+                        rx_status_radio_frequency.set_direction('rx')
+                        rx_status_radio_frequency.set_typ('control')
+                        rx_status_radio_frequency.set_target('status')
+                        rx_status_radio_frequency.set_obj('radio_frequency')
+                        rx_status_radio_frequency.set_frequency(int(params['DIAL']))
+                        rx_status_radio_frequency.set_offset(int(params['OFFSET']))
+                        rx_status_radio_frequency.set_payload(str(params['DIAL']))
+                        self.comms_rx_q.put(rx_status_radio_frequency)
+                        logmsg(3, 'js8drv: q_put: STATION.STATUS - radio_frequency: ' + str(params['DIAL']))
+                        # ToDo: Eliminate the following join.
+                        # If I don't have this the backend never gets the radio_frequency message
+                        self.comms_rx_q.join()  # this is not ideal, but I couldn't make it work any other way
+
+                        # send message to backend re offset
+                        rx_status_offset = CommsMsg()
+                        rx_status_offset.set_ts(float(params.get('_ID'))/1000)
+                        rx_status_offset.set_direction('rx')
+                        rx_status_offset.set_typ('control')
+                        rx_status_offset.set_target('status')
+                        rx_status_offset.set_obj('offset')
+                        rx_status_offset.set_frequency(int(params['DIAL']))
+                        rx_status_offset.set_offset(int(params['OFFSET']))
+                        rx_status_offset.set_payload(str(params['OFFSET']))
+                        self.comms_rx_q.put(rx_status_offset)
+                        logmsg(3, 'js8drv: q_put: STATION.STATUS - offset: ' + str(params['OFFSET']))
 
                     elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us, including @MB
                         logmsg(3, 'comms: recv: ' + str(message))
-                        rx_mb_msg = CommsMsg(self.comms_rx_q)
+                        rx_mb_msg = CommsMsg()
 
                         rx_mb_msg.set_ts(float(params['UTC'])/1000)
                         rx_mb_msg.set_direction('rx')
@@ -252,7 +290,7 @@ class Js8CallDriver:
                         rx_mb_msg.set_target('mb_client')
                         rx_mb_msg.set_obj('receiver')
                         rx_mb_msg.set_payload(message['value'])
-                        rx_mb_msg.put()
+                        self.comms_rx_q.put(rx_mb_msg)
 
         finally:
             self.js8call_api.close()

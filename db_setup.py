@@ -39,12 +39,12 @@ with db:
               )
 
 c.execute("""CREATE TABLE status (
-    last_checked integer,
-    hdr_updated integer,
-    latest_updated integer,
-    qso_updated integer,
-    cli_updated integer,
-    blogs_updated integer,
+    last_checked float,
+    hdr_updated float,
+    latest_updated float,
+    qso_updated float,
+    cli_updated float,
+    blogs_updated float,
     radio_frequency integer,
     user_frequency integer,
     offset integer,

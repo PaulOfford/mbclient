@@ -1,3 +1,4 @@
+import queue
 import tkinter as tk
 import tkinter.font as font
 import locale
@@ -32,7 +33,7 @@ class GuiHeader:
     scan_btn = None
     clock_label = None
 
-    def __init__(self, header_frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
+    def __init__(self, header_frame):
 
         frame_hdr_left = tk.Frame(header_frame, bg='black')
         frame_hdr_left.pack(expand=True, fill='y', side='left')
@@ -136,7 +137,6 @@ class GuiHeader:
         locale.setlocale(locale.LC_ALL, 'fr')
         freq_str = locale.format_string("%d", db_values[0]['radio_frequency'], grouping=True)
         locale.setlocale(locale.LC_ALL, 'en_GB')
-
 
         self.freq_text.set(freq_str)
 
@@ -265,7 +265,7 @@ class GuiQsoBox:
     qso_cols = ['qso_date', 'type', 'blog', 'station', 'cmd', 'rsp', 'post_id', 'post_date', 'title',
                 'body']
 
-    def __init__(self, frame: tk.Frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
+    def __init__(self, frame: tk.Frame):
 
         v = tk.Scrollbar(frame, orient='vertical')
         v.pack(side=tk.RIGHT, fill='y')
@@ -358,7 +358,7 @@ class GuiCli:
 
     input_is_valid = False
 
-    def __init__(self, frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
+    def __init__(self, frame, f2b_q: queue.Queue):
 
         self.f2b_q = f2b_q
 
@@ -650,12 +650,12 @@ class GuiMain:
         frame_qso = tk.Frame(frame_mid)
         frame_qso.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        self.qso_box = GuiQsoBox(frame_qso, f2b_q, b2f_q)
+        self.qso_box = GuiQsoBox(frame_qso)
 
         frame_cli = tk.Frame(frame_mid)
         frame_cli.pack(side=tk.BOTTOM, padx=4)
 
-        self.cli = GuiCli(frame_mid, f2b_q, b2f_q)
+        self.cli = GuiCli(frame_mid, f2b_q)
 
         # Blog list area - right of main
         frame_blog_list = tk.Frame(frame_right, bg='white', padx=4, pady=4)

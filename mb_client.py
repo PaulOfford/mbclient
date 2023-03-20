@@ -69,7 +69,7 @@ class MbClient:
         be_sig.set_cli_input('MB Client Shutdown')
         be_sig.set_op('exit')
         self.f2b_q.put(be_sig.msg)
-        comms_sig = CommsMsg(self.comms_tx_q)
+        comms_sig = CommsMsg()
         comms_sig.set_ts(time.time())
         comms_sig.set_direction('tx')
         comms_sig.set_typ('control')
@@ -115,7 +115,7 @@ class MbClient:
 
         frame_hdr = tk.Frame(frame_container, background="black", height=100, pady=10)
         frame_hdr.pack(fill='x', side='top', anchor='n')
-        self.header = GuiHeader(header_frame=frame_hdr, f2b_q=self.f2b_q, b2f_q=self.b2f_q)  # populate the header
+        self.header = GuiHeader(header_frame=frame_hdr)  # populate the header
 
         frame_main = tk.Frame(frame_container, pady=4)
         frame_main.pack(fill=tk.BOTH, expand=1, side='top', anchor='n', padx=4)
