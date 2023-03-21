@@ -137,7 +137,7 @@ class Js8CallDriver:
         self.js8call_api.send('RIG.SET_FREQ', **kwargs)
         pass
 
-    def process_comms_tx(self, message: message_q.CommsMsg):
+    def process_comms_tx(self, message: message_q.CommsMessage):
         # msg = {'ts': 0.0, 'req_ts': 0.0, 'direction': '', 'source': "", 'destination': "", 'frequency': 0,
         #        'snr': 0, 'typ': "", 'target': '', 'obj': "", 'payload': "", 'rc': 0}
 
@@ -198,7 +198,7 @@ class Js8CallDriver:
                     elif typ == 'STATION.CALLSIGN':
                         logmsg(3, 'comms: rsp: ' + value)
 
-                        rx_status_callsign = CommsMsg()
+                        rx_status_callsign = CommsMessage()
                         rx_status_callsign.set_ts(float(params.get('_ID'))/1000)
                         rx_status_callsign.set_direction('rx')
                         rx_status_callsign.set_typ('control')
@@ -211,7 +211,7 @@ class Js8CallDriver:
                         logmsg(3, 'comms: rsp: RIG.FREQ' + value)
 
                         # send message to backend re frequency
-                        rx_status_radio_frequency = CommsMsg()
+                        rx_status_radio_frequency = CommsMessage()
                         rx_status_radio_frequency.set_ts(float(params.get('_ID'))/1000)
                         rx_status_radio_frequency.set_direction('rx')
                         rx_status_radio_frequency.set_typ('control')
@@ -227,7 +227,7 @@ class Js8CallDriver:
                         self.comms_rx_q.join()
 
                         # send message to backend re offset
-                        rx_status_offset = CommsMsg()
+                        rx_status_offset = CommsMessage()
                         rx_status_offset.set_ts(float(params.get('_ID'))/1000)
                         rx_status_offset.set_direction('rx')
                         rx_status_offset.set_typ('control')
@@ -243,7 +243,7 @@ class Js8CallDriver:
                         logmsg(3, 'js8drv: in: STATION.STATUS' + value)
 
                         # send message to backend re frequency
-                        rx_status_radio_frequency = CommsMsg()
+                        rx_status_radio_frequency = CommsMessage()
                         rx_status_radio_frequency.set_ts(float(params.get('_ID'))/1000)
                         rx_status_radio_frequency.set_direction('rx')
                         rx_status_radio_frequency.set_typ('control')
@@ -259,7 +259,7 @@ class Js8CallDriver:
                         self.comms_rx_q.join()  # this is not ideal, but I couldn't make it work any other way
 
                         # send message to backend re offset
-                        rx_status_offset = CommsMsg()
+                        rx_status_offset = CommsMessage()
                         rx_status_offset.set_ts(float(params.get('_ID'))/1000)
                         rx_status_offset.set_direction('rx')
                         rx_status_offset.set_typ('control')
@@ -273,7 +273,7 @@ class Js8CallDriver:
 
                     elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us, including @MB
                         logmsg(3, 'comms: recv: ' + str(message))
-                        rx_mb_msg = CommsMsg()
+                        rx_mb_msg = CommsMessage()
 
                         rx_mb_msg.set_ts(float(params['UTC'])/1000)
                         rx_mb_msg.set_direction('rx')

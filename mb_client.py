@@ -64,12 +64,13 @@ class MbClient:
         root.after(200, self.process_updates)
 
     def client_shutdown(self):
-        be_sig = F2bMessage()
+        be_sig = GuiMessage()
         be_sig.set_cmd('X')
         be_sig.set_cli_input('MB Client Shutdown')
         be_sig.set_op('exit')
-        self.f2b_q.put(be_sig.msg)
-        comms_sig = CommsMsg()
+        self.f2b_q.put(be_sig)
+
+        comms_sig = CommsMessage()
         comms_sig.set_ts(time.time())
         comms_sig.set_direction('tx')
         comms_sig.set_typ('control')

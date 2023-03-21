@@ -27,7 +27,7 @@ class MbRspProcessors:
     body = ''
 
     # we use __init__ to preload some metadata we will need to create a qso entry
-    def __init__(self, js8_msg: CommsMsg, b2f_q: queue.Queue):
+    def __init__(self, js8_msg: CommsMessage, b2f_q: queue.Queue):
         self.b2f_q = b2f_q
         self.mb_status = Status()
         self.qso_date = js8_msg.get_ts()
@@ -50,7 +50,7 @@ class MbRspProcessors:
         elif ui_area == 'blogs':
             status.set_blogs_updated()
 
-        notify_msg = B2fMessage()
+        notify_msg = GuiMessage()
 
         notify_msg.set_ts()
         notify_msg.set_req_ts(0)
@@ -279,7 +279,7 @@ class BeProcessor:
         elif ui_area == 'blogs':
             status.set_blogs_updated()
 
-        notify_msg = B2fMessage()
+        notify_msg = GuiMessage()
 
         notify_msg.set_ts()
         notify_msg.set_req_ts(0)
@@ -295,7 +295,7 @@ class BeProcessor:
         self.b2f_q.put(notify_msg)
         return
 
-    def qso_append_cli_input(self, msg):
+    def qso_append_cli_input(self, msg_object: GuiMessage):
 
         self.status.reload_status()
         qso_table = DbTable('qso')
@@ -303,15 +303,15 @@ class BeProcessor:
         for row in db_values:
             row['qso_date'] = time.time()
             row['type'] = 'cmd'
-            row['blog'] = msg['blog']
-            row['station'] = msg['station']
+            row['blog'] = msg_object.get_blog()
+            row['station'] = msg_object.get_station()
             row['directed_to'] = self.status.callsign
             row['frequency'] = self.status.user_frequency
             row['offset'] = self.status.offset
-            row['cmd'] = msg['cli_input']
+            row['cmd'] = msg_object.get_cli_input()
             row['rsp'] = ''
-            row['post_id'] = msg['post_id']
-            row['post_date'] = msg['post_date']
+            row['post_id'] = msg_object.get_post_id()
+            row['post_date'] = msg_object.get_post_date()
             row['title'] = ''
             row['body'] = ''
             qso_table.insert(row)
@@ -341,11 +341,11 @@ class BeProcessor:
         self.signal_reload('qso')
 
     # when we call this function, the post_id_list must contain post_ids in numerical order
-    def get_posts_via_cache(self, req: dict, post_id_list: list):
+    def get_posts_via_cache(self, req: GuiMessage, post_id_list: list):
 
-        blog = req['blog']
-        station = req['station']
-        cmd = req['cmd']
+        blog = req.get_blog()
+        station = req.get_station()
+        cmd = req.get_cmd()
 
         svr_request_list = []  # this is a list of post_ids we will need to request from the server
 
@@ -410,7 +410,7 @@ class BeProcessor:
 
         payload = f"{cmd}{posts_needed}~"
         logmsg(3, 'comms: send: ' + str(payload))
-        mblog_api_req = CommsMsg()
+        mblog_api_req = CommsMessage()
 
         mblog_api_req.set_ts(time.time())
         mblog_api_req.set_direction('tx')
@@ -435,7 +435,7 @@ class BeProcessor:
                                        where=f"blog='{blog}' and station='{station}'", hdr_list=fields)
         return db_values
 
-    def process_list_cmd(self, req: dict):
+    def process_list_cmd(self, req: GuiMessage):
         # If the request is to list based on a date or dates, we need to go to the server
         # because we have no way of knowing if we have all posts with a certain date.
         # If the request is a TAIL listing, we need to get the latest post number from the
@@ -445,14 +445,14 @@ class BeProcessor:
 
         post_ids = []
 
-        if req['op'] == 'eq':
-            post_ids.append(req['post_id'])
-        elif req['op'] == 'gt':
+        if req.get_op() == 'eq':
+            post_ids.append(req.get_post_id())
+        elif req.get_op() == 'gt':
             for i in range(settings.max_listing):
-                post_ids.append(req['post_id'] + 1 + i)
-        elif req['op'] == 'tail':
+                post_ids.append(req.get_post_id() + 1 + i)
+        elif req.get_op() == 'tail':
             # get the latest post id for this blog
-            latest_post = self.get_posts_tail(req['blog'], req['station'])
+            latest_post = self.get_posts_tail(req.get_blog(), req.get_station())
 
             for i in range(
                     latest_post[0]['latest_post_id'] - settings.max_listing + 1,
@@ -467,11 +467,11 @@ class BeProcessor:
         self.signal_reload('qso')
         return
 
-    def process_extended_cmd(self, req: dict):
+    def process_extended_cmd(self, req: GuiMessage):
         self.process_list_cmd(req)
 
-    def process_get_cmd(self, req: dict):
-        post_ids = [req['post_id']]
+    def process_get_cmd(self, req: GuiMessage):
+        post_ids = [req.get_post_id()]
         self.get_posts_via_cache(req, post_ids)
 
         self.signal_reload('qso')
@@ -498,14 +498,14 @@ class BeProcessor:
 
         self.signal_reload('header')
 
-    def process_info_cmd(self, req: dict):
+    def process_info_cmd(self, req: GuiMessage):
         pass
 
-    def select_blog(self, req: dict):
+    def select_blog(self, req: GuiMessage):
 
-        blog = req['blog']
-        station = req['station']
-        frequency = req['frequency']
+        blog = req.get_blog()
+        station = req.get_station()
+        frequency = req.get_frequency()
 
         if len(blog) > 0:
             if len(station) > 0:
@@ -534,7 +534,7 @@ class BeProcessor:
                 )
 
                 # signal to the comms driver that the frequency must be changed
-                comms_sig = CommsMsg()
+                comms_sig = CommsMessage()
                 comms_sig.set_ts(time.time())
                 comms_sig.set_direction('tx')
                 comms_sig.set_typ('control')
@@ -544,51 +544,51 @@ class BeProcessor:
                 self.comms_tx_q.put(comms_sig)
 
                 # send OK back to the frontend
-                rsp = B2fMessage()
-                rsp.clone_req_msg(req)
+                rsp = GuiMessage()
+                rsp.clone_msg(req)
                 rsp.set_blog(blog)
-                rsp.msg['rc'] = 0
-                self.b2f_q.put(rsp.msg)
+                rsp.set_rc(0)
+                self.b2f_q.put(rsp)
 
-    def process_set_cmd(self, req: dict):
+    def process_set_cmd(self, req: GuiMessage):
         self.select_blog(req)
 
-    def process_config_cmd(self, msg: dict):
+    def process_config_cmd(self, msg: GuiMessage):
         pass
 
-    def process_scan_cmd(self, msg: dict):
+    def process_scan_cmd(self, msg: GuiMessage):
         pass
 
-    def preprocess(self, msg: dict):
+    def preprocess(self, msg_object: GuiMessage):
 
-        if msg['cmd'] == 'X':
+        if msg_object.get_cmd() == 'X':
             exit(0)
 
-        self.qso_append_cli_input(msg)
+        self.qso_append_cli_input(msg_object)
 
-        if msg['cmd'] == 'L':
-            self.process_list_cmd(msg)
-        elif msg['cmd'] == 'E':
-            self.process_extended_cmd(msg)
-        elif msg['cmd'] == 'G':
-            self.process_get_cmd(msg)
-        elif msg['cmd'] == 'I':
-            self.process_info_cmd(msg)
-        elif msg['cmd'] == 'S':
-            self.process_set_cmd(msg)
-        elif msg['cmd'] == 'C':
-            self.process_config_cmd(msg)
-        elif msg['cmd'] == 'P':
-            self.process_scan_cmd(msg)
+        if msg_object.get_cmd() == 'L':
+            self.process_list_cmd(msg_object)
+        elif msg_object.get_cmd() == 'E':
+            self.process_extended_cmd(msg_object)
+        elif msg_object.get_cmd() == 'G':
+            self.process_get_cmd(msg_object)
+        elif msg_object.get_cmd() == 'I':
+            self.process_info_cmd(msg_object)
+        elif msg_object.get_cmd() == 'S':
+            self.process_set_cmd(msg_object)
+        elif msg_object.get_cmd() == 'C':
+            self.process_config_cmd(msg_object)
+        elif msg_object.get_cmd() == 'P':
+            self.process_scan_cmd(msg_object)
 
-    def process_mb_rsp(self, comms_msg: CommsMsg):
+    def process_mb_rsp(self, comms_msg: CommsMessage):
         processor = MbRspProcessors(comms_msg, self.b2f_q)
         # check to see if this is a listing, extended listing or post and process accordingly
         processor.parse_rx_message(comms_msg.get_payload())
 
         self.signal_reload('qso')
 
-    def process_mb_notify(self, comms_msg: CommsMsg):
+    def process_mb_notify(self, comms_msg: CommsMessage):
         # ToDo: we should only insert an entry in qso if we don't have an entry already
         processor = MbRspProcessors(comms_msg, self.b2f_q)
         # check to see if this is a listing, extended listing or post and process accordingly
@@ -597,16 +597,16 @@ class BeProcessor:
         self.signal_reload('latest')
         pass
 
-    def process_status_radio_frequency(self, comms_msg: CommsMsg):
+    def process_status_radio_frequency(self, comms_msg: CommsMessage):
         self.set_hdr_freq(comms_msg.get_frequency())
 
-    def process_status_offset(self, comms_msg: CommsMsg):
+    def process_status_offset(self, comms_msg: CommsMessage):
         self.set_hdr_offset(comms_msg.get_offset())
 
-    def process_status_callsign(self, comms_msg: CommsMsg):
+    def process_status_callsign(self, comms_msg: CommsMessage):
         pass
 
-    def process_comms_rx(self, comms_msg: CommsMsg):
+    def process_comms_rx(self, comms_msg: CommsMessage):
         if comms_msg.get_typ() == 'mb_rsp':
             self.process_mb_rsp(comms_msg)
         elif comms_msg.get_typ() == 'mb_notify':

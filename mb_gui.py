@@ -199,7 +199,7 @@ class GuiLatestPosts:
 
     def get_post(self, blog: str, station: str, frequency: int, post_id: int, event):
 
-        req = F2bMessage()
+        req = GuiMessage()
 
         req.set_blog(blog)
         req.set_station(station)
@@ -210,8 +210,8 @@ class GuiLatestPosts:
         req.set_post_id(post_id)
         req.set_post_date(0)
         req.set_ts()
-        self.f2b_q.put(req.msg)
-        logging.logmsg(3, f"fe: {req.msg}")
+        self.f2b_q.put(req)
+        logging.logmsg(3, f"fe: {req}")
 
     def reload_latest(self):
 
@@ -397,7 +397,7 @@ class GuiCli:
 
     def go_cli(self, event):
 
-        req = F2bMessage()
+        req = GuiMessage()
 
         command_informat = [
             {'exp': '^L *(\\d+)$', 'op': 'eq', 'by': 'id'},
@@ -452,8 +452,8 @@ class GuiCli:
                     req.set_post_date(result[0])
 
                 req.set_ts()
-                self.f2b_q.put(req.msg)
-                logging.logmsg(3, f"fe: {req.msg}")
+                self.f2b_q.put(req)
+                logging.logmsg(3, f"fe: {req}")
                 # clear the text box
                 self.clear_cli_input()
             else:
@@ -560,13 +560,11 @@ class GuiBlogList:
 
                 if self.blog_list_headers[col]['type'] == 'Int':
                     number = int(int(db_row[col_name])/int(self.blog_list_headers[col]['divisor']))
-                    value = locale.format_string("%d", number, grouping=True)\
-                            + self.blog_list_headers[col]['suffix']
+                    value = locale.format_string("%d", number, grouping=True) + self.blog_list_headers[col]['suffix']
 
                 elif self.blog_list_headers[col]['type'] == 'Float':
                     number = float(float(db_row[col_name])/float(self.blog_list_headers[col]['divisor']))
-                    value = locale.format_string("%0.3f", number, grouping=True)\
-                            + self.blog_list_headers[col]['suffix']
+                    value = locale.format_string("%0.3f", number, grouping=True) + self.blog_list_headers[col]['suffix']
 
                 elif self.blog_list_headers[col]['type'] == 'Date':
                     if int(db_row[col_name]) > 0:
@@ -609,7 +607,7 @@ class GuiBlogList:
 
     # noinspection PyGlobalUndefined
     def select_blog(self, row, event):
-        req = F2bMessage()
+        req = GuiMessage()
         req.set_cmd('S')
         station = self.get_value_by_row_db_col(row, 'station')
         req.set_cli_input(f'@ {station} is now the selected blog')
@@ -621,8 +619,8 @@ class GuiBlogList:
         freq = (int(freq_string[0][0]) * 1000000) + (int(freq_string[0][1]) * 1000)
         req.set_frequency(freq)
         req.set_ts()
-        self.f2b_q.put(req.msg)
-        logging.logmsg(3, f"fe: {req.msg}")
+        self.f2b_q.put(req)
+        logging.logmsg(3, f"fe: {req}")
 
 
 class GuiMain:

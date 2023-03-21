@@ -1,9 +1,8 @@
 from status import *
 
 
-class F2bMessage:
-    msg = {'ts': 0.0, 'req_ts': 0.0, 'cli_input': "", 'cmd': "", 'blog': "", 'station': "",
-           'frequency': 0, 'post_id': 0, 'post_date': 0, 'op': "", 'param': "", 'rc': 0}
+class GuiMessage:
+
     # Valid cmd and other values
     # L - blog, post_id or post_date, op set to 'eq', 'gt' or 'lt': lists posts in brief format
     # E - blog, post_id or post_date, op set to 'eq', 'gt' or 'lt': lists posts in extended format
@@ -17,99 +16,107 @@ class F2bMessage:
     # P - op set to 'start' or 'stop': starts and stops a promiscuous scan
     # Note that the station that receives blog-based commands is selected by the backend based on the best SNR
 
-    def set_ts(self):
-        self.msg['ts'] = time.time()
-
-    def set_req_ts(self, value: float):
-        self.msg['req_ts'] = value
-
-    def set_cli_input(self, value: str):
-        self.msg['cli_input'] = value
-
-    def set_cmd(self, value: str):
-        self.msg['cmd'] = value
-
-    def set_blog(self, value: str):
-        self.msg['blog'] = value
-
-    def set_station(self, value: str):
-        self.msg['station'] = value
-
-    def set_frequency(self, value: int):
-        self.msg['frequency'] = value
-
-    def set_post_id(self, value: int):
-        self.msg['post_id'] = value
-
-    def set_post_date(self, value: int):
-        self.msg['post_date'] = value
-
-    def set_op(self, value: str):
-        self.msg['op'] = value
-
-    def set_param(self, value: str):
-        self.msg['param'] = value
-
-    def set_rc(self, value: int):
-        self.msg['rc'] = value
-
-
-class B2fMessage:
-    msg = {'ts': 0.0, 'req_ts': 0.0, 'cli_input': "", 'cmd': "", 'blog': "", 'station': "",
-           'frequency': 0, 'post_id': 0, 'post_date': 0, 'op': "", 'param': "", 'rc': 0}
+    ts = 0.0
+    req_ts = 0.0
+    cli_input = ""
+    cmd = ""
+    blog = ""
+    station = ""
+    frequency = 0
+    post_id = 0
+    post_date = 0
+    op = ""
+    param = ""
+    rc = 0
 
     def set_ts(self):
-        self.msg['ts'] = time.time()
+        self.ts = time.time()
 
     def set_req_ts(self, value: float):
-        self.msg['req_ts'] = value
+        self.req_ts = value
 
     def set_cli_input(self, value: str):
-        self.msg['cli_input'] = value
+        self.cli_input = value
 
     def set_cmd(self, value: str):
-        self.msg['cmd'] = value
+        self.cmd = value
 
     def set_blog(self, value: str):
-        self.msg['blog'] = value
+        self.blog = value
 
     def set_station(self, value: str):
-        self.msg['station'] = value
+        self.station = value
 
     def set_frequency(self, value: int):
-        self.msg['frequency'] = value
+        self.frequency = value
 
     def set_post_id(self, value: int):
-        self.msg['post_id'] = value
+        self.post_id = value
 
     def set_post_date(self, value: int):
-        self.msg['post_date'] = value
+        self.post_date = value
 
     def set_op(self, value: str):
-        self.msg['op'] = value
+        self.op = value
 
     def set_param(self, value: str):
-        self.msg['param'] = value
+        self.param = value
 
     def set_rc(self, value: int):
-        self.msg['rc'] = value
+        self.rc = value
 
-    def clone_req_msg(self, req: dict):
+    def get_ts(self):
+        return self.ts
+
+    def get_req_ts(self):
+        return self.req_ts
+
+    def get_cli_input(self):
+        return self.cli_input
+
+    def get_cmd(self):
+        return self.cmd
+
+    def get_blog(self):
+        return self.blog
+
+    def get_station(self):
+        return self.station
+
+    def get_frequency(self):
+        return self.frequency
+
+    def get_post_id(self):
+        return self.post_id
+
+    def get_post_date(self):
+        return self.post_date
+
+    def get_op(self):
+        return self.op
+
+    def get_param(self):
+        return self.param
+
+    def get_rc(self):
+        return self.rc
+
+    def clone_msg(self, donor: "GuiMessage"):
         self.set_ts()
-        self.set_req_ts(req['ts'])
-        self.set_cli_input(req['cli_input'])
-        self.set_cmd(req['cmd'])
-        self.set_blog(req['blog'])
-        self.set_station(req['station'])
-        self.set_frequency(req['frequency'])
-        self.set_post_id(req['post_id'])
-        self.set_post_date(req['post_date'])
-        self.set_op(req['op'])
-        self.set_param(req['param'])
-        self.set_rc(req['rc'])
+        self.set_req_ts(donor.get_ts())
+        self.set_cli_input(donor.get_cli_input())
+        self.set_cmd(donor.get_cmd())
+        self.set_blog(donor.get_blog())
+        self.set_station(donor.get_station())
+        self.set_frequency(donor.get_frequency())
+        self.set_post_id(donor.get_post_id())
+        self.set_post_date(donor.get_post_date())
+        self.set_op(donor.get_op())
+        self.set_param(donor.get_param())
+        self.set_rc(donor.get_rc())
 
 
-class CommsMsg:
+class CommsMessage:
     msg = {'ts': 0.0, 'req_ts': 0.0, 'direction': '', 'source': "", 'destination': "", 'frequency': 0,
            'offset': 0, 'snr': 0, 'typ': "", 'target': '', 'obj': "", 'payload': "", 'rc': 0}
 
