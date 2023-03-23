@@ -58,8 +58,8 @@
             <li>Frontend sends a message to the backend with the new values</li>
             <li>Backend makes the database changes needed to reflect the new values</li>
             <li>Backend sets the current Epoch time in the appropriate xxxx_updated field</li>
-            <li>The backend sends a response message to the frontend to indicate that the command completed</li>
-            <li>The frontend sees the response and checks for any xxxx_updated fields</li>
+            <li>The backend sends a Notify message to the frontend to indicate it should reload a GUI area</li>
+            <li>The frontend sees the Notify and checks for any xxxx_updated fields</li>
             <li>Frontend reloads the area of the GUI as per the xxxx_updated field</li>
         </ul>
         <p>The frontend checks for messages from the backend on the b2f_q queue by trying a non-blocking get for
