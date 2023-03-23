@@ -83,6 +83,16 @@ class MbClient:
 
         root.destroy()
 
+    def set_frequency(self, freq):
+        req = GuiMessage()
+        req.set_cmd('S')
+        req.set_frequency(freq)
+        req.set_ts()
+        self.f2b_q.put(req)
+        logging.logmsg(3, f"fe: {req}")
+
+        pass
+
     def run_client(self):
 
         # set up the menu bar
@@ -97,16 +107,16 @@ class MbClient:
 
         band_menu = tk.Menu(top_menu)
         top_menu.add_cascade(label='Band', menu=band_menu)
-        band_menu.add_command(label='160m:   1.842 000 MHz')
-        band_menu.add_command(label='80m:    3.578 000 MHz')
-        band_menu.add_command(label='40m:    7.708 000 MHz')
-        band_menu.add_command(label='30m:    10.130 000 MHz')
-        band_menu.add_command(label='17m:    18.104 000 MHz')
-        band_menu.add_command(label='15m:    21.078 000 MHz')
-        band_menu.add_command(label='12m:    24.922 000 MHz')
-        band_menu.add_command(label='10m:    28.078 000 MHz')
-        band_menu.add_command(label='6m:     50.318 000 MHz')
-        band_menu.add_command(label='2m:     144.178 000 MHz')
+        band_menu.add_command(label='160m:   1.842 000 MHz', command=ft.partial(self.set_frequency, 1842000))
+        band_menu.add_command(label='80m:    3.578 000 MHz', command=ft.partial(self.set_frequency, 3578000))
+        band_menu.add_command(label='40m:    7.708 000 MHz', command=ft.partial(self.set_frequency, 7078000))
+        band_menu.add_command(label='30m:    10.130 000 MHz', command=ft.partial(self.set_frequency, 10130000))
+        band_menu.add_command(label='17m:    18.104 000 MHz', command=ft.partial(self.set_frequency, 18104000))
+        band_menu.add_command(label='15m:    21.078 000 MHz', command=ft.partial(self.set_frequency, 21078000))
+        band_menu.add_command(label='12m:    24.922 000 MHz', command=ft.partial(self.set_frequency, 24922000))
+        band_menu.add_command(label='10m:    28.078 000 MHz', command=ft.partial(self.set_frequency, 28078000))
+        band_menu.add_command(label='6m:     50.318 000 MHz', command=ft.partial(self.set_frequency, 50318000))
+        band_menu.add_command(label='2m:     144.178 000 MHz', command=ft.partial(self.set_frequency, 144178000))
 
         # we need to ensure closing the window stops the backend
         root.protocol("WM_DELETE_WINDOW", self.client_shutdown)

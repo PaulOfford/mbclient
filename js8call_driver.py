@@ -222,9 +222,6 @@ class Js8CallDriver:
                         rx_status_radio_frequency.set_payload(str(params['DIAL']))
                         self.comms_rx_q.put(rx_status_radio_frequency)
                         logmsg(3, 'js8drv: q_put: REG_FREQ - radio_frequency: ' + str(params['DIAL']))
-                        # ToDo: Eliminate the following join.
-                        # If I don't have this the backend never gets the radio_frequency message
-                        self.comms_rx_q.join()
 
                         # send message to backend re offset
                         rx_status_offset = CommsMessage()
@@ -254,9 +251,6 @@ class Js8CallDriver:
                         rx_status_radio_frequency.set_payload(str(params['DIAL']))
                         self.comms_rx_q.put(rx_status_radio_frequency)
                         logmsg(3, 'js8drv: q_put: STATION.STATUS - radio_frequency: ' + str(params['DIAL']))
-                        # ToDo: Eliminate the following join.
-                        # If I don't have this the backend never gets the radio_frequency message
-                        self.comms_rx_q.join()  # this is not ideal, but I couldn't make it work any other way
 
                         # send message to backend re offset
                         rx_status_offset = CommsMessage()

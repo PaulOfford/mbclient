@@ -498,6 +498,17 @@ class BeProcessor:
 
         self.signal_reload('header')
 
+    def set_rig_frequency(self, freq):
+        # signal to the comms driver that the frequency must be changed
+        comms_sig = CommsMessage()
+        comms_sig.set_ts(time.time())
+        comms_sig.set_direction('tx')
+        comms_sig.set_typ('control')
+        comms_sig.set_target('set')
+        comms_sig.set_obj('radio_frequency')
+        comms_sig.set_payload(freq)
+        self.comms_tx_q.put(comms_sig)
+
     def process_info_cmd(self, req: GuiMessage):
         pass
 
@@ -534,14 +545,7 @@ class BeProcessor:
                 )
 
                 # signal to the comms driver that the frequency must be changed
-                comms_sig = CommsMessage()
-                comms_sig.set_ts(time.time())
-                comms_sig.set_direction('tx')
-                comms_sig.set_typ('control')
-                comms_sig.set_target('set')
-                comms_sig.set_obj('radio_frequency')
-                comms_sig.set_payload(frequency)
-                self.comms_tx_q.put(comms_sig)
+                self.set_rig_frequency(frequency)
 
                 # send OK back to the frontend
                 rsp = GuiMessage()
@@ -551,7 +555,12 @@ class BeProcessor:
                 self.b2f_q.put(rsp)
 
     def process_set_cmd(self, req: GuiMessage):
-        self.select_blog(req)
+
+        if len(req.get_blog()) > 0:
+            self.select_blog(req)
+            self.qso_append_cli_input(req)
+        elif req.get_frequency() > 0:
+            self.set_rig_frequency(req.get_frequency())
 
     def process_config_cmd(self, msg: GuiMessage):
         pass
@@ -563,22 +572,25 @@ class BeProcessor:
 
         if msg_object.get_cmd() == 'X':
             exit(0)
-
-        self.qso_append_cli_input(msg_object)
-
-        if msg_object.get_cmd() == 'L':
+        elif msg_object.get_cmd() == 'L':
+            self.qso_append_cli_input(msg_object)
             self.process_list_cmd(msg_object)
         elif msg_object.get_cmd() == 'E':
+            self.qso_append_cli_input(msg_object)
             self.process_extended_cmd(msg_object)
         elif msg_object.get_cmd() == 'G':
+            self.qso_append_cli_input(msg_object)
             self.process_get_cmd(msg_object)
         elif msg_object.get_cmd() == 'I':
+            self.qso_append_cli_input(msg_object)
             self.process_info_cmd(msg_object)
         elif msg_object.get_cmd() == 'S':
             self.process_set_cmd(msg_object)
         elif msg_object.get_cmd() == 'C':
+            self.qso_append_cli_input(msg_object)
             self.process_config_cmd(msg_object)
         elif msg_object.get_cmd() == 'P':
+            self.qso_append_cli_input(msg_object)
             self.process_scan_cmd(msg_object)
 
     def process_mb_rsp(self, comms_msg: CommsMessage):
@@ -637,6 +649,7 @@ class BeProcessor:
         # check for messages from the comms driver
         try:
             comms_rx = self.comms_rx_q.get(block=True, timeout=0.1)  # if no msg waiting, this will throw an exception
+            log_text = ""  # add code here
             logging.logmsg(3, f"backend: {comms_rx}")
             self.process_comms_rx(comms_rx)
             self.comms_rx_q.task_done()

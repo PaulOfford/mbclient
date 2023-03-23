@@ -117,8 +117,21 @@ class GuiMessage:
 
 
 class CommsMessage:
-    msg = {'ts': 0.0, 'req_ts': 0.0, 'direction': '', 'source': "", 'destination': "", 'frequency': 0,
-           'offset': 0, 'snr': 0, 'typ': "", 'target': '', 'obj': "", 'payload': "", 'rc': 0}
+
+    ts = 0.0
+    req_ts = 0.0
+    direction = ''
+    blog = ""
+    source = ""
+    destination = ""
+    frequency = 0
+    offset = 0
+    snr = 0
+    typ = ''
+    target = ''
+    obj = ''
+    payload = ""
+    rc = 0
 
     # Although the following refers to Js8Call, we need to keep this abstract enough such
     # that another transport mechanism could be used.
@@ -141,85 +154,85 @@ class CommsMessage:
     #   * ui_header:rx_led - control notification
 
     def set_ts(self, ts: float):
-        self.msg['ts'] = ts
+        self.ts = ts
 
     def set_req_ts(self, ts: float):
-        self.msg['req_ts'] = ts
+        self.req_ts = ts
 
     def set_direction(self, direction: str):
-        self.msg['direction'] = direction
+        self.direction = direction
 
     def set_source(self, source: str):
-        self.msg['source'] = source
+        self.source = source
 
     def set_destination(self, destination: str):
-        self.msg['destination'] = destination
+        self.destination = destination
 
     def set_frequency(self, frequency: int):
-        self.msg['frequency'] = frequency
+        self.frequency = frequency
 
     def set_offset(self, offset: int):
-        self.msg['offset'] = offset
+        self.offset = offset
 
     def set_snr(self, snr: int):
-        self.msg['snr'] = snr
+        self.snr = snr
 
     def set_blog(self, blog: str):
-        self.msg['blog'] = blog
+        self.blog = blog
 
     def set_typ(self, typ: str):
-        self.msg['typ'] = typ
+        self.typ = typ
 
     def set_target(self, target: str):
-        self.msg['target'] = target
+        self.target = target
 
     def set_obj(self, obj: str):
-        self.msg['obj'] = obj
+        self.obj = obj
 
     def set_payload(self, payload: [str, int]):
-        self.msg['payload'] = payload
+        self.payload = payload
 
     def set_rc(self, rc: int):
-        self.msg['rc'] = rc
+        self.rc = rc
 
     def get_ts(self) -> float:
-        return self.msg['ts']
+        return self.ts
 
     def get_req_ts(self) -> float:
-        return self.msg['req_ts']
+        return self.req_ts
 
     def get_direction(self) -> str:
-        return self.msg['direction']
+        return self.direction
 
     def get_source(self) -> str:
-        return self.msg['source']
+        return self.source
 
     def get_destination(self) -> str:
-        return self.msg['destination']
+        return self.destination
 
     def get_frequency(self) -> int:
-        return self.msg['frequency']
+        return self.frequency
 
     def get_offset(self) -> int:
-        return self.msg['offset']
+        return self.offset
 
     def get_snr(self) -> int:
-        return self.msg['snr']
+        return self.snr
 
     def get_blog(self) -> str:
-        return self.msg['blog']
+        return self.blog
 
     def get_typ(self) -> str:
-        return self.msg['typ']
+        return self.typ
 
     def get_target(self) -> str:
-        return self.msg['target']
+        return self.target
 
     def get_obj(self) -> str:
-        return self.msg['obj']
+        return self.obj
 
     def get_payload(self) -> str:
-        return self.msg['payload']
+        return self.payload
 
     def get_rc(self) -> int:
-        return self.msg['rc']
+        return self.rc
