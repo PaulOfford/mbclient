@@ -16,27 +16,38 @@ c = db.cursor()
 # hold the epoch time that data associated with that frame.
 # the is_scanning and req_outstanding integers are used as booleans, o - False and 1 - True.
 #
-c.execute("""CREATE TABLE settings (
-    startup_width integer,
-    startup_height integer,
-    font_size integer,
-    max_latest integer,
-    max_qsos integer,
-    max_blogs integer
-)""")
+
+c.execute("""CREATE TABLE settings (ts float, name text, val text, typ text)""")
 
 with db:
-    c.execute("INSERT INTO settings VALUES (:startup_width, :startup_height, :font_size, "
-              ":max_latest, :max_qsos, :max_blogs)",
-              {
-                  'startup_width': 1080,
-                  'startup_height': 640,
-                  'font_size': 8,
-                  'max_latest': 30,
-                  'max_qsos': 50,
-                  'max_blogs': 30
-              }
-              )
+    c.execute(
+        "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",
+        {'ts': time.time(), 'name': 'startup_width', 'val': '1080', 'typ': 'integer'}
+    )
+    c.execute(
+        "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",
+        {'ts': time.time(), 'name': 'startup_height', 'val': '640', 'typ': 'integer'}
+    )
+    c.execute(
+        "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",
+        {'ts': time.time(), 'name': 'font_size', 'val': '8', 'typ': 'integer'}
+    )
+    c.execute(
+        "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",
+        {'ts': time.time(), 'name': 'max_latest', 'val': '30', 'typ': 'integer'}
+    )
+    c.execute(
+        "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",
+        {'ts': time.time(), 'name': 'max_qsos', 'val': '50', 'typ': 'integer'}
+    )
+    c.execute(
+        "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",
+        {'ts': time.time(), 'name': 'max_blogs', 'val': '30', 'typ': 'integer'}
+    )
+    c.execute(
+        "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",
+        {'ts': time.time(), 'name': 'max_listing', 'val': '5', 'typ': 'integer'}
+    )
 
 c.execute("""CREATE TABLE status (
     last_checked float,

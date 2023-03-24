@@ -2,7 +2,7 @@ from db_table import *
 
 
 class Settings:
-    settings_cols = ['startup_width', 'startup_height', 'font_size', 'max_latest', 'max_qsos', 'max_blogs']
+    settings_cols = ['ts', 'name', 'val', 'typ']
     startup_width = None
     startup_height = None
     startup_dimensions = None
@@ -15,19 +15,29 @@ class Settings:
     def __init__(self):
         self.reload_settings()
 
+    def get_setting(self, settings_table, name):
+        db_values = settings_table.select(
+            where=f"name='{name}'", order_by=None, desc=False, limit=1, hdr_list=self.settings_cols
+        )
+        value_str = db_values[0]['val']
+        data_type = db_values[0]['typ']
+        if data_type == 'integer':
+            return int(value_str)
+        elif data_type == 'float':
+            return float(value_str)
+        elif data_type == 'text':
+            return  value_str
+
     def reload_settings(self):
         settings_table = DbTable('settings')
-        db_values = settings_table.select(
-            where=None, order_by=None, desc=False,
-            limit=1, hdr_list=self.settings_cols
-        )
-        self.startup_width = db_values[0]['startup_width']
-        self.startup_height = db_values[0]['startup_height']
+        self.startup_width = self.get_setting(settings_table, 'startup_width')
+        self.startup_height = self.get_setting(settings_table, 'startup_height')
         self.startup_dimensions = f"{self.startup_width}x{self.startup_height}"
-        self.font_size = db_values[0]['font_size']
-        self.max_latest = db_values[0]['max_latest']
-        self.max_qsos = db_values[0]['max_qsos']
-        self.max_blogs = db_values[0]['max_blogs']
+        self.font_size = self.get_setting(settings_table, 'font_size')
+        self.max_latest = self.get_setting(settings_table, 'max_latest')
+        self.max_qsos = self.get_setting(settings_table, 'max_qsos')
+        self.max_blogs = self.get_setting(settings_table, 'max_blogs')
+        self.max_listing = self.get_setting(settings_table, 'max_listing')
 
 
 # ToDo: pivot this table to contain one row per setting; each row a key/value pair
