@@ -21,6 +21,53 @@ font_main_ul = font.Font(family='Ariel', size=settings.font_size, weight='normal
 font_main_hdr = font.Font(family='Ariel', size=(int(settings.font_size*1.25)), weight='normal')
 font_main_bold = font.Font(family='Ariel', size=settings.font_size, weight='bold')
 
+def settings_window():
+    sw = tk.Tk()
+    sw.title("Settings")
+    sw.geometry("600x400")
+    my_str1 = tk.StringVar()
+
+    label_list = [
+        ('startup_width', 'Window Startup Width:'),
+        ('startup_height', 'Window Startup Height:'),
+        ('font_size', 'Font Size:'),
+        ('max_latest', 'Max Latest:'),
+        ('max_qsos', 'Max QSOs:'),
+        ('max_blogs', 'Max Blogs:'),
+        ('max_listing', 'Max Listing:'),
+    ]
+    entry_list = []
+    entry_text = []
+
+    # Row and Column configure to manage weights
+    sw.columnconfigure(0, weight=1)
+    sw.columnconfigure(2, weight=1)
+    sw.rowconfigure(0, weight=1)
+    sw.rowconfigure(2, weight=1)
+
+    # Add a frame to hold the rest of the widgets and place that frame in the row/column without a weight.
+    # This will allow us to center everything that we place in the frame.
+    frame = tk.Frame(sw)
+    frame.grid(row=1, column=1)
+
+    settings_table = DbTable('settings')
+
+    # use a loop to create our widgets.
+    for ndex, label in enumerate(label_list):
+        tk.Label(frame, text=label[1] + ' ', font='10').grid(row=ndex, column=0, sticky='w')
+        # Store the entry widgets in a list for later use
+        entry_list.append(tk.Entry(frame, borderwidth=2, width=10))
+        entry_list[-1].grid(row=ndex, column=1)
+        entry_list[-1].insert(0, settings.get_setting(settings_table, label[0]))
+
+    # Get and print each entry value.
+    def print_entries():
+        for entry in entry_list:
+            print(entry.get())
+
+    tk.Label(frame, text=' ').grid(row=len(label_list)+1, column=0, columnspan=2)
+    tk.Button(frame, text='Save', command=print_entries).grid(row=len(label_list)+2, column=0, columnspan=2)
+
 
 class GuiHeader:
 
