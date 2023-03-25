@@ -30,7 +30,7 @@ with db:
     )
     c.execute(
         "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",
-        {'ts': time.time(), 'name': 'font_size', 'val': '8', 'typ': 'integer'}
+        {'ts': time.time(), 'name': 'font_size', 'val': '10', 'typ': 'integer'}
     )
     c.execute(
         "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",

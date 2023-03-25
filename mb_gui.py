@@ -24,7 +24,7 @@ font_main_bold = font.Font(family='Ariel', size=settings.font_size, weight='bold
 def settings_window():
     sw = tk.Tk()
     sw.title("Settings")
-    sw.geometry("600x400")
+    sw.geometry("400x300")
     my_str1 = tk.StringVar()
 
     label_list = [
@@ -37,7 +37,6 @@ def settings_window():
         ('max_listing', 'Max Listing:'),
     ]
     entry_list = []
-    entry_text = []
 
     # Row and Column configure to manage weights
     sw.columnconfigure(0, weight=1)
@@ -52,21 +51,33 @@ def settings_window():
 
     settings_table = DbTable('settings')
 
-    # use a loop to create our widgets.
-    for ndex, label in enumerate(label_list):
-        tk.Label(frame, text=label[1] + ' ', font='10').grid(row=ndex, column=0, sticky='w')
+    # create the labels and entry widgets
+    for i, label in enumerate(label_list):
+        tk.Label(frame, text=label[1] + ' ', font='8').grid(row=i, column=0, sticky='w')
         # Store the entry widgets in a list for later use
-        entry_list.append(tk.Entry(frame, borderwidth=2, width=10))
-        entry_list[-1].grid(row=ndex, column=1)
+        entry_list.append(tk.Entry(frame, borderwidth=2, width=8, font='8', relief=tk.GROOVE))
+        entry_list[-1].grid(row=i, column=1)
         entry_list[-1].insert(0, settings.get_setting(settings_table, label[0]))
 
-    # Get and print each entry value.
-    def print_entries():
-        for entry in entry_list:
-            print(entry.get())
+    # save the settings
+    def save_entries():
+        for i, entry in enumerate(entry_list):
+            settings_table.update(
+                value_dictionary={
+                    'ts': time.time(),
+                    'val': str(entry.get())
+                },
+                where=f"name='{label_list[i][0]}'"
+            )
+        sw.destroy()
 
     tk.Label(frame, text=' ').grid(row=len(label_list)+1, column=0, columnspan=2)
-    tk.Button(frame, text='Save', command=print_entries).grid(row=len(label_list)+2, column=0, columnspan=2)
+    tk.Button(
+        frame, text='Cancel', font='8', command=sw.destroy
+    ).grid(row=len(label_list)+2, column=0)
+    tk.Button(
+        frame, text='Save', font='8', command=save_entries
+    ).grid(row=len(label_list)+2, column=1)
 
 
 class GuiHeader:
