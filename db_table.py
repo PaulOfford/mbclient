@@ -20,9 +20,10 @@ class DbTable:
         c.execute(query)
         logging.logmsg(3, query)
         row = c.fetchone()
-        self.col_names = row.keys()
-        if 'is_selected' in self.col_names:
-            self.has_is_selected = True
+        if row:
+            self.col_names = row.keys()
+            if 'is_selected' in self.col_names:
+                self.has_is_selected = True
 
         c.close()
 

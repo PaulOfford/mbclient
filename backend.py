@@ -297,24 +297,26 @@ class BeProcessor:
 
     def qso_append_cli_input(self, msg_object: GuiMessage):
 
+        row = {}
+
         self.status.reload_status()
+
+        row['qso_date'] = time.time()
+        row['type'] = 'cmd'
+        row['blog'] = msg_object.get_blog()
+        row['station'] = msg_object.get_station()
+        row['directed_to'] = self.status.callsign
+        row['frequency'] = self.status.user_frequency
+        row['offset'] = self.status.offset
+        row['cmd'] = msg_object.get_cli_input()
+        row['rsp'] = ''
+        row['post_id'] = msg_object.get_post_id()
+        row['post_date'] = msg_object.get_post_date()
+        row['title'] = ''
+        row['body'] = ''
+
         qso_table = DbTable('qso')
-        db_values = qso_table.select(limit=1, hdr_list=self.qso_fields)
-        for row in db_values:
-            row['qso_date'] = time.time()
-            row['type'] = 'cmd'
-            row['blog'] = msg_object.get_blog()
-            row['station'] = msg_object.get_station()
-            row['directed_to'] = self.status.callsign
-            row['frequency'] = self.status.user_frequency
-            row['offset'] = self.status.offset
-            row['cmd'] = msg_object.get_cli_input()
-            row['rsp'] = ''
-            row['post_id'] = msg_object.get_post_id()
-            row['post_date'] = msg_object.get_post_date()
-            row['title'] = ''
-            row['body'] = ''
-            qso_table.insert(row)
+        qso_table.insert(row)
 
         self.signal_reload('qso')
 
