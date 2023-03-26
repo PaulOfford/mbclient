@@ -17,18 +17,23 @@
         <p>Python persistent object facilities (like <i>pickle</i>) were considered, but these wouldn't meet
             all the data needs and are more complex to maintain.</p>
         <p><img src="images/components.jpg" width="640" /></p>
-        <p>mbclient comprises two components:</p>
+        <p>mbclient comprises three components:</p>
         <ul>
             <li>Frontend - the GUI and code relating to presentation</li>
-            <li>Backend - code that deals with communication and the main logic of the program</li>
+            <li>Backend - code that provides the main logic of the program</li>
+            <li>JS8 Driver - code that handles the communication with JS8Call</li>
         </ul>
         <p>Each of these components runs in its own Python thread.  Python multithreading does not equate
             to OS multithreading, i.e. it does not use multiple cores.  However, the client will spend a
             lot of time waiting for UI events and network IO (API calls to JS8Call) and so it should meet
             our needs.  Python multiprocessing could be considered at a later stage, if necessary.</p>
         <h2>Messaging</h2>
-        <p>Communication between the frontend and backend is via messages placed on one of two Python FIFO Queues;
-            f2b_q for frontend to backend messaging, and b2f_q for backend to frontend.  The sending code
+        <p>Frontend-to-backend and backend-to-comms messages are objects with getter and setter methods.  The messages
+            are defined in message_q.py. The messages are placed on Python queues (queue.Queue) and these are
+            instantiated in the MbClient class.</p>
+        <h3>GUI Frontend-to-Backend Messages</h3>
+        <p>Communication between the frontend and backend is via message objects placed on one of two Python FIFO
+            Queues; f2b_q for frontend to backend messaging, and b2f_q for backend to frontend.  The sending code
             puts a new messages on the queue, and the receiving code gets the message from the queue.  There are three
             types of message:</p>
         <ul>
@@ -38,10 +43,38 @@
                 change of state, e.g. the operator tunes the radio to another frequency</li>
         </ul>
         <p>Here's an example of a matching request and response:</p>
-        <p><code>
-            {'ts': 1676976154.154798, 'req_ts': 0.0, 'cmd': 'S', 'blog': 'NEWSEN', 'station': 'K7GHI', 'frequency': 0, 'post_id': 0, 'post_date': 0, 'op': '', 'param': '', 'rc': 0}</code></p>
-<p><code>{'ts': 1676976154.1837683, 'req_ts': 1676976154.154798, 'cmd': 'S', 'blog': 'NEWSEN', 'station': 'K7GHI', 'frequency': 0, 'post_id': 0, 'post_date': 0, 'op': '', 'param': '', 'rc': 0}
-        </code></p>
+        <p>
+            <code>
+            ts = 1676976154.154798,
+            req_ts = 0.0,
+            cli_input = '',
+            cmd = 'S',
+            blog = 'NEWSEN',
+            station = 'K7GHI',
+            frequency = 14078000,
+            post_id = 0,
+            post_date = 0,
+            op = '',
+            param = '',
+            rc = 0
+            </code>
+        </p>
+        <p>
+            <code>
+            ts = 1676976154.1837683,
+            req_ts = 1676976154.154798,
+            cli_input = '',
+            cmd = 'S',
+            blog = 'NEWSEN',
+            station = 'K7GHI',
+            frequency = 14078000,
+            post_id = 0,
+            post_date = 0,
+            op = '',
+            param = '',
+            rc = 0
+            </code>
+        </p>
         <p>In this example, the frontend is sending a request to the backend to change the currently selected blog in the blog list.
             Notice how the req_ts value matches the ts value of the request.  A non-zero Response Code (rc) would indicate an error
             has occurred in the backend, e.g. if we try to set the selected blog to a blog that doesn't exist in the list.</p>
@@ -67,7 +100,38 @@
             handled and essentially ignored.  The method that does this work is process_updates() in the MbClient
             class.  The process_updates() method is called via the tkinter callback mechanism; search the code
             for <code>root.after(200, self.process_updates)</code></p>
+        <h3>Backend-to-Comms Messages</h3>
+        <p>Similar objects are used for requests and responses flowing between the backend and the comms driver.
+            Communication between the backend and comms driver is via message objects placed on one of two Python
+            FIFO Queues; comms_tx_q for backend to comms messaging, and comms_rx_q for comms to backend.</p>
         <h2>Database</h2>
+        <h3>Overview</h3>
+        <p>We use a SQLite database at the core of the application.  The database has four tables:</p>
+        <ul>
+            <li>qso - the table used to contain listings, blogs and progress messages</li>
+            <ul><li>used to populate the QSO and New Posts boxes</li></ul>
+            <li>blogs - a table that contains details of blogs identified</li>
+            <ul><li>used to populate the Blog List box</li></ul>
+            <li>settings - holds settings defined using the Settings window (File -> Settings)</li>
+            <li>status - holds context information, such as current selected blog, and a range of timestamps
+                used to indicate data change</li>
+        </ul>
+        <p>As far as the application code is concerned, all database access is made using the DbTable class
+            in db_table.py.</p>
+        <h3>Database Installation</h3>
+        <p>sqlite3 is a standard module of Python 3 and so there is no need to install additional packages.</p>
+        <p>The location of the database is defined in the file db_root.py.  This file needs to be edited to
+            suit each user's preference.  Having the user edit a file like this is not ideal, and we need to
+            add an appropriate startup window.</p>
+        <p>The database is created by the script db_setup.py.  This script also populates the database with
+            sample data and default settings.  The sample data will eventually age out of the QSO and Blog List.
+            If desired, we can supress the sample data by commenting out the code that inserts it into the database,
+            or by using the SQLite command line tool and delete the entries in the qso and blogs tables.</p>
+        <p>
+            <code>sqlite> DELETE FROM blogs;</code><br/>
+            <code>sqlite> DELETE FROM qso;</code>
+        </p>
+
     </div>
 </body>
 </html>
