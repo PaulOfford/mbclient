@@ -108,10 +108,12 @@
         <h3>Overview</h3>
         <p>We use a SQLite database at the core of the application.  The database has four tables:</p>
         <ul>
-            <li>qso - the table used to contain listings, blogs and progress messages</li>
+            <li>qso - the table used to contain listings, blogs and progress messages
             <ul><li>used to populate the QSO and New Posts boxes</li></ul>
-            <li>blogs - a table that contains details of blogs identified</li>
+            </li>
+            <li>blogs - a table that contains details of blogs identified
             <ul><li>used to populate the Blog List box</li></ul>
+            </li>
             <li>settings - holds settings defined using the Settings window (File -> Settings)</li>
             <li>status - holds context information, such as current selected blog, and a range of timestamps
                 used to indicate data change</li>
@@ -121,8 +123,8 @@
         <h3>Database Installation</h3>
         <p>sqlite3 is a standard module of Python 3 and so there is no need to install additional packages.</p>
         <p>The location of the database is defined in the file db_root.py.  This file needs to be edited to
-            suit each user's preference.  Having the user edit a file like this is not ideal, and we need to
-            add an appropriate startup window.</p>
+            suit each user's preference.  Having the user edit a file like this is not ideal; it would be
+            good to add an appropriate startup window.</p>
         <p>The database is created by the script db_setup.py.  This script also populates the database with
             sample data and default settings.  The sample data will eventually age out of the QSO and Blog List.
             If desired, we can supress the sample data by commenting out the code that inserts it into the database,
