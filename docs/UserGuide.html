@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>User Guide</title>
+    <link media="all" rel="stylesheet" href="styles/main.css" />
+</head>
+<body>
+    <div class="outer-div">
+        <h1>User Guide</h1>
+        <h2>Introduction</h2>
+        <p>Blogging is a popular way to share information with Internet users by posting short articles in an
+            <i>ad hoc</i> manner.  In an emergency situation, blogging could provide a way to disseminate critical
+            information if it weren't for the fact that Internet access is often unavailable is such situations.</p>
+        <p>The use of radio for emergency communications is well understood and, of course, is always available.
+            JS8 is a radio data mode that works in a wide range of conditions.  With all the above in mind, let's
+            move onto the concept of microblogging.</p>
+        <p><img src="images/MbloggingOverview.jpg" width="640" /></p>
+        <p>A microblog is a blog that contains small concise posts that are delivered to amateur radio operators
+            via JS8.  Although it may take 3 minutes for JS8 to deliver a microblog
+            post, it doesn't rely on the Internet and is reliable in adverse conditions.</p>
+        <p><img src="images/configuration.jpg" width="640" /></p>
+        <p>A microblog server is hosted on an amateur radio operator's computer and uses the JS8Call application
+            to provide the JS8 transport mechanism.  A microblog client sends requests to the mbserver which
+            responds with the requested information.</p>
+        <h2>Microblog Post File</h2>
+        <p>A microblog post is stored as a simple text file in the server computer.  The content of the text file
+            will look something like this:</p>
+        <p style="background-color: black; color: white; padding: 8px;">
+            <code>
+                Three of the four new astronauts on February's planned launch of the SpaceX Crew-6 mission to the
+                International Space Station (ISS) are amateur radio operators.<br/>
+                <br/>
+                Pilot Warren "Woody" Hoburg, KB3HTZ; Commander Stephen Bowen, KI5BKB, and Mission Specialist
+                Sultan Al Neyadi, KI5VTV, will join Mission Specialist Andrey Fedyaev on board the SpaceX Dragon
+                spacecraft, Endeavour.
+            </code>
+        </p>
+        <p>Although we can create a post file with any content we wish, there are a few points to note:</p>
+        <ul>
+            <li>Each post should be short and concise as long posts will take an unacceptable time to transmit</li>
+            <li>Although we can use mixed case in the file, the post is sent to the client in upper case</li>
+            <li>Only characters in the JS8 character set are acceptable
+                <ul><li>unfortunately that means no support for languages such as Arabic or Japanese</li></ul>
+            </li>
+        </ul>
+        <p>The format of the file name is important.  The file name must contain:</p>
+        <ul>
+            <li>Post ID - a unique number within this particular blog</li>
+            <li>Date - the date of the post in ISO format (yyyy-mm-dd)</li>
+            <li>Title - a headline title for the post</li>
+        </ul>
+        <p>Here's a directory listing for the sample posts that are included in the mbserver installation package:</p>
+        <p style="background-color: black; color: white; padding: 8px;">
+            <code>
+                04/02/2023  13:05   378 0021 - 2023-01-06 - More Hams on the ISS.txt<br/>
+                04/02/2023  13:06   254 0022 - 2023-01-13 - HAARP Thanks Hams.txt<br/>
+                09/03/2023  13:34   348 0023 - 2023-01-13 - K7RA Solar Update.txt<br/>
+                04/02/2023  13:06   342 0024 - 2023-01-15 - RSGB Propogation News.txt<br/>
+                04/02/2023  13:06   369 0025 - 2023-01-20 - FalconSAT-3 Nears Reentry.txt<br/>
+                04/02/2023  13:06   387 0026 - 2023-01-20 - 2026 World Radiosport Team Championship News.txt<br/>
+                04/02/2023  13:07   249 0027 - 2023-01-22 - RSGB Propogation News.txt<br/>
+                04/02/2023  13:07   195 0028 - 2023-01-26 - Yaesu Radios Donated to ARRL.txt<br/>
+                09/03/2023  13:34   285 0029 - 2023-01-27 - RSGB Propogation News.txt<br/>
+                              10 File(s)          3,115 bytes<br/>
+                               2 Dir(s)  208,286,642,176 bytes free<br/>
+            </code>
+        </p>
+        <p>As you can see, the Post ID is the first element of the file name (e.g. 0026).  The post ID can have any
+            number of leading zeros (or none at all).  The advantage of using a consistent number of Post ID digits
+            is that when we list the directory, we can order it by Post ID.</p>
+        <p>Next comes the Date of the post.  This should be the date associated with the information, rather
+            than the date the post was created.  Notice how I created post 0028 on February 4th (my computer locale
+            displays dates in dd/mm/yyy format) but the Post Date shows as 2023-01-26.  That's because the source
+            ARRL article was dated January 26th.  Similarly, I might later edit post 0028 to correct a typo and,
+            although the file system Modified Date will change, the Post Date will remain 2023-01-26.</p>
+        <p>Finally we have the title of the post.</p>
+        <p>The challenge for an operator running a server is to keep the post title and content as concise as
+            possible to minimise transmission time.</p>
+        <h2>MbClient Functionality</h2>
+        <p>The MbClient app has the following capabilities:</p>
+        <ul>
+            <li><b>Listing</b> - list the posts of a blog providing Post ID and Post Title</li>
+            <li><b>Extended Listing</b> - list the posts of a blog providing Post ID, Post Date and Post Title</li>
+            <li><b>Get</b> - retrieve the contents of a post from the server and display it</li>
+            <li><b>Latest Posts</b> - maintain and display a list of the most recent posts sent to any users by
+                a microblog server</li>
+            <li><b>Blog List</b> - maintain a list of available blogs by monitoring @MB Announcement messages*</li>
+            <li><b>Caching</b> - save any retrieved listings or posts in a database for instant display in the future</li>
+            <li><b>Promiscuous Caching</b> - save listings and posts sent to other users for instant display in the future</li>
+        </ul>
+        <p style="font-size: 80%">* @MB Announcement - Each microblog server periodically sends an announcement message
+            containing the blog name, latest Post ID and latest Post Date to the JS8 group @MB</p>
+        <h2>Interface Layout</h2>
+        <p><img src="images/InterfaceLayout.jpg" width="640" /></p>
+        <p>The user interface for the MbClient has five areas:</p>
+        <ul>
+            <li><b>Header</b> - this area displays the rig frequency setting, the JS8Call offset, the client call sign,
+                the GMT (UTC) date and time, and a Scan button</li>
+            <li><b>Latest Posts</b> - this area displays the latest post details from any blog server to any user, and is
+                gathered by monitoring JS8 messages</li>
+            <li><b>QSO Box</b> - this area displays retreived listings and posts, together with timstamped progress messages
+                that indicate what the app is doing at a point in time</li>
+            <li><b>Command Line Interface</b> - this area displays the name of the blog you are currently interacting with
+                and provides a dialogue box for you to enter commands</li>
+            <li><b>Blog List</b> - this area lists the blogs that have been seen and should be available to you</li>
+        </ul>
+        <p>Let's look at three typical ways you would use this interface.</p>
+
+        <h3>Scenario 1 - List the latest posts available from a blog</h3>
+        <p align="center"><img src="images/SelectM0PXO.jpg" width="320" /></p>
+        <p>We start by clicking on a blog in the Blog List.  Above we have chosen the M0PXO blog.</p>
+        <p align="center"><img src="images/ListingCommand.jpg" width="120" /></p>
+        <p>Next we enter the L command in the Command Line Interface (CLI) box and hit Enter.</p>
+        <p align="center"><img src="images/ListingProgress.jpg" width="480" /></p>
+        <p>The command is echoed in the QSO Box, and we see a progress message that shows that the app
+            has asked the server for a list of the most recent posts.</p>
+        <p align="center"><img src="images/ListingDisplayed.jpg" width="480" /></p>
+        <p>The listing is retrieved from the microblog server and displayed in the QSO Box.</p>
+
+        <h3>Scenario 2 - View a particular post</h3>
+        <p align="center"><img src="images/GetCommand.jpg" width="120" /></p>
+        <p>With the M0PXO blog still selected, we enter the G command in the CLI box and hit Enter.</p>
+        <p align="center"><img src="images/GetProgress.jpg" width="480" /></p>
+        <p>The command is echoed in the QSO Box, and we see a progress message that shows that the app
+            has asked the server for the post content.</p>
+        <p align="center"><img src="images/GetDisplayed.jpg" width="480" /></p>
+        <p>The post content is retrieved from the server and displayed in the QSO Box.</p>
+
+        <h3>Scenario 3 - Get a Latest Post</h3>
+        <p align="center"><img src="images/ClickLatestPost.jpg" width="120" /></p>
+        <p>Click on a post in the Latest Posts area.</p>
+        <p align="center"><img src="images/LatestPostProgress.jpg" width="480" /></p>
+        <p>A GET (G) command appears in the QSO Box, and the correct blog is selected.  This may also cause the
+            rig frequency in the Header area to change if the Latest Post was heard on another frequency.</p>
+        <p align="center"><img src="images/GetDisplayed.jpg" width="480" /></p>
+        <p>The post content is retrieved from the server and displayed in the QSO Box.</p>
+    </div>
+</body>
+</html>

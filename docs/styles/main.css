@@ -1,5 +1,5 @@
 body {
-    font-family: 'Ariel';
+    font-family: "Segoe UI",Arial,sans-serif;
     font-size: 18px;
     padding: 10px;
 }
@@ -9,6 +9,7 @@ h1 {
 }
 
 li {
+    margin-top: 8px;
     line-height: 24px
 }
 
