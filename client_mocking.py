@@ -49,12 +49,29 @@ sample_msgs = [
     #     },
     #     'type': 'STATION.STATUS', 'value': ''
     # },
-    {
-        'params': {
-            'BAND': '40m', 'DIAL': 7078000, 'FREQ': 7078811, 'OFFSET': 811, '_ID': -1
+    # {
+    #     'params': {
+    #         'BAND': '40m', 'DIAL': 7078000, 'FREQ': 7078811, 'OFFSET': 811, '_ID': -1
+    #     },
+    #     'type': 'RIG.FREQ', 'value': ''
+    # },
+    # {'params':
+    #     {
+    #         'CMD': ' ', 'DIAL': 14078000, 'EXTRA': '', 'FREQ': 14079650, 'FROM': 'M0PXO', 'GRID': '',
+    #         'OFFSET': 1650, 'SNR': 2, 'SPEED': 1, 'TDRIFT': 1.899999976158142,
+    #         'TEXT': 'M0PXO: 2E0FGO  -G40~ NOT FOUND  ', 'TO': '2E0FGO', 'UTC': 1679998287584, '_ID': -1
+    #     },
+    #     'type': 'RX.DIRECTED', 'value': 'M0PXO: 2E0FGO  -G40~ NOT FOUND'
+    # },
+    {'params':
+        {
+            'CMD': ' ', 'DIAL': 14078000, 'EXTRA': '', 'FREQ': 14079642, 'FROM': 'M0PXO', 'GRID': '', 'OFFSET': 1642,
+            'SNR': 0, 'SPEED': 1, 'TDRIFT': 1.7999999523162842, 'TEXT': 'M0PXO: 2E0FGO  +L41~\nNO POSTS FOUND  ',
+            'TO': '2E0FGO', 'UTC': 1680001087402, '_ID': -1
         },
-        'type': 'RIG.FREQ', 'value': ''
-    },
+        'type': 'RX.DIRECTED', 'value': 'M0PXO: 2E0FGO  +L41~\nNO POSTS FOUND  '
+    }
+
     # {
     #     'params': {
     #         'CMD': ' ', 'DIAL': 14078010, 'EXTRA': '', 'FREQ': 14079645,

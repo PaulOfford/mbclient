@@ -203,7 +203,7 @@ class Js8CallDriver:
                         rx_status_callsign.set_direction('rx')
                         rx_status_callsign.set_typ('control')
                         rx_status_callsign.set_target('status')
-                        rx_status_callsign.set_obj('call_sign')
+                        rx_status_callsign.set_obj('callsign')
                         rx_status_callsign.set_payload(value)
                         self.comms_rx_q.put(rx_status_callsign)
 
@@ -283,7 +283,7 @@ class Js8CallDriver:
 
                         rx_mb_msg.set_target('mb_client')
                         rx_mb_msg.set_obj('receiver')
-                        rx_mb_msg.set_payload(message['value'])
+                        rx_mb_msg.set_payload((message['value']).strip())
                         self.comms_rx_q.put(rx_mb_msg)
 
         finally:

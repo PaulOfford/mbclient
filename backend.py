@@ -153,8 +153,12 @@ class MbRspProcessors:
                 self.title = details[0][2]
             else:
                 details = re.findall(r"(\d+) - ([\S\s]+)", line)
-                self.post_id = int(details[0][0])
-                self.title = details[0][1]
+                if len(details) > 0:
+                    self.post_id = int(details[0][0])
+                    self.title = details[0][1]
+                else:  # got something unexpected - just output it
+                    self.rsp = rsp_lines[0]
+                    self.title = f"{self.cmd} {rsp_lines[0]}"
             qso_table = DbTable('qso')
             db_values = qso_table.select(limit=1, hdr_list=self.qso_fields)
             for row in db_values:
@@ -220,11 +224,11 @@ class MbRspProcessors:
         rsp_patterns = [
             {'exp': "^([A-Z,0-9]+): +(@)MB +([A-Z,0-9]*) +(\\d+) +(\\d{4}-\\d{2}-\\d{2})",
              'proc': 'process_announcement'},
-            {'exp': "^(\\S+): +(\\S+) +([+-])(L)([\\d,]*)~\n([\\S\\s]+)", 'proc': 'process_listing'},
-            {'exp': "^(\\S+): +(\\S+) +([+-])([LM][EG])(\\d*)~\n([\\S\\s]+)", 'proc': 'process_listing'},
-            {'exp': "^(\\S+): +(\\S+) +([+-])(E)([\\d,]*)~\n([\\S\\s]+)", 'proc': 'process_extended'},
-            {'exp': "^(\\S+): +(\\S+) +([+-])([EF][EG])(\\d*)~\n([\\S\\s]+)", 'proc': 'process_extended'},
-            {'exp': "^(\\S+): +(\\S+) +([+-])(G)(\\d+)~\n([\\S\\s]+)", 'proc': 'process_post'}
+            {'exp': "^(\\S+): +(\\S+) +([+-])(L)([\\d,]*)~\n*([\\S\\s]+)", 'proc': 'process_listing'},
+            {'exp': "^(\\S+): +(\\S+) +([+-])([LM][EG])(\\d*)~\n*([\\S\\s]+)", 'proc': 'process_listing'},
+            {'exp': "^(\\S+): +(\\S+) +([+-])(E)([\\d,]*)~\n*([\\S\\s]+)", 'proc': 'process_extended'},
+            {'exp': "^(\\S+): +(\\S+) +([+-])([EF][EG])(\\d*)~\n*([\\S\\s]+)", 'proc': 'process_extended'},
+            {'exp': "^(\\S+): +(\\S+) +([+-])(G)(\\d+)~\n*([\\S\\s]+)", 'proc': 'process_post'}
         ]
         for entry in rsp_patterns:
             # try to match the request
@@ -511,6 +515,16 @@ class BeProcessor:
         comms_sig.set_payload(freq)
         self.comms_tx_q.put(comms_sig)
 
+    def set_hdr_callsign(self, callsign: str):
+        s = DbTable('status')
+        s.update(
+            where=None, value_dictionary={
+                'callsign': callsign
+            }
+        )
+
+        self.signal_reload('header')
+
     def process_info_cmd(self, req: GuiMessage):
         pass
 
@@ -618,7 +632,7 @@ class BeProcessor:
         self.set_hdr_offset(comms_msg.get_offset())
 
     def process_status_callsign(self, comms_msg: CommsMessage):
-        pass
+        self.set_hdr_callsign(comms_msg.get_payload())
 
     def process_comms_rx(self, comms_msg: CommsMessage):
         if comms_msg.get_typ() == 'mb_rsp':

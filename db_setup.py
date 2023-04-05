@@ -393,6 +393,21 @@ if load_samples:
 
     latest = [
         {
+            'qso_date': '2023-02-11 12:34:56',
+            'type': 'listing',
+            'blog': 'M0PXO',
+            'station': 'M0PXO',
+            'directed_to': 'M7PJO',
+            'frequency': 14078000,
+            'offset': 1500,
+            'cmd': '',
+            'rsp': 'OK',
+            'post_id': 29,
+            'post_date': '1970-01-01 00:00:00',
+            'title': 'TURKEY/SYRIA LATEST',
+            'body': ''
+        },
+        {
             'qso_date': '2023-02-13 22:24:48',
             'type': 'listing',
             'blog': 'M0PXO',
