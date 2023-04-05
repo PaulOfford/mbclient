@@ -1,4 +1,5 @@
 import queue
+import time
 import tkinter as tk
 import tkinter.font as font
 import locale
@@ -171,7 +172,11 @@ class GuiHeader:
         self.reload_header()
 
     def clock_tick(self, curtime=''):  # used for the header clock
-        newtime = time.strftime('%Y-%m-%d %H:%M:%S')
+        if settings.use_gmt:
+            newtime = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
+        else:
+            newtime = time.strftime('%Y-%m-%d %H:%M:%S')
+
         if newtime != curtime:
             curtime = newtime
             self.clock_label.config(text=curtime)

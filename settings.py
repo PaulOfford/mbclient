@@ -1,5 +1,4 @@
 import time
-import tkinter as tk
 from db_table import *
 
 
@@ -13,6 +12,7 @@ class Settings:
     max_qsos = None
     max_blogs = None
     max_listing = 5  # ToDo: put this in the database
+    use_gmt = 1
 
     def __init__(self):
         self.reload_settings()
@@ -30,7 +30,8 @@ class Settings:
         elif data_type == 'text':
             return value_str
 
-    def set_setting(self, name: str, value: [int, float, str]):
+    @staticmethod
+    def set_setting(name: str, value: [int, float, str]):
         settings_table = DbTable('settings')
         settings_table.update(
             value_dictionary={'ts': time.time(), 'value': str(value)},
@@ -47,6 +48,7 @@ class Settings:
         self.max_qsos = self.get_setting(settings_table, 'max_qsos')
         self.max_blogs = self.get_setting(settings_table, 'max_blogs')
         self.max_listing = self.get_setting(settings_table, 'max_listing')
+        self.use_gmt = self.get_setting(settings_table, 'use_gmt')
 
     def set_startup_width(self, width: int):
         self.set_setting('startup_width', width)
@@ -57,17 +59,17 @@ class Settings:
     def set_font_size(self, font_size: int):
         self.set_setting('font_size', font_size)
 
-    def set_max_latest(self, max: int):
-        self.set_setting('max_latest', max)
+    def set_max_latest(self, limit: int):
+        self.set_setting('max_latest', limit)
 
-    def set_max_qsos(self, max: int):
-        self.set_setting('max_qsos', max)
+    def set_max_qsos(self, limit: int):
+        self.set_setting('max_qsos', limit)
 
-    def set_max_blogs(self, max: int):
-        self.set_setting('max_blogs', max)
+    def set_max_blogs(self, limit: int):
+        self.set_setting('max_blogs', limit)
 
-    def set_max_listing(self, max: int):
-        self.set_setting('max_listing', max)
+    def set_max_listing(self, limit: int):
+        self.set_setting('max_listing', limit)
 
 
 # ToDo: pivot this table to contain one row per setting; each row a key/value pair

@@ -48,6 +48,10 @@ with db:
         "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",
         {'ts': time.time(), 'name': 'max_listing', 'val': '5', 'typ': 'integer'}
     )
+    c.execute(
+        "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",
+        {'ts': time.time(), 'name': 'use_gmt', 'val': '1', 'typ': 'integer'}
+    )
 
 c.execute("""CREATE TABLE status (
     last_checked float,
