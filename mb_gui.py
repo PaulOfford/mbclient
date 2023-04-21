@@ -1,5 +1,4 @@
 import queue
-import time
 import tkinter as tk
 import tkinter.font as font
 import locale
@@ -22,20 +21,21 @@ font_main_ul = font.Font(family='Ariel', size=settings.font_size, weight='normal
 font_main_hdr = font.Font(family='Ariel', size=(int(settings.font_size*1.25)), weight='normal')
 font_main_bold = font.Font(family='Ariel', size=settings.font_size, weight='bold')
 
+
 def settings_window():
     sw = tk.Tk()
     sw.title("Settings")
-    sw.geometry("400x300")
-    my_str1 = tk.StringVar()
+    sw.geometry("400x320")
 
     label_list = [
-        ('startup_width', 'Window Startup Width:'),
-        ('startup_height', 'Window Startup Height:'),
-        ('font_size', 'Font Size:'),
-        ('max_latest', 'Max Latest:'),
-        ('max_qsos', 'Max QSOs:'),
-        ('max_blogs', 'Max Blogs:'),
-        ('max_listing', 'Max Listing:'),
+        ('startup_width', 'Window Startup Width:', 'entry', tk.IntVar(sw)),
+        ('startup_height', 'Window Startup Height:', 'entry', tk.IntVar(sw)),
+        ('font_size', 'Font Size:', 'entry', tk.IntVar(sw)),
+        ('max_latest', 'Max Latest:', 'entry', tk.IntVar(sw)),
+        ('max_qsos', 'Max QSOs:', 'entry', tk.IntVar(sw)),
+        ('max_blogs', 'Max Blogs:', 'entry', tk.IntVar(sw)),
+        ('max_listing', 'Max Listing:', 'entry', tk.IntVar(sw)),
+        ('use_gmt', 'Use GMT for Clock and Log:', 'checkbox', tk.IntVar(sw)),
     ]
     entry_list = []
 
@@ -47,37 +47,49 @@ def settings_window():
 
     # Add a frame to hold the rest of the widgets and place that frame in the row/column without a weight.
     # This will allow us to center everything that we place in the frame.
-    frame = tk.Frame(sw)
-    frame.grid(row=1, column=1)
-
-    settings_table = DbTable('settings')
+    sw_frame = tk.Frame(sw)
+    sw_frame.grid(row=1, column=1)
 
     # create the labels and entry widgets
     for i, label in enumerate(label_list):
-        tk.Label(frame, text=label[1] + ' ', font='8').grid(row=i, column=0, sticky='w')
+        tk.Label(sw_frame, text=label[1] + ' ', font='8').grid(row=i, column=0, sticky='w')
         # Store the entry widgets in a list for later use
-        entry_list.append(tk.Entry(frame, borderwidth=2, width=8, font='8', relief=tk.GROOVE))
-        entry_list[-1].grid(row=i, column=1)
-        entry_list[-1].insert(0, settings.get_setting(settings_table, label[0]))
+        if label[2] == 'entry':
+            entry_list.append(tk.Entry(sw_frame, borderwidth=2, width=8, font='8', relief=tk.GROOVE))
+            entry_list[-1].grid(row=i, column=1)
+            entry_list[-1].insert(0, settings.get_setting(label[0]))
+        elif label[2] == 'checkbox':
+            entry_list.append(
+                tk.Checkbutton(
+                    sw_frame, justify='left', onvalue=1, offvalue=0, variable=label[3]
+                )
+            )
+            entry_list[-1].grid(row=i, column=1)
+            if settings.get_setting(label[0]) == 1:
+                entry_list[-1].select()
+            pass
 
     # save the settings
     def save_entries():
-        for i, entry in enumerate(entry_list):
-            settings_table.update(
-                value_dictionary={
-                    'ts': time.time(),
-                    'val': str(entry.get())
-                },
-                where=f"name='{label_list[i][0]}'"
-            )
+        for j, entry in enumerate(entry_list):
+            my_label = label_list[j]
+            if entry.widgetName == 'entry':
+                settings.set_setting(my_label[0], entry.get())
+            elif entry.widgetName == 'checkbutton':
+                print(my_label[3].get())
+                if my_label[3].get():
+                    db_value = 1
+                else:
+                    db_value = 0
+                settings.set_setting(my_label[0], db_value)
         sw.destroy()
 
-    tk.Label(frame, text=' ').grid(row=len(label_list)+1, column=0, columnspan=2)
+    tk.Label(sw_frame, text=' ').grid(row=len(label_list)+1, column=0, columnspan=2)
     tk.Button(
-        frame, text='Cancel', font='8', command=sw.destroy
+        sw_frame, text='Cancel', font='8', command=sw.destroy
     ).grid(row=len(label_list)+2, column=0)
     tk.Button(
-        frame, text='Save', font='8', command=save_entries
+        sw_frame, text='Save', font='8', command=save_entries
     ).grid(row=len(label_list)+2, column=1)
 
 
@@ -678,7 +690,7 @@ class GuiBlogList:
         req.set_station(station)
         freq_string = self.get_value_by_row_db_col(row, 'frequency')
         # annoyingly, we must convert a string in the form 14,078 MHz back into an integer
-        freq_string = re.findall(r"([0-9]*)[\.,]?([0-9]+) MHz", freq_string)
+        freq_string = re.findall(r"([0-9]*)[.,]?([0-9]+) MHz", freq_string)
         freq = (int(freq_string[0][0]) * 1000000) + (int(freq_string[0][1]) * 1000)
         req.set_frequency(freq)
         req.set_ts()
