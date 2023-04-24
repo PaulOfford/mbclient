@@ -1,6 +1,7 @@
 from db_root import *
 import os
 import time
+from datetime import datetime, timezone
 import sqlite3
 
 load_samples = True
@@ -12,10 +13,21 @@ db = sqlite3.connect(db_file)
 
 c = db.cursor()
 
+
+def iso_string_to_epoch(iso_str: str):
+    try:
+        dt = datetime.strptime(iso_str, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        dt = datetime.strptime(iso_str, "%Y-%m-%d %H:%M")
+
+    dt = dt.replace(tzinfo=timezone.utc)
+    return dt.timestamp()
+
 # status table - the columns starting with the frame name and ending _updated
 # hold the epoch time that data associated with that frame.
 # the is_scanning and req_outstanding integers are used as booleans, o - False and 1 - True.
 #
+
 
 c.execute("""CREATE TABLE settings (ts float, name text, val text, typ text)""")
 
@@ -149,6 +161,8 @@ if load_samples:
     ]
 
     for i, b in enumerate(blog_list):
+        print(b['latest_post_date'])
+        print(iso_string_to_epoch(b['latest_post_date']))
         with db:
             c.execute(
                 "INSERT INTO blogs VALUES (:blog, :station, :frequency, :snr, :capabilities,"
@@ -160,8 +174,8 @@ if load_samples:
                     'snr': b['snr'],
                     'capabilities': b['capabilities'],
                     'latest_post_id': b['latest_post_id'],
-                    'latest_post_date': time.mktime(time.strptime(b['latest_post_date'], "%Y-%m-%d %H:%M")),
-                    'last_seen_date': time.mktime(time.strptime(b['last_seen_date'], "%Y-%m-%d %H:%M")),
+                    'latest_post_date': iso_string_to_epoch(b['latest_post_date']),
+                    'last_seen_date': iso_string_to_epoch(b['last_seen_date']),
                     'is_selected': b['is_selected'],
                 }
             )
@@ -374,12 +388,14 @@ if load_samples:
     ]
 
     for i, q in enumerate(qsos):
+        print(q['post_date'])
+        print(iso_string_to_epoch(q['post_date']))
         with db:
             c.execute(
                 "INSERT INTO qso VALUES (:qso_date, :type, :blog, :station, :directed_to,"
                 " :frequency, :offset, :cmd, :rsp, :post_id, :post_date, :title, :body)",
                 {
-                    'qso_date': time.mktime(time.strptime(q['qso_date'], "%Y-%m-%d %H:%M:%S")),
+                    'qso_date': iso_string_to_epoch(q['qso_date']),
                     'type': q['type'],
                     'blog': q['blog'],
                     'station': q['station'],
@@ -389,28 +405,13 @@ if load_samples:
                     'cmd': q['cmd'],
                     'rsp': q['rsp'],
                     'post_id': q['post_id'],
-                    'post_date': time.mktime(time.strptime(q['post_date'], "%Y-%m-%d %H:%M:%S")),
+                    'post_date': iso_string_to_epoch(q['post_date']),
                     'title': q['title'],
                     'body': q['body'],
                 }
             )
 
     latest = [
-        {
-            'qso_date': '2023-02-11 12:34:56',
-            'type': 'listing',
-            'blog': 'M0PXO',
-            'station': 'M0PXO',
-            'directed_to': 'M7PJO',
-            'frequency': 14078000,
-            'offset': 1500,
-            'cmd': '',
-            'rsp': 'OK',
-            'post_id': 29,
-            'post_date': '1970-01-01 00:00:00',
-            'title': 'TURKEY/SYRIA LATEST',
-            'body': ''
-        },
         {
             'qso_date': '2023-02-13 22:24:48',
             'type': 'listing',
@@ -422,9 +423,9 @@ if load_samples:
             'cmd': '',
             'rsp': 'OK',
             'post_id': 40,
-            'post_date': '1970-01-01 00:00:00',
+            'post_date': '2023-02-06 00:00:00',
             'title': 'TURKEY/SYRIA LATEST',
-            'body': ''
+            'body': 'Oxfam sends clean water aid to Syria.  More than 20,000 feared dead.'
         },
         {
             'qso_date': '2023-02-13 01:25:48',
@@ -449,7 +450,7 @@ if load_samples:
                 "INSERT INTO qso VALUES (:qso_date, :type, :blog, :station, :directed_to,"
                 " :frequency, :offset, :cmd, :rsp, :post_id, :post_date, :title, :body)",
                 {
-                    'qso_date': time.mktime(time.strptime(q['qso_date'], "%Y-%m-%d %H:%M:%S")),
+                    'qso_date': iso_string_to_epoch(q['qso_date']),
                     'type': q['type'],
                     'blog': q['blog'],
                     'station': q['station'],
@@ -459,7 +460,7 @@ if load_samples:
                     'cmd': q['cmd'],
                     'rsp': q['rsp'],
                     'post_id': q['post_id'],
-                    'post_date': time.mktime(time.strptime(q['post_date'], "%Y-%m-%d %H:%M:%S")),
+                    'post_date': iso_string_to_epoch(q['post_date']),
                     'title': q['title'],
                     'body': q['body'],
                 }
