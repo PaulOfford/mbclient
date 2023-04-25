@@ -356,7 +356,7 @@ class BeProcessor:
         svr_request_list = []  # this is a list of post_ids we will need to request from the server
 
         # set up the list of dictionaries fo the results
-        init_vals = {'post_id': 0, 'has_entry': False, 'date': 0, 'title': '', 'body': ''}
+        init_vals = {'cmd': '', 'post_id': 0, 'has_entry': False, 'date': 0, 'title': '', 'body': ''}
 
         return_values = [{} for _ in range(len(post_id_list))]
 
@@ -391,10 +391,12 @@ class BeProcessor:
             for row in db_values:
                 if value['post_id'] == int(row['post_id']):
                     value.update(
-                        {'has_entry': True, 'date': row['post_date'], 'title': row['title'], 'body': row['body']}
+                        {'cmd': req.cli_input, 'has_entry': True,
+                         'date': row['post_date'], 'title': row['title'], 'body': row['body']}
                     )
                     row['qso_date'] = time.time()
                     row['directed_to'] = self.status.callsign
+                    row['cmd'] = req.cli_input
                     qso_table.insert(row)
                     break
 
