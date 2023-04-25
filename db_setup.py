@@ -3,6 +3,7 @@ import os
 import time
 from datetime import datetime, timezone
 import sqlite3
+from logging import *
 
 load_samples = True
 
@@ -29,8 +30,10 @@ def iso_string_to_epoch(iso_str: str):
 #
 
 
+logmsg(1, "db_setup.py: Creating the status table")
 c.execute("""CREATE TABLE settings (ts float, name text, val text, typ text)""")
 
+logmsg(1, "db_setup.py: Loading default settings")
 with db:
     c.execute(
         "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",
@@ -65,6 +68,7 @@ with db:
         {'ts': time.time(), 'name': 'use_gmt', 'val': '1', 'typ': 'integer'}
     )
 
+logmsg(1, "db_setup.py: Creating the status table")
 c.execute("""CREATE TABLE status (
     last_checked float,
     hdr_updated float,
@@ -82,6 +86,7 @@ c.execute("""CREATE TABLE status (
     selected_station text
 )""")
 
+logmsg(1, "db_setup.py: Loading default status values")
 with db:
     c.execute(
         "INSERT INTO status VALUES ("
@@ -108,7 +113,7 @@ with db:
     )
 
 # qso types are cmd, listing, post or progress
-
+logmsg(1, "db_setup.py: Creating qso table")
 c.execute("""CREATE TABLE qso (
     qso_date integer,
     type text,
@@ -125,6 +130,7 @@ c.execute("""CREATE TABLE qso (
     body text
 )""")
 
+logmsg(1, "db_setup.py: Creating blogs table")
 c.execute("""CREATE TABLE blogs (
     blog text,
     station text,
@@ -160,9 +166,8 @@ if load_samples:
          'last_seen_date': "2023-02-10 10:25", 'is_selected': 0},
     ]
 
+    logmsg(1, "db_setup.py: Loading list of demo blogs")
     for i, b in enumerate(blog_list):
-        print(b['latest_post_date'])
-        print(iso_string_to_epoch(b['latest_post_date']))
         with db:
             c.execute(
                 "INSERT INTO blogs VALUES (:blog, :station, :frequency, :snr, :capabilities,"
@@ -185,6 +190,7 @@ if load_samples:
     set_offset = 1800
     set_callsign = "2E0FGO"
 
+    logmsg(1, "db_setup.py: Loading header-related status data")
     with db:
         c.execute(
             f"UPDATE status SET "
@@ -387,9 +393,8 @@ if load_samples:
         },
     ]
 
+    logmsg(1, "db_setup.py: Loading demo qso data")
     for i, q in enumerate(qsos):
-        print(q['post_date'])
-        print(iso_string_to_epoch(q['post_date']))
         with db:
             c.execute(
                 "INSERT INTO qso VALUES (:qso_date, :type, :blog, :station, :directed_to,"
@@ -414,7 +419,7 @@ if load_samples:
     latest = [
         {
             'qso_date': '2023-02-13 22:24:48',
-            'type': 'listing',
+            'type': 'post',
             'blog': 'M0PXO',
             'station': 'M0PXO',
             'directed_to': 'M7PJO',
@@ -425,7 +430,7 @@ if load_samples:
             'post_id': 40,
             'post_date': '2023-02-06 00:00:00',
             'title': 'TURKEY/SYRIA LATEST',
-            'body': 'Oxfam sends clean water aid to Syria.  More than 20,000 feared dead.'
+            'body': 'OXFAM SENDS CLEAN WATER AID TO SYRIA.  MORE THAN 20,000 FEARED DEAD.'
         },
         {
             'qso_date': '2023-02-13 01:25:48',
@@ -444,6 +449,7 @@ if load_samples:
         },
     ]
 
+    logmsg(1, "db_setup.py: Loading demo Latest News data into the qso table")
     for i, q in enumerate(latest):
         with db:
             c.execute(
@@ -466,4 +472,5 @@ if load_samples:
                 }
             )
 
+logmsg(1, "db_setup.py: Closing the database connection")
 db.close()
