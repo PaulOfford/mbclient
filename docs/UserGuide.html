@@ -135,6 +135,53 @@
             rig frequency in the Header area to change if the Latest Post was heard on another frequency.</p>
         <p align="center"><img src="images/LatestDisplayed.jpg" width="480" /></p>
         <p>The post content is retrieved from the server and displayed in the QSO Box.</p>
+        <h2>Settings</h2>
+        <p>As an operator, we can change several parameters through the <i>File -> Settings</i> menu.</p>
+        <p align="center"><img src="images/Settings.jpg" width="320" /></p>
+        <p><b>Window Startup Width:</b> The width in pixels of the client window on startup.
+            Default - 1080</p>
+        <p><b>Window Startup Height:</b> The height in pixels of the client window on startup.
+            Default - 640</p>
+        <p><b>Font Size:</b> The base font size for the text displayed in the user interface.  Some text will be
+            in a larger font than specified here (for example, header text) but this will scale with the Font Size
+            setting. Default - 10</p>
+        <p><b>Max Latest:</b> The maximum number of posts that will be listed in the Latest Posts area.  These are
+            listed in reverse datetime order and so older posts will eventually roll off the bottom of the list.
+            Even so, the older posts will remain in the database and so can continue to be used for cache retrieval.
+            Default - 30</p>
+        <p><b>Max QSOs:</b> The maximum number of posts that will be listed in the QSO Box.  These are
+            listed in datetime order and so older posts will eventually roll off the top of the list.
+            Even so, the older posts will remain in the database and so can continue to be used for cache retrieval.
+            Default - 50</p>
+        <p><b>Max Blogs:</b> The maximum number of blogs that will be listed in the Blog List area.  These are
+            listed in the order in which they were last seen; the latest seen blogs being at the top of the list.
+            Default - 30</p>
+        <p><b>Max Listing:</b> The maximum number Listing or Extended Listing items that will be retrieved by an L or
+            E command.
+            Default - 5</p>
+        <p><b>Use GMT for Clock and Log:</b> Check this option if you want the clock in the user interface to show
+            GMT (UTC) time.  Uncheck this option if you want the clock to show your local time.
+            The log messages will also obey this setting.
+            Default - Checked</p>
+        <p>A change the settings will only take effect after restarting the MbClient.</p>
+        <h2>Tips and Tricks</h2>
+        <h3>Getting the Latest Posts</h3>
+        <p>The L command without any qualifiers will get you a list of the latest posts on a blog.  You'll notice
+        that the client sends a list of Post IDs to the server to get the list.</p>
+        <p align="center"><img src="images/LatestCommand.jpg" width="480" /></p>
+        <p>You may wonder, how is it that the client knows that this is the list of the latest posts?  The client uses
+            the Latest Post ID value in the Blog List to determine the list of the latest posts.</p>
+        <p>There is an issue here.  Maybe we missed the last @MB Announcement for the blog and so the Latest Post ID
+            value is out of date.  We may suspect there are later posts, and we don't want to wait for the next
+            announcement.  We can force a retrieval of later posts  by simply sending a command specifying a later
+            Post ID; e.g. L 30.  If there is no post 30 the server will just return
+            <i>NO POST FOUND</i>.</p>
+        <p>You may wonder why the client functions in this way; why not just send an L command (with no Post IDs)
+            to the server to get a full list of the latest posts?</p>
+        <p>Remember our objective to spend the least amount of time sending
+            requests and getting responses.  The command above shows us requesting listings for posts 25, 26, 27,
+            28 and 29.  Say we already had listings for posts 25 through 27 in the cache.  It would be faster to
+            pull those details from the cache and just send a request to the server for posts 28 and 29.</p>
     </div>
 </body>
 </html>
