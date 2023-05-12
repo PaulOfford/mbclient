@@ -63,13 +63,25 @@ sample_msgs = [
     #     },
     #     'type': 'RX.DIRECTED', 'value': 'M0PXO: 2E0FGO  -G40~ NOT FOUND'
     # },
+    # {'params':
+    #     {
+    #         'CMD': ' ', 'DIAL': 14078000, 'EXTRA': '', 'FREQ': 14079642, 'FROM': 'M0PXO', 'GRID': '', 'OFFSET': 1642,
+    #         'SNR': 0, 'SPEED': 1, 'TDRIFT': 1.7999999523162842, 'TEXT': 'M0PXO: 2E0FGO  +L41~\nNO POSTS FOUND  ',
+    #         'TO': '2E0FGO', 'UTC': 1680001087402, '_ID': -1
+    #     },
+    #     'type': 'RX.DIRECTED', 'value': 'M0PXO: 2E0FGO  +L41~\nNO POSTS FOUND  '
+    # },
+    # {'params':
+    #      {
+    #          'CMD': ' ', 'DIAL': 14078000, 'EXTRA': '', 'FREQ': 14079637, 'FROM': 'M0PXO', 'GRID': '', 'OFFSET': 1637,
+    #          'SNR': -7, 'SPEED': 1, 'TDRIFT': 0,
+    #          'TEXT': 'M0PXO: 2E0FGO  +FG23123~\n28 - 2023-01-26 - YAESU RADIOS DONATED TO ARRL\n29 - 2023-01-27 - RSGB PROPOGATION NEWS  ', 'TO': '2E0FGO', 'UTC': 1683825276770, '_ID': -1}, 'type': 'RX.DIRECTED', 'value': 'M0PXO: 2E0FGO  +FG23123~\n28 - 2023-01-26 - YAESU RADIOS DONATED TO ARRL\n29 - 2023-01-27 - RSGB PROPOGATION NEWS  '
+    # },
     {'params':
-        {
-            'CMD': ' ', 'DIAL': 14078000, 'EXTRA': '', 'FREQ': 14079642, 'FROM': 'M0PXO', 'GRID': '', 'OFFSET': 1642,
-            'SNR': 0, 'SPEED': 1, 'TDRIFT': 1.7999999523162842, 'TEXT': 'M0PXO: 2E0FGO  +L41~\nNO POSTS FOUND  ',
-            'TO': '2E0FGO', 'UTC': 1680001087402, '_ID': -1
-        },
-        'type': 'RX.DIRECTED', 'value': 'M0PXO: 2E0FGO  +L41~\nNO POSTS FOUND  '
+         {
+             'CMD': ' ', 'DIAL': 14078000, 'EXTRA': '', 'FREQ': 14079641, 'FROM': 'M0PXO', 'GRID': '', 'OFFSET': 1641,
+             'SNR': -2, 'SPEED': 1, 'TDRIFT': 1.7000000476837158,
+             'TEXT': 'M0PXO: 2E0FGO  +G28~\nYAESU USA HAS DONATED AN FTDX101MP AND FTDX10, BOTH HF/50 MHZ TRANSCEIVERS.\n\nTHE YAESU FTDX101MP TRANSCEIVER IS A WELCOME ADDITION TO STUDIO 1 IN W1AW, THE HIRAM PERCY MAXIM MEMORIAL STATION.  ', 'TO': '2E0FGO', 'UTC': 1683902846777, '_ID': -1}, 'type': 'RX.DIRECTED', 'value': 'M0PXO: 2E0FGO  +G28~\nYAESU USA HAS DONATED AN FTDX101MP AND FTDX10, BOTH HF/50 MHZ TRANSCEIVERS.\n\nTHE YAESU FTDX101MP TRANSCEIVER IS A WELCOME ADDITION TO STUDIO 1 IN W1AW, THE HIRAM PERCY MAXIM MEMORIAL STATION.  '
     }
 
     # {
