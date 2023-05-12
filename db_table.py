@@ -69,6 +69,52 @@ class DbTable:
 
         return result
 
+    # This method returns a list of dictionaries with the columns selected by the
+    # hdr_list, in the order of the columns in the hdr_list.
+    # The hdr_list must contain a key db_col with a value of the name of a database column.
+    def select_latest(self, where=None, group_by=None, order_by=None, limit=0, hdr_list=None):
+
+        db = sqlite3.connect(db_file)
+        c = db.cursor()
+
+        select_cols = ''
+        for i, hdr_col in enumerate(hdr_list):
+            if i > 0:
+                select_cols += ','
+            select_cols += f" {hdr_col}"
+
+        # we need a query of the form
+        # SELECT * FROM (SELECT ... ORDER BY order_by DESC LIMIT limit) ORDER BY order_by ASC;
+        query = "SELECT * FROM ("
+        query += f"SELECT {select_cols} FROM {self.table}"
+
+        if where:
+            query += f" WHERE {where}"
+        if group_by:
+            query += f" GROUP BY {group_by}"
+        if order_by:
+            query += f" ORDER BY {order_by}"
+
+        query += " DESC"
+        query += f" LIMIT {limit}"
+        query += f") ORDER BY {order_by} ASC"
+
+        logging.logmsg(3, query)
+
+        c.execute(query)
+        list_of_tuples = c.fetchall()
+        db.close()
+
+        result = [{} for _ in range(0, len(list_of_tuples))]
+
+        # convert the list of tuples to a list of dictionaries based on the self.col_names values
+        for y, row in enumerate(list_of_tuples):
+            for x, col in enumerate(hdr_list):
+                abc = f"{col}"
+                result[y][abc] = row[x]
+
+        return result
+
     def update(self, where=None, value_dictionary=None):
         db = sqlite3.connect(db_file)
         db.row_factory = sqlite3.Row

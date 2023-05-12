@@ -9,7 +9,7 @@ from settings import *
 from message_q import *
 
 root = tk.Tk()
-root.title("Microblog Client r3")
+root.title("Microblog Client r4")
 root.geometry(settings.startup_dimensions)
 
 font_btn = font.Font(family='Ariel', size=(int(settings.font_size*1.125)), weight='normal')
@@ -355,7 +355,7 @@ class GuiQsoBox:
         status = Status()
 
         qso_table = DbTable('qso')
-        db_values = qso_table.select(where=f"directed_to='{status.callsign}'", order_by='qso_date', desc=False,
+        db_values = qso_table.select_latest(where=f"directed_to='{status.callsign}'", order_by='qso_date',
                                      limit=settings.max_qsos, hdr_list=self.qso_cols)
 
         self.qso_box.configure(state=tk.NORMAL)
