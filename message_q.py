@@ -65,40 +65,40 @@ class GuiMessage:
     def set_rc(self, value: int):
         self.rc = value
 
-    def get_ts(self):
+    def get_ts(self) -> float:
         return self.ts
 
-    def get_req_ts(self):
+    def get_req_ts(self) -> float:
         return self.req_ts
 
-    def get_cli_input(self):
+    def get_cli_input(self) -> str:
         return self.cli_input
 
-    def get_cmd(self):
+    def get_cmd(self) -> str:
         return self.cmd
 
-    def get_blog(self):
+    def get_blog(self) -> str:
         return self.blog
 
-    def get_station(self):
+    def get_station(self) -> str:
         return self.station
 
-    def get_frequency(self):
+    def get_frequency(self) -> str:
         return self.frequency
 
-    def get_post_id(self):
+    def get_post_id(self) -> int:
         return self.post_id
 
-    def get_post_date(self):
+    def get_post_date(self) -> int:
         return self.post_date
 
-    def get_op(self):
+    def get_op(self) -> str:
         return self.op
 
-    def get_param(self):
+    def get_param(self) -> str:
         return self.param
 
-    def get_rc(self):
+    def get_rc(self) -> int:
         return self.rc
 
     def clone_msg(self, donor: "GuiMessage"):
