@@ -355,8 +355,10 @@ class GuiQsoBox:
         status = Status()
 
         qso_table = DbTable('qso')
-        db_values = qso_table.select_latest(where=f"directed_to='{status.callsign}'", order_by='qso_date',
-                                     limit=settings.max_qsos, hdr_list=self.qso_cols)
+        db_values = qso_table.select_latest(
+            where=f"directed_to='{status.callsign}'", order_by='qso_date',
+            limit=settings.max_qsos, hdr_list=self.qso_cols
+        )
 
         self.qso_box.configure(state=tk.NORMAL)
         self.qso_box.delete(1.0, 'end')
@@ -523,8 +525,13 @@ class GuiCli:
 
                 if entry['by'] == 'id':
                     req.set_post_id(int(result[0]))
-                else:
-                    req.set_post_date(result[0])
+                elif entry['by'] == 'date':
+                    if len(result[0]) > 0:
+                        epoch_dt = int(time.mktime(time.strptime(result[0], "%Y-%m-%d")))
+                    else:
+                        epoch_dt = 0
+                    req.set_post_date(epoch_dt)
+                # else must be a tail
 
                 req.set_ts()
                 self.f2b_q.put(req)
