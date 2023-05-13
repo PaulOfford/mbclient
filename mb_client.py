@@ -111,6 +111,7 @@ class MbClient:
         band_menu.add_command(label='80m:    3.578 000 MHz', command=ft.partial(self.set_frequency, 3578000))
         band_menu.add_command(label='40m:    7.708 000 MHz', command=ft.partial(self.set_frequency, 7078000))
         band_menu.add_command(label='30m:    10.130 000 MHz', command=ft.partial(self.set_frequency, 10130000))
+        band_menu.add_command(label='20m:    14.078 000 MHz', command=ft.partial(self.set_frequency, 14078000))
         band_menu.add_command(label='17m:    18.104 000 MHz', command=ft.partial(self.set_frequency, 18104000))
         band_menu.add_command(label='15m:    21.078 000 MHz', command=ft.partial(self.set_frequency, 21078000))
         band_menu.add_command(label='12m:    24.922 000 MHz', command=ft.partial(self.set_frequency, 24922000))
