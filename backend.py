@@ -6,6 +6,29 @@ from message_q import *
 from logging import *
 
 
+# compress_date takes epoch as sole argument
+def compress_date(post_epoch: int) -> str:
+    if post_epoch > 0:
+        dt_string = time.strftime('%Y-%m-%d', time.gmtime(post_epoch))
+
+        year = dt_string[2:4]
+        day = dt_string[8:10]
+
+        if dt_string[5:7] == '10':
+            month = 'A'
+        elif dt_string[5:7] == '11':
+            month = 'B'
+        elif dt_string[5:7] == '12':
+            month = 'C'
+        else:
+            month = dt_string[6:7]
+
+        return year + month + day
+
+    else:
+        return ''
+
+
 class MbRspProcessors:
 
     qso_fields = ['qso_date', 'type', 'blog', 'station', 'directed_to', 'frequency',
@@ -146,19 +169,23 @@ class MbRspProcessors:
         # push the data into the database
         rsp_lines = str(req[5]).split('\n')  # this is the list output
         for line in rsp_lines:
-            if is_extended:
-                details = re.findall(r"(\d+) - (\d{4}-\d{2}-\d{2}) - ([\S\s]+)", line)
-                self.post_id = int(details[0][0])
-                self.post_date = time.mktime(time.strptime(details[0][1], "%Y-%m-%d"))
-                self.title = details[0][2]
+            if line == 'NO POSTS FOUND':
+                self.title = line
             else:
-                details = re.findall(r"(\d+) - ([\S\s]+)", line)
-                if len(details) > 0:
+                if is_extended:
+                    details = re.findall(r"(\d+) - (\d{4}-\d{2}-\d{2}) - ([\S\s]+)", line)
                     self.post_id = int(details[0][0])
-                    self.title = details[0][1]
-                else:  # got something unexpected - just output it
-                    self.rsp = rsp_lines[0]
-                    self.title = f"{self.cmd} {rsp_lines[0]}"
+                    self.post_date = time.mktime(time.strptime(details[0][1], "%Y-%m-%d"))
+                    self.title = details[0][2]
+                else:
+                    details = re.findall(r"(\d+) - ([\S\s]+)", line)
+                    if len(details) > 0:
+                        self.post_id = int(details[0][0])
+                        self.title = details[0][1]
+                    else:  # got something unexpected - just output it
+                        self.rsp = rsp_lines[0]
+                        self.title = f"{self.cmd} {rsp_lines[0]}"
+
             qso_table = DbTable('qso')
             db_values = qso_table.select(limit=1, hdr_list=self.qso_fields)
             for row in db_values:
@@ -199,7 +226,7 @@ class MbRspProcessors:
         db_values = qso_table.select(where=f"blog='{self.blog}' AND post_id={self.post_id} AND post_date > 0",
                                      limit=1, hdr_list=['post_date'])
         for row in db_values:
-            self.title = int(row['post_date'])
+            self.post_date = row['post_date']
 
         db_values = qso_table.select(limit=1, hdr_list=self.qso_fields)
         for row in db_values:
@@ -225,9 +252,11 @@ class MbRspProcessors:
             {'exp': "^([A-Z,0-9]+): +(@)MB +([A-Z,0-9]*) +(\\d+) +(\\d{4}-\\d{2}-\\d{2})",
              'proc': 'process_announcement'},
             {'exp': "^(\\S+): +(\\S+) +([+-])(L)([\\d,]*)~\n*([\\S\\s]+)", 'proc': 'process_listing'},
-            {'exp': "^(\\S+): +(\\S+) +([+-])([LM][EG])(\\d*)~\n*([\\S\\s]+)", 'proc': 'process_listing'},
+            {'exp': "^(\\S+): +(\\S+) +([+-])(L)([\\dABC]*)~\n*([\\S\\s]+)", 'proc': 'process_listing'},
+            {'exp': "^(\\S+): +(\\S+) +([+-])([LM][EG])([\\dABC]*)~\n*([\\S\\s]+)", 'proc': 'process_listing'},
             {'exp': "^(\\S+): +(\\S+) +([+-])(E)([\\d,]*)~\n*([\\S\\s]+)", 'proc': 'process_extended'},
-            {'exp': "^(\\S+): +(\\S+) +([+-])([EF][EG])(\\d*)~\n*([\\S\\s]+)", 'proc': 'process_extended'},
+            {'exp': "^(\\S+): +(\\S+) +([+-])(E)([\\dABC]*)~\n*([\\S\\s]+)", 'proc': 'process_extended'},
+            {'exp': "^(\\S+): +(\\S+) +([+-])([EF][EG])([\\dABC]*)~\n*([\\S\\s]+)", 'proc': 'process_extended'},
             {'exp': "^(\\S+): +(\\S+) +([+-])(G)(\\d+)~\n*([\\S\\s]+)", 'proc': 'process_post'}
         ]
         for entry in rsp_patterns:
@@ -451,6 +480,47 @@ class BeProcessor:
         # and then get everything in that range.
         # If the request is to list a specific post by post id, simply check the cache for that.
 
+        if req.get_post_date() > 0:
+            compressed_date = compress_date(req.get_post_date())
+
+            if req.cmd == 'L':
+                api_cmd = 'M'
+            elif req.cmd == 'E':
+                api_cmd = 'F'
+            else:
+                api_cmd = ''
+
+            if req.get_op() == 'eq':
+                api_cmd += 'E'
+            elif req.get_op() == 'gt':
+                api_cmd += 'G'
+
+            # form a request to get the posts in the svr_request_list
+            self.qso_append_progress(
+                req.get_blog(),
+                req.get_station(),
+                'Requesting details from the server for posts with a date ' + req.get_op() + ' ' + compressed_date,
+                ''
+            )
+
+            payload = f"{api_cmd}{compressed_date}~"
+            logmsg(3, 'comms: send: ' + str(payload))
+            mblog_api_req = CommsMessage()
+
+            mblog_api_req.set_ts(time.time())
+            mblog_api_req.set_direction('tx')
+            mblog_api_req.set_source(self.status.callsign)
+            mblog_api_req.set_destination(req.get_station())  # ToDo: change once we implement blog namespace
+            mblog_api_req.set_snr(0)
+            mblog_api_req.set_blog(req.get_blog())
+            mblog_api_req.set_typ('mb_req')
+            mblog_api_req.set_target('mb_service')
+            mblog_api_req.set_obj('service')
+            mblog_api_req.set_payload(str(payload))
+            self.comms_tx_q.put(mblog_api_req)
+
+            return
+
         post_ids = []
 
         if req.get_op() == 'eq':
@@ -667,7 +737,6 @@ class BeProcessor:
         # check for messages from the comms driver
         try:
             comms_rx = self.comms_rx_q.get(block=True, timeout=0.1)  # if no msg waiting, this will throw an exception
-            log_text = ""  # add code here
             logging.logmsg(3, f"backend: {comms_rx}")
             self.process_comms_rx(comms_rx)
             self.comms_rx_q.task_done()
