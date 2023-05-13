@@ -138,7 +138,7 @@ class DbTable:
             query += f" WHERE {where}"
         with db:
             c.execute(query)
-            logging.logmsg(3, query)
+            logging.logmsg(2, query)
 
     def insert(self, row: dict):
         db = sqlite3.connect(db_file)
@@ -158,7 +158,7 @@ class DbTable:
                 values += f"{row[column]}"
 
         query = f"INSERT INTO {self.table} VALUES ({values})"
-        logging.logmsg(3, query)
+        logging.logmsg(2, query)
 
         with db:
             c.execute(query)
