@@ -187,22 +187,11 @@ class MbRspProcessors:
                         self.title = f"{self.cmd} {rsp_lines[0]}"
 
             qso_table = DbTable('qso')
-            db_values = qso_table.select(limit=1, hdr_list=self.qso_fields)
-            for row in db_values:
-                row['qso_date'] = self.qso_date
-                row['type'] = 'listing'
-                row['blog'] = self.blog
-                row['station'] = self.station
-                row['directed_to'] = self.directed_to
-                row['frequency'] = self.frequency
-                row['offset'] = self.offset
-                row['cmd'] = self.cmd
-                row['rsp'] = self.rsp
-                row['post_id'] = self.post_id
-                row['post_date'] = self.post_date
-                row['title'] = self.title
-                row['body'] = self.body
-                qso_table.insert(row)
+            row = {'qso_date': self.qso_date, 'type': 'listing', 'blog': self.blog, 'station': self.station,
+                   'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset, 'cmd': self.cmd,
+                   'rsp': self.rsp, 'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title,
+                   'body': self.body}
+            qso_table.insert(row)
 
             self.signal_reload('qso')
             self.update_blog_list(self.blog, self.station, self.post_id, self.post_date)
@@ -228,24 +217,11 @@ class MbRspProcessors:
         for row in db_values:
             self.post_date = row['post_date']
 
-        db_values = qso_table.select(limit=1, hdr_list=self.qso_fields)
-        for row in db_values:
-            row['qso_date'] = self.qso_date
-            row['type'] = 'post'
-            row['blog'] = self.blog
-            row['station'] = self.station
-            row['directed_to'] = self.directed_to
-            row['frequency'] = self.frequency
-            row['offset'] = self.offset
-            row['cmd'] = f'{req[3]}{req[4]}~'
-            row['rsp'] = self.rsp
-            row['post_id'] = int(req[4])
-            row['post_date'] = 0
-            row['title'] = ''
-            row['body'] = req[5]
-            qso_table.insert(row)
-        # notify = B2fMessage(self.b2f_q)
-        # notify.signal_reload('qso')
+        row = {'qso_date': self.qso_date, 'type': 'post', 'blog': self.blog, 'station': self.station,
+               'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset,
+               'cmd': f'{req[3]}{req[4]}~', 'rsp': self.rsp, 'post_id': int(req[4]), 'post_date': 0, 'title': '',
+               'body': req[5]}
+        qso_table.insert(row)
 
     def parse_rx_message(self, mb_rsp_string: str):
         rsp_patterns = [

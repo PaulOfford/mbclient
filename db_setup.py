@@ -1,7 +1,6 @@
 from db_root import *
 import os
 import time
-from datetime import datetime, timezone
 import sqlite3
 from logging import *
 

@@ -83,7 +83,7 @@ class GuiMessage:
     def get_station(self) -> str:
         return self.station
 
-    def get_frequency(self) -> str:
+    def get_frequency(self) -> int:
         return self.frequency
 
     def get_post_id(self) -> int:
