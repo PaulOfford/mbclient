@@ -9,7 +9,7 @@ from settings import *
 from message_q import *
 
 root = tk.Tk()
-root.title("Microblog Client r6")
+root.title("Microblog Client r7")
 root.geometry(settings.startup_dimensions)
 
 font_btn = font.Font(family='Ariel', size=(int(settings.font_size*1.125)), weight='normal')

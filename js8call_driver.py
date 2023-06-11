@@ -18,7 +18,7 @@ import select
 
 js8call_addr = ('127.0.0.1', 2442)
 debug = False
-mock = False
+mock = True
 
 
 class Js8CallApi:
@@ -156,8 +156,8 @@ class Js8CallDriver:
 
     def process_tx_q(self):
         try:
-            comms_tx = self.comms_tx_q.get(block=False)  # if no msg waiting, this will throw an exception
-            logging.logmsg(3, f"js8drv: debug: {comms_tx}")
+            comms_tx: CommsMessage = self.comms_tx_q.get(block=False)  # if no msg waiting, this will throw an exception
+            logging.logmsg(3, f"js8drv: debug: {comms_tx.payload}")
             self.process_comms_tx(comms_tx)
             self.comms_tx_q.task_done()
         except queue.Empty:
@@ -275,6 +275,12 @@ class Js8CallDriver:
                         rx_mb_msg.set_destination(params['TO'])
                         rx_mb_msg.set_frequency(params['DIAL'])
                         rx_mb_msg.set_snr(params['SNR'])
+
+                        # if we haven't got the callsign, yet we need to wait
+                        self.status.reload_status()
+                        while self.status.callsign == "Pending":
+                            time.sleep(0.2)
+                            self.status.reload_status()
 
                         if params['TO'] == self.status.callsign:
                             rx_mb_msg.set_typ('mb_rsp')

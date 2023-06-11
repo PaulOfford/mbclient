@@ -54,8 +54,8 @@ class MbClient:
     def process_updates(self):
 
         try:
-            msg = self.b2f_q.get(block=False)  # if no msg waiting, this will throw an exception
-            logging.logmsg(3, f"fe: {msg}")
+            msg: GuiMessage = self.b2f_q.get(block=False)  # if no msg waiting, this will throw an exception
+            logging.logmsg(3, f"frontend: {msg.cmd} {msg.param}")
             self.status_check()
             self.b2f_q.task_done()
         except queue.Empty:
