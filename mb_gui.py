@@ -5,11 +5,13 @@ import locale
 import functools as ft
 import re
 
+from _version import __version__
 from settings import *
 from message_q import *
 
 root = tk.Tk()
-root.title("Microblog Client r7")
+window_title = "Microblog Client " + __version__
+root.title(window_title)
 root.geometry(settings.startup_dimensions)
 
 font_btn = font.Font(family='Ariel', size=(int(settings.font_size*1.125)), weight='normal')
