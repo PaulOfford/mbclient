@@ -4,7 +4,7 @@ import time
 import sqlite3
 from logging import *
 
-load_samples = True
+load_samples = False
 
 if os.path.exists(db_file):
     os.remove(db_file)
