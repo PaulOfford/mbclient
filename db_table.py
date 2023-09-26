@@ -162,3 +162,19 @@ class DbTable:
 
         with db:
             c.execute(query)
+
+    def delete(self, where=None):
+
+        db = sqlite3.connect(db_file)
+        c = db.cursor()
+
+        query = f"DELETE FROM {self.table}"
+        if where:
+            query += f" WHERE {where}"
+
+        logging.logmsg(3, query)
+
+        c.execute(query)
+        db.close()
+
+        return

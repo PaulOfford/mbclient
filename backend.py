@@ -531,6 +531,18 @@ class BeProcessor:
         self.signal_reload('qso')
         return
 
+    def process_refresh_cmd(self, req: GuiMessage):
+        post_id = req.get_post_id()
+        # remove the post from the cache
+        q = DbTable('qso')
+        where_clause = f"post_id={post_id}"
+        q.delete(where=where_clause)
+
+        # now we've deleted the cache entry, we can process as though it were a GET
+        req.cmd = 'G'
+        self.process_get_cmd(req)
+        return
+
     def set_hdr_freq(self, frequency: int):
         s = DbTable('status')
         s.update(
@@ -645,6 +657,9 @@ class BeProcessor:
         elif msg_object.get_cmd() == 'G':
             self.qso_append_cli_input(msg_object)
             self.process_get_cmd(msg_object)
+        elif msg_object.get_cmd() == 'R':
+            self.qso_append_cli_input(msg_object)
+            self.process_refresh_cmd(msg_object)
         elif msg_object.get_cmd() == 'I':
             self.qso_append_cli_input(msg_object)
             self.process_info_cmd(msg_object)
