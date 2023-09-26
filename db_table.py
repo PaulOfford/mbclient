@@ -136,9 +136,13 @@ class DbTable:
 
         if where:
             query += f" WHERE {where}"
+
+        logging.logmsg(2, query)
+
         with db:
             c.execute(query)
-            logging.logmsg(2, query)
+
+        db.close()
 
     def insert(self, row: dict):
         db = sqlite3.connect(db_file)
@@ -163,6 +167,8 @@ class DbTable:
         with db:
             c.execute(query)
 
+        db.close()
+
     def delete(self, where=None):
 
         db = sqlite3.connect(db_file)
@@ -172,9 +178,11 @@ class DbTable:
         if where:
             query += f" WHERE {where}"
 
-        logging.logmsg(3, query)
+        logging.logmsg(2, query)
 
-        c.execute(query)
+        with db:
+            c.execute(query)
+
         db.close()
 
         return

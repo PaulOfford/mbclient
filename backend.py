@@ -535,7 +535,7 @@ class BeProcessor:
         post_id = req.get_post_id()
         # remove the post from the cache
         q = DbTable('qso')
-        where_clause = f"type='post' and post_id={post_id} and body IS NOT NULL"
+        where_clause = f"type='post' AND blog='{req.get_blog()}' AND post_id={post_id} AND body IS NOT NULL"
         q.delete(where=where_clause)
 
         # now we've deleted the cache entry, we can process as though it were a GET
