@@ -310,10 +310,19 @@ class BeProcessor:
 
         self.status.reload_status()
 
+        cmd_type = msg_object.get_cli_input().strip()
+        cmd_type = cmd_type[0:1]
+
         row['qso_date'] = time.time()
         row['type'] = 'cmd'
-        row['blog'] = msg_object.get_blog()
-        row['station'] = msg_object.get_station()
+
+        if cmd_type == 'Q':
+            row['blog'] = "@MB"
+            row['station'] = "@MB"
+        else:
+            row['blog'] = msg_object.get_blog()
+            row['station'] = msg_object.get_station()
+
         row['directed_to'] = self.status.callsign
         row['frequency'] = self.status.user_frequency
         row['offset'] = self.status.offset
@@ -543,6 +552,24 @@ class BeProcessor:
         self.process_get_cmd(req)
         return
 
+    def process_query_cmd(self, req: GuiMessage):
+        payload = f"Q"
+        logmsg(3, 'comms: send: ' + str(payload))
+        mblog_api_req = CommsMessage()
+
+        mblog_api_req.set_ts(time.time())
+        mblog_api_req.set_direction('tx')
+        mblog_api_req.set_source(self.status.callsign)
+        mblog_api_req.set_destination('@MB')  # ToDo: change once we implement blog namespace
+        mblog_api_req.set_snr(0)
+        mblog_api_req.set_blog('@MB')
+        mblog_api_req.set_typ('mb_req')
+        mblog_api_req.set_target('mb_service')
+        mblog_api_req.set_obj('service')
+        mblog_api_req.set_payload(str(payload))
+        self.comms_tx_q.put(mblog_api_req)
+        return
+
     def set_hdr_freq(self, frequency: int):
         s = DbTable('status')
         s.update(
@@ -671,6 +698,9 @@ class BeProcessor:
         elif msg_object.get_cmd() == 'P':
             self.qso_append_cli_input(msg_object)
             self.process_scan_cmd(msg_object)
+        elif msg_object.get_cmd() == 'Q':
+            self.qso_append_cli_input(msg_object)
+            self.process_query_cmd(msg_object)
 
     def process_mb_rsp(self, comms_msg: CommsMessage):
         processor = MbRspProcessors(comms_msg, self.b2f_q)

@@ -493,6 +493,8 @@ class GuiCli:
 
             {'exp': '^G *(\\d+)$', 'op': 'eq', 'by': 'id'},
             {'exp': '^R *(\\d+)$', 'op': 'eq', 'by': 'id'},
+
+            {'exp': '^Q *$', 'op': None, 'by': None},
         ]
 
         entry = None

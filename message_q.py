@@ -14,6 +14,7 @@ class GuiMessage:
     #       all configuration settings cause a change in the database settings table except for
     #       setting db_file which causes a recreation of the db_root.py file
     # P - op set to 'start' or 'stop': starts and stops a promiscuous scan
+    # Q - send @MB Q to elicit @MB announcements
     # Note that the station that receives blog-based commands is selected by the backend based on the best SNR
 
     ts = 0.0
