@@ -223,6 +223,11 @@ class MbRspProcessors:
                'body': req[5]}
         qso_table.insert(row)
 
+    def process_weather(self, req: list):
+        req.insert(4, 0)  # insert a dummy post_id into the request
+        self.process_post(req)
+        pass
+
     def parse_rx_message(self, mb_rsp_string: str):
         rsp_patterns = [
             {'exp': "^([A-Z,0-9]+): +(@)MB +([A-Z,0-9]*) +(\\d+) +(\\d{4}-\\d{2}-\\d{2})",
@@ -233,7 +238,8 @@ class MbRspProcessors:
             {'exp': "^(\\S+): +(\\S+) +([+-])(E)([\\d,]*)~\n*([\\S\\s]+)", 'proc': 'process_extended'},
             {'exp': "^(\\S+): +(\\S+) +([+-])(E)([\\dABC]*)~\n*([\\S\\s]+)", 'proc': 'process_extended'},
             {'exp': "^(\\S+): +(\\S+) +([+-])([EF][EG])([\\dABC]*)~\n*([\\S\\s]+)", 'proc': 'process_extended'},
-            {'exp': "^(\\S+): +(\\S+) +([+-])(G)(\\d+)~\n*([\\S\\s]+)", 'proc': 'process_post'}
+            {'exp': "^(\\S+): +(\\S+) +([+-])(G)(\\d+)~\n*([\\S\\s]+)", 'proc': 'process_post'},
+            {'exp': "^(\\S+): +(\\S+) +([+-])(WX)~\n*([\\S\\s]+)", 'proc': 'process_weather'},
         ]
         for entry in rsp_patterns:
             # try to match the request
@@ -241,7 +247,8 @@ class MbRspProcessors:
             if len(result) == 0:
                 continue
             else:
-                result = result[0]  # pull the result out of the list
+                # the result is a list of tuples
+                result = list(result[0])  # pull the 1st result out of the list and convert to a list
                 self.station = result[0]
                 # ToDo: the following line must be changed once we implement the blog namespace
                 self.blog = result[0]
@@ -495,7 +502,7 @@ class BeProcessor:
             mblog_api_req.set_ts(time.time())
             mblog_api_req.set_direction('tx')
             mblog_api_req.set_source(self.status.callsign)
-            mblog_api_req.set_destination(req.get_station())  # ToDo: change once we implement blog namespace
+            mblog_api_req.set_destination(req.get_station())
             mblog_api_req.set_snr(0)
             mblog_api_req.set_blog(req.get_blog())
             mblog_api_req.set_typ('mb_req')
@@ -560,9 +567,27 @@ class BeProcessor:
         mblog_api_req.set_ts(time.time())
         mblog_api_req.set_direction('tx')
         mblog_api_req.set_source(self.status.callsign)
-        mblog_api_req.set_destination('@MB')  # ToDo: change once we implement blog namespace
+        mblog_api_req.set_destination('@MB')
         mblog_api_req.set_snr(0)
         mblog_api_req.set_blog('@MB')
+        mblog_api_req.set_typ('mb_req')
+        mblog_api_req.set_target('mb_service')
+        mblog_api_req.set_obj('service')
+        mblog_api_req.set_payload(str(payload))
+        self.comms_tx_q.put(mblog_api_req)
+        return
+
+    def process_weather_cmd(self, req: GuiMessage):
+        payload = f"WX~"
+        logmsg(3, 'comms: send: ' + str(payload))
+        mblog_api_req = CommsMessage()
+
+        mblog_api_req.set_ts(time.time())
+        mblog_api_req.set_direction('tx')
+        mblog_api_req.set_source(self.status.callsign)
+        mblog_api_req.set_destination(req.get_station())
+        mblog_api_req.set_snr(0)
+        mblog_api_req.set_blog(req.get_blog())
         mblog_api_req.set_typ('mb_req')
         mblog_api_req.set_target('mb_service')
         mblog_api_req.set_obj('service')
@@ -701,6 +726,9 @@ class BeProcessor:
         elif msg_object.get_cmd() == 'Q':
             self.qso_append_cli_input(msg_object)
             self.process_query_cmd(msg_object)
+        elif msg_object.get_cmd() == 'WX':
+            self.qso_append_cli_input(msg_object)
+            self.process_weather_cmd(msg_object)
 
     def process_mb_rsp(self, comms_msg: CommsMessage):
         processor = MbRspProcessors(comms_msg, self.b2f_q)
@@ -757,7 +785,7 @@ class BeProcessor:
 
         # check for messages from the comms driver
         try:
-            comms_rx: CommsMessage = self.comms_rx_q.get(block=True, timeout=0.1)  # if no msg waiting, this will throw an exception
+            comms_rx: CommsMessage = self.comms_rx_q.get(block=True, timeout=0.1)  # if no msg waiting, throw an except
             logging.logmsg(3, f"backend: {comms_rx.payload}")
             self.process_comms_rx(comms_rx)
             self.comms_rx_q.task_done()
@@ -779,7 +807,7 @@ class Backend:
             self.proc.check_for_msg()
             time.sleep(0.2)  # we need this else the backend thread hogs the cpu
     
-            # check for js8call message
+            # check for JS8Call message
     
             # run optimizing algorithms, e.g. harvesting info heard and caching
         pass

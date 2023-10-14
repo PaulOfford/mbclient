@@ -479,22 +479,24 @@ class GuiCli:
         req = GuiMessage()
 
         command_informat = [
-            {'exp': '^L *(\\d+)$', 'op': 'eq', 'by': 'id'},
-            {'exp': '^L *> *(\\d+)$', 'op': 'gt', 'by': 'id'},
-            {'exp': '^L *(\\d{4}-\\d{2}-\\d{2})$', 'op': 'eq', 'by': 'date'},
-            {'exp': '^L *> *(\\d{4}-\\d{2}-\\d{2})$', 'op': 'gt', 'by': 'date'},
-            {'exp': '^L$', 'op': 'tail', 'by': None},
+            {'exp': '^L *(\\d+)$', 'cmd': 'L', 'op': 'eq', 'by': 'id'},
+            {'exp': '^L *> *(\\d+)$', 'cmd': 'L', 'op': 'gt', 'by': 'id'},
+            {'exp': '^L *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'L', 'op': 'eq', 'by': 'date'},
+            {'exp': '^L *> *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'L', 'op': 'gt', 'by': 'date'},
+            {'exp': '^L$', 'cmd': 'L', 'op': 'tail', 'by': None},
 
-            {'exp': '^E *(\\d+)$', 'op': 'eq', 'by': 'id'},
-            {'exp': '^E *> *(\\d+)$', 'op': 'gt', 'by': 'id'},
-            {'exp': '^E *(\\d{4}-\\d{2}-\\d{2})$', 'op': 'eq', 'by': 'date'},
-            {'exp': '^E *> *(\\d{4}-\\d{2}-\\d{2})$', 'op': 'gt', 'by': 'date'},
-            {'exp': '^E$', 'op': 'tail', 'by': None},
+            {'exp': '^E *(\\d+)$', 'cmd': 'E', 'op': 'eq', 'by': 'id'},
+            {'exp': '^E *> *(\\d+)$', 'cmd': 'E', 'op': 'gt', 'by': 'id'},
+            {'exp': '^E *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'E', 'op': 'eq', 'by': 'date'},
+            {'exp': '^E *> *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'E', 'op': 'gt', 'by': 'date'},
+            {'exp': '^E$', 'cmd': 'E', 'op': 'tail', 'by': None},
 
-            {'exp': '^G *(\\d+)$', 'op': 'eq', 'by': 'id'},
-            {'exp': '^R *(\\d+)$', 'op': 'eq', 'by': 'id'},
+            {'exp': '^G *(\\d+)$', 'cmd': 'G', 'op': 'eq', 'by': 'id'},
+            {'exp': '^R *(\\d+)$', 'cmd': 'R', 'op': 'eq', 'by': 'id'},
 
-            {'exp': '^Q *$', 'op': None, 'by': None},
+            {'exp': '^Q *$', 'cmd': 'Q', 'op': None, 'by': None},
+
+            {'exp': '^WX *$', 'cmd': 'WX', 'op': None, 'by': None},
         ]
 
         entry = None
@@ -525,7 +527,7 @@ class GuiCli:
                 req.set_blog(status.selected_blog)
                 req.set_station(status.selected_station)
                 req.set_cli_input(input_text)
-                req.set_cmd(input_text[0:1])
+                req.set_cmd(entry['cmd'])
                 req.set_op(entry['op'])
 
                 if entry['by'] == 'id':

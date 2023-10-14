@@ -101,7 +101,7 @@ class MbClient:
 
         file_menu = tk.Menu(top_menu)
         top_menu.add_cascade(label='File', menu=file_menu)
-        file_menu.add_command(label='Settings    F2', command=lambda:settings_window())
+        file_menu.add_command(label='Settings    F2', command=lambda: settings_window())
         file_menu.add_separator()
         file_menu.add_command(label='Exit', command=self.client_shutdown)
 
