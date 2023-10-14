@@ -156,7 +156,7 @@ class MbRspProcessors:
         station = req[0]
         blog = req[2]
         announcement_post_id = int(req[3])
-        announcement_post_date = time.mktime(time.strptime(req[4], "%Y-%m-%d"))
+        announcement_post_date = time.mktime(time.strptime(req[4] + " GMT", "%Y-%m-%d %Z"))
 
         self.update_blog_list(blog, station, announcement_post_id, announcement_post_date)
 
