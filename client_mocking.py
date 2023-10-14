@@ -3,19 +3,19 @@ import time
 
 sample_msgs = [
     {'params': {'_ID': 1686299050534}, 'type': 'STATION.CALLSIGN', 'value': '2E0FGO'},
-    # {'params': {'DIAL': 0, 'FREQ': 1650, 'OFFSET': 1650, '_ID': 1686299050534}, 'type': 'RIG.FREQ', 'value': ''},
-    # {
-    #     'params': {
-    #         'CMD': ' ', 'DIAL': 14078000, 'EXTRA': '', 'FREQ': 14079652,
-    #         'FROM': 'M0PXO', 'GRID': ' JO01',
-    #         'OFFSET': 1652, 'SNR': -1, 'SPEED': 1,
-    #         'TDRIFT': 1.2999999523162842,
-    #         'TEXT': 'M0PXO: @MB  M0PXO 14 2023-10-14',
-    #         'TO': '@MB', 'UTC': 1678314667724, '_ID': -1
-    #     },
-    #     'type': 'RX.DIRECTED',
-    #     'value': 'M0PXO: @MB  M0PXO 14 2023-10-14'
-    # },
+    {'params': {'DIAL': 0, 'FREQ': 1650, 'OFFSET': 1650, '_ID': 1686299050534}, 'type': 'RIG.FREQ', 'value': ''},
+    {
+        'params': {
+            'CMD': ' ', 'DIAL': 14078000, 'EXTRA': '', 'FREQ': 14079652,
+            'FROM': 'M0PXO', 'GRID': ' JO01',
+            'OFFSET': 1652, 'SNR': -1, 'SPEED': 1,
+            'TDRIFT': 1.2999999523162842,
+            'TEXT': 'M0PXO: @MB  M0PXO 14 2023-10-14',
+            'TO': '@MB', 'UTC': 1678314667724, '_ID': -1
+        },
+        'type': 'RX.DIRECTED',
+        'value': 'M0PXO: @MB  M0PXO 14 2023-10-14'
+    },
     # {
     #     'params': {
     #         'CMD': ' HEARTBEAT', 'DIAL': 14078010, 'EXTRA': '', 'FREQ': 14078697,
@@ -192,38 +192,38 @@ sample_msgs = [
     #             'BUT THIS IS NOW, WE ARE IN SOLAR CYCLE 25, AND THIS SUNSPOT CYCLE IS EMERGING BETTER '
     #             'THAN THE CONSENSUS FORECAST. IT IS PREDICTED TO PEAK ABOUT 30 MONTHS FROM NOW IN SUMMER 2025.',
     # },
-    {
-        'params':
-            {
-                'CMD': ' ', 'DIAL': 14078000, 'EXTRA': '', 'FREQ': 14079642, 'FROM': 'M0PXO', 'GRID': '',
-                'OFFSET': 1642, 'SNR': -6, 'SPEED': 0, 'TDRIFT': 0.5,
-                'TEXT': 'M0PXO: 2E0FGO  +WX~\n'
-                        'MAY 15 2023 06:56\n'
-                        'LATTITUDE; 2750.02N\n'
-                        'LONGITIDE: 08131.02W\n'
-                        'WIND DIRECTION: 107\n'
-                        'WIND SPEED: 000\n'
-                        'WIND GUST: 000\n'
-                        'TEMPERATURE: 065\n'
-                        'RAIN: 000\nHUMIDITY: 97\n'
-                        'SOLAR RADIATION: 0016\n'
-                        'PRESSURE: 1019  ',
-                'TO': '2E0FGO', 'UTC': 1696078032169, '_ID': -1
-            },
-        'type': 'RX.DIRECTED',
-        'value': 'M0PXO: 2E0FGO  +WX~\n'
-                 'MAY 15 2023 06:56\n'
-                 'LATTITUDE; 2750.02N\n'
-                 'LONGITIDE: 08131.02W\n'
-                 'WIND DIRECTION: 107\n'
-                 'WIND SPEED: 000\n'
-                 'WIND GUST: 000\n'
-                 'TEMPERATURE: 065\n'
-                 'RAIN: 000\n'
-                 'HUMIDITY: 97\n'
-                 'SOLAR RADIATION: 0016\n'
-                 'PRESSURE: 1019  '
-    },
+    # {
+    #     'params':
+    #         {
+    #             'CMD': ' ', 'DIAL': 14078000, 'EXTRA': '', 'FREQ': 14079642, 'FROM': 'M0PXO', 'GRID': '',
+    #             'OFFSET': 1642, 'SNR': -6, 'SPEED': 0, 'TDRIFT': 0.5,
+    #             'TEXT': 'M0PXO: 2E0FGO  +WX~\n'
+    #                     'MAY 15 2023 06:56\n'
+    #                     'LATTITUDE; 2750.02N\n'
+    #                     'LONGITIDE: 08131.02W\n'
+    #                     'WIND DIRECTION: 107\n'
+    #                     'WIND SPEED: 000\n'
+    #                     'WIND GUST: 000\n'
+    #                     'TEMPERATURE: 065\n'
+    #                     'RAIN: 000\nHUMIDITY: 97\n'
+    #                     'SOLAR RADIATION: 0016\n'
+    #                     'PRESSURE: 1019  ',
+    #             'TO': '2E0FGO', 'UTC': 1696078032169, '_ID': -1
+    #         },
+    #     'type': 'RX.DIRECTED',
+    #     'value': 'M0PXO: 2E0FGO  +WX~\n'
+    #              'MAY 15 2023 06:56\n'
+    #              'LATTITUDE; 2750.02N\n'
+    #              'LONGITIDE: 08131.02W\n'
+    #              'WIND DIRECTION: 107\n'
+    #              'WIND SPEED: 000\n'
+    #              'WIND GUST: 000\n'
+    #              'TEMPERATURE: 065\n'
+    #              'RAIN: 000\n'
+    #              'HUMIDITY: 97\n'
+    #              'SOLAR RADIATION: 0016\n'
+    #              'PRESSURE: 1019  '
+    # },
 ]
 
 count = 0

@@ -93,7 +93,7 @@ class MbRspProcessors:
         # do we have a blog entry for this blog at this station
         blogs_table = DbTable('blogs')
         results = blogs_table.select(
-            where=f"blog='{blog}' AND station='{station}'",
+            where=f"blog='{blog}' AND station='{station}' AND frequency={self.frequency}",
             limit=1, hdr_list=['latest_post_id', 'latest_post_date']
         )
         if len(results) > 0:
@@ -112,14 +112,14 @@ class MbRspProcessors:
                         'latest_post_date': post_date,
                         'last_seen_date': time.time()
                     },
-                    where=f"blog='{blog}' AND station='{station}'"
+                    where=f"blog='{blog}' AND station='{station}' AND frequency={self.frequency}"
                 )
             else:
                 blogs_table.update(
                     value_dictionary={
                         'last_seen_date': time.time()
                     },
-                    where=f"blog='{blog}' AND station='{station}'"
+                    where=f"blog='{blog}' AND station='{station}' AND frequency={self.frequency}"
                 )
         else:
             # no existing blogs entry so create one
@@ -661,7 +661,8 @@ class BeProcessor:
                 # update the selected row
                 b = DbTable('blogs')
                 b.update(where=None, value_dictionary={'is_selected': 0})
-                b.update(where=f"blog='{blog}' AND station='{station}'", value_dictionary={'is_selected': 1})
+                b.update(where=f"blog='{blog}' AND station='{station}' AND frequency={frequency}",
+                         value_dictionary={'is_selected': 1})
 
                 s.update(
                     where=None,
