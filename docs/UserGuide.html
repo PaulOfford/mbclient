@@ -8,7 +8,17 @@
 <body>
     <div class="outer-div">
         <h1>User Guide</h1>
-        <h2>Introduction</h2>
+        <h2>Contents</h2>
+        <ul>
+            <li><a href="#intro">Introduction</a></li>
+            <li><a href="#post_file">Microblog Post File</a></li>
+            <li><a href="#function">MbClient Functionality</a></li>
+            <li><a href="#interface">Interface Layout</a></li>
+            <li><a href="#commands">Commands</a></li>
+            <li><a href="#settings">Settings</a></li>
+            <li><a href="#tips">Tips and Tricks</a></li>
+        </ul>
+        <h2 id="intro">Introduction</h2>
         <p>Blogging is a popular way to share information with Internet users by posting short articles in an
             <i>ad hoc</i> manner.  In an emergency situation, blogging could provide a way to disseminate critical
             information if it weren't for the fact that Internet access is often unavailable is such situations.</p>
@@ -23,7 +33,7 @@
         <p>A microblog server is hosted on an amateur radio operator's computer and uses the JS8Call application
             to provide the JS8 transport mechanism.  A microblog client sends requests to the mbserver which
             responds with the requested information.</p>
-        <h2>Microblog Post File</h2>
+        <h2 id="post_file">Microblog Post File</h2>
         <p>A microblog post is stored as a simple text file in the server computer.  The content of the text file
             will look something like this:</p>
         <p style="background-color: black; color: white; padding: 8px;">
@@ -77,7 +87,7 @@
         <p>Finally we have the title of the post.</p>
         <p>The challenge for an operator running a server is to keep the post title and content as concise as
             possible to minimise transmission time.</p>
-        <h2>MbClient Functionality</h2>
+        <h2 id="function">MbClient Functionality</h2>
         <p>The MbClient app has the following capabilities:</p>
         <ul>
             <li><b>Listing</b> - list the posts of a blog providing Post ID and Post Title</li>
@@ -91,7 +101,7 @@
         </ul>
         <p style="font-size: 80%">* @MB Announcement - Each microblog server periodically sends to the JS8 group @MB
             an announcement message containing the blog name, latest Post ID and latest Post Date</p>
-        <h2>Interface Layout</h2>
+        <h2 id="interface">Interface Layout</h2>
         <p><img src="images/InterfaceLayout.jpg" width="640" /></p>
         <p>The user interface for the MbClient has five areas:</p>
         <ul>
@@ -146,7 +156,17 @@
             rig frequency in the Header area to change if the Latest Post was heard on another frequency.</p>
         <p align="center"><img src="images/LatestDisplayed.jpg" width="480" /></p>
         <p>The post content is retrieved from the server and displayed in the QSO Box.</p>
-        <h2>Settings</h2>
+
+        <h2 id="commands">Commands</h2>
+        <p>These are the commands supported by the Command Line Interface</p>
+        <ul>
+            <li><b>L</b> - List the Post ID and Post Title of the most recent blog posts</li>
+            <li><b>E</b> - List the Post ID, Post Date and Post Title of the most recent blog posts</li>
+            <li><b>G</b> - Get the contents of a post from the server and display it</li>
+            <li><b>R</b> - Refresh the contents of a post; useful if the post was received with missing sections</li>
+        </ul>
+
+        <h2 id="settings">Settings</h2>
         <p>As an operator, we can change several parameters through the <i>File -> Settings</i> menu.</p>
         <p align="center"><img src="images/Settings.jpg" width="320" /></p>
         <p><b>Window Startup Width:</b> The width in pixels of the client window on startup.
@@ -175,7 +195,7 @@
             The log messages will also obey this setting.
             Default - Checked</p>
         <p>A change the settings will only take effect after restarting the MbClient.</p>
-        <h2>Tips and Tricks</h2>
+        <h2 id="tips">Tips and Tricks</h2>
         <h3>Getting the Latest Posts</h3>
         <p>The L command without any qualifiers will get you a list of the latest posts on a blog.  You'll notice
         that the client sends a list of Post IDs to the server to get the list.</p>
