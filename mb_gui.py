@@ -556,10 +556,8 @@ class GuiBlogList:
 
     blog_list = None  # this is a list of blog entries, each of which is a dictionary
     blog_list_headers = [
-        {'db_col': 'blog', 'type': 'Text', 'suffix': '', 'width': 8,
-         'text': 'Mblog', 'widget': tk.Button()},
         {'db_col': 'station', 'type': 'Text', 'suffix': '', 'width': 8,
-         'text': 'Station', 'widget': tk.Button()},
+         'text': 'Blog', 'widget': tk.Button()},
         {'db_col': 'frequency', 'type': 'Float', 'divisor': 1000000, 'suffix': ' MHz', 'width': 12,
          'text': 'Freq', 'widget': tk.Button()},
         {'db_col': 'latest_post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 8,
