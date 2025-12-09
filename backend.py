@@ -153,10 +153,26 @@ class MbRspProcessors:
         self.signal_reload('qso')
 
     def process_announcement(self, req: list):
+        # we need to support two formats of announcement
+        # old:  callsign callsign blog_name post_id date_time
+        # new:  callsign callsign post_id date_time
+
         station = req[0]
-        blog = req[2]
-        announcement_post_id = int(req[3])
-        announcement_post_date = time.mktime(time.strptime(req[4] + " GMT", "%Y-%m-%d %Z"))
+
+        # if req[2] is an integer it must be the new style announcement
+        try:
+            junk = int(req[2])
+            blog = station
+            i = 2
+        except ValueError:
+            # must be an old style announcement
+            blog = req[2]
+            i = 3
+
+        announcement_post_id = int(req[i])
+
+        i += 1
+        announcement_post_date = time.mktime(time.strptime(req[i] + " GMT", "%Y-%m-%d %Z"))
 
         self.update_blog_list(blog, station, announcement_post_id, announcement_post_date)
 
@@ -230,8 +246,10 @@ class MbRspProcessors:
 
     def parse_rx_message(self, mb_rsp_string: str):
         rsp_patterns = [
-            {'exp': "^([A-Z,0-9]+): +(@)MB +([A-Z,0-9]*) +(\\d+) +(\\d{4}-\\d{2}-\\d{2})",
-             'proc': 'process_announcement'},
+            {'exp': "^([A-Z,0-9\/]+): +(@)MB +(\\d+) +(\\d{4}-\\d{2}-\\d{2})",
+             'proc': 'process_announcement'},  # new style announcement
+            {'exp': "^([A-Z,0-9\/]+): +(@)MB +([A-Z,0-9\/]*) +(\\d+) +(\\d{4}-\\d{2}-\\d{2})",
+             'proc': 'process_announcement'},  # old style announcement
             {'exp': "^(\\S+): +(\\S+) +([+-])(L)([\\d,]*)~\n*([\\S\\s]+)", 'proc': 'process_listing'},
             {'exp': "^(\\S+): +(\\S+) +([+-])(L)([\\dABC]*)~\n*([\\S\\s]+)", 'proc': 'process_listing'},
             {'exp': "^(\\S+): +(\\S+) +([+-])([LM][EG])([\\dABC]*)~\n*([\\S\\s]+)", 'proc': 'process_listing'},
