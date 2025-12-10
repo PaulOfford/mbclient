@@ -699,7 +699,7 @@ class GuiBlogList:
         station = self.get_value_by_row_db_col(row, 'station')
         freq = self.get_value_by_row_db_col(row, 'frequency')
         req.set_cli_input(f'@ {station} on {freq} is now the selected blog')
-        req.set_blog(self.get_value_by_row_db_col(row, 'blog'))
+        req.set_blog(station)
         req.set_station(station)
         freq_string = self.get_value_by_row_db_col(row, 'frequency')
         # annoyingly, we must convert a string in the form 14,078 MHz back into an integer
