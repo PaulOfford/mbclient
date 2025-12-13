@@ -558,18 +558,12 @@ class GuiBlogList:
     blog_list_headers = [
         {'db_col': 'station', 'type': 'Text', 'suffix': '', 'width': 8,
          'text': 'Blog', 'widget': tk.Button()},
-        {'db_col': 'frequency', 'type': 'Float', 'divisor': 1000000, 'suffix': ' MHz', 'width': 12,
-         'text': 'Freq', 'widget': tk.Button()},
         {'db_col': 'latest_post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 8,
          'text': 'Latest\nPost ID', 'widget': tk.Button()},
         {'db_col': 'latest_post_date', 'type': 'Date', 'suffix': '', 'width': 12,
          'text': 'Latest\nPost Date', 'widget': tk.Button()},
         {'db_col': 'last_seen_date', 'type': 'DateTime', 'suffix': '', 'width': 16,
          'text': 'Last Seen', 'widget': tk.Button()},
-        {'db_col': 'snr', 'type': 'Int', 'divisor': 1, 'suffix': ' dB', 'width': 8,
-         'text': 'SNR', 'widget': tk.Button()},
-        {'db_col': 'capabilities', 'type': 'Text', 'suffix': '', 'width': 8,
-         'text': 'Cap.', 'widget': tk.Button()},
         {'db_col': 'is_selected', 'db_type': 'Int', 'divisor': 1, 'suffix': '', 'width': 0,
          'text': None, 'widget': tk.Button()},
     ]
@@ -718,19 +712,19 @@ class GuiMain:
         pane_main.pack(fill='both', expand=1, side='top')
 
         frame_left = tk.Frame(pane_main, bg='white')
-        pane_main.add(frame_left, width=300)
+        pane_main.add(frame_left, width=400)
 
         frame_mid = tk.Frame(pane_main, bg='white')
         pane_main.add(frame_mid, width=480)
 
         frame_right = tk.Frame(pane_main, bg='white')
-        pane_main.add(frame_right, width=300)
+        pane_main.add(frame_right, width=280)
 
-        # Latest Posts area
-        frame_latest_list = tk.Frame(frame_left, bg='white')
-        frame_latest_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        # Blog list area - right of main
+        frame_blog_list = tk.Frame(frame_left, bg='white', padx=4, pady=4)
+        frame_blog_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        self.latest_posts = GuiLatestPosts(frame_latest_list, f2b_q)
+        self.blog_list = GuiBlogList(frame_blog_list, f2b_q, b2f_q)
 
         # QSO Area follows - middle of main
         frame_qso = tk.Frame(frame_mid)
@@ -743,11 +737,12 @@ class GuiMain:
 
         self.cli = GuiCli(frame_mid, f2b_q)
 
-        # Blog list area - right of main
-        frame_blog_list = tk.Frame(frame_right, bg='white', padx=4, pady=4)
-        frame_blog_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        # Latest Posts area
+        frame_latest_list = tk.Frame(frame_right, bg='white')
+        frame_latest_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        self.blog_list = GuiBlogList(frame_blog_list, f2b_q, b2f_q)
+        self.latest_posts = GuiLatestPosts(frame_latest_list, f2b_q)
+
 
     def reload_latest(self):
         self.latest_posts.reload_latest()
