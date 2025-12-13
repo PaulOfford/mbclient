@@ -10,11 +10,11 @@ sample_msgs = [
             'FROM': 'M0PXO', 'GRID': ' JO01',
             'OFFSET': 1652, 'SNR': -1, 'SPEED': 1,
             'TDRIFT': 1.2999999523162842,
-            'TEXT': 'M0PXO: @MB  M0PXO 14 2023-10-14',
+            'TEXT': 'M0PXO: @MB  M0PXO 14 231014',
             'TO': '@MB', 'UTC': 1678314667724, '_ID': -1
         },
         'type': 'RX.DIRECTED',
-        'value': 'M0PXO: @MB  M0PXO 14 2023-10-14'
+        'value': 'M0PXO: @MB  M0PXO 14 231014'
     },
     # {
     #     'params': {
@@ -22,13 +22,13 @@ sample_msgs = [
     #         'FROM': 'YJ9MX5IVS', 'GRID': 'RF77',
     #         'OFFSET': 687, 'SNR': -20, 'SPEED': 1,
     #         'TDRIFT': -1.5,
-    #         'TEXT': 'YJ9MX5IVS: @MB AUSNEW 407 2023-03-08',
+    #         'TEXT': 'YJ9MX5IVS: @MB AUSNEW 407 230308',
     #         'TO': '@MB',
     #         'UTC': 1677341768425,
     #         '_ID': -1
     #     },
     #     'type': 'RX.DIRECTED',
-    #     'value': 'YJ9MX5IVS: @MB AUSNEW 407 2023-03-08'
+    #     'value': 'YJ9MX5IVS: @MB AUSNEW 407 230308'
     # },
     # {
     #     'params': {
