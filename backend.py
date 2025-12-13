@@ -161,18 +161,19 @@ class MbRspProcessors:
 
         # if req[2] is an integer it must be the new style announcement
         try:
-            junk = int(req[2])
+            announcement_post_id = int(req[2])
             blog = station
-            i = 2
+            announcement_post_date = time.mktime(
+                time.strptime(
+                    "20" + req[3] + "-" + req[4] + "-" + req[5] + " GMT", "%Y-%m-%d %Z"
+                )
+            )
+
         except ValueError:
             # must be an old style announcement
             blog = req[2]
-            i = 3
-
-        announcement_post_id = int(req[i])
-
-        i += 1
-        announcement_post_date = time.mktime(time.strptime(req[i] + " GMT", "%Y-%m-%d %Z"))
+            announcement_post_id = int(req[3])
+            announcement_post_date = time.mktime(time.strptime(req[4] + " GMT", "%Y-%m-%d %Z"))
 
         self.update_blog_list(blog, station, announcement_post_id, announcement_post_date)
 
@@ -246,9 +247,9 @@ class MbRspProcessors:
 
     def parse_rx_message(self, mb_rsp_string: str):
         rsp_patterns = [
-            {'exp': "^([A-Z,0-9\/]+): +(@)MB +(\\d+) +(\\d{4}-\\d{2}-\\d{2})",
+            {'exp': "^([A-Z,0-9\/]+): +(@MB) +(\\d+) +(\\d{2})(\\d{2})(\\d{2})",
              'proc': 'process_announcement'},  # new style announcement
-            {'exp': "^([A-Z,0-9\/]+): +(@)MB +([A-Z,0-9\/]*) +(\\d+) +(\\d{4}-\\d{2}-\\d{2})",
+            {'exp': "^([A-Z,0-9\/]+): +(@MB) +([A-Z,0-9\/]+) +(\\d+) +(\\d{4}-\\d{2}-\\d{2})",
              'proc': 'process_announcement'},  # old style announcement
             {'exp': "^(\\S+): +(\\S+) +([+-])(L)([\\d,]*)~\n*([\\S\\s]+)", 'proc': 'process_listing'},
             {'exp': "^(\\S+): +(\\S+) +([+-])(L)([\\dABC]*)~\n*([\\S\\s]+)", 'proc': 'process_listing'},
@@ -274,7 +275,7 @@ class MbRspProcessors:
                 if result[2] == '+':
                     self.cmd = f"{result[2]}{result[3]}{result[4]}~"
                     getattr(MbRspProcessors, entry['proc'])(self, result)
-                elif result[1] == '@':
+                elif result[1] == '@MB':
                     getattr(MbRspProcessors, entry['proc'])(self, result)
                 else:
                     self.mb_status.reload_status()
