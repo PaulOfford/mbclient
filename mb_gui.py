@@ -339,8 +339,7 @@ class GuiQsoBox:
 
     prev_is_listing = False
 
-    qso_cols = ['qso_date', 'type', 'blog', 'station', 'cmd', 'rsp', 'post_id', 'post_date', 'title',
-                'body']
+    qso_cols = ['blog', 'post_id', 'post_date', 'title']
 
     def __init__(self, frame: tk.Frame):
 
@@ -358,7 +357,7 @@ class GuiQsoBox:
 
         qso_table = DbTable('qso')
         db_values = qso_table.select_latest(
-            where=f"directed_to='{status.callsign}'", order_by='qso_date',
+            where=f"blog='{status.selected_blog}'", order_by='post_id', order='DESC',
             limit=settings.max_qsos, hdr_list=self.qso_cols
         )
 
@@ -366,65 +365,10 @@ class GuiQsoBox:
         self.qso_box.delete(1.0, 'end')
 
         for i, r in enumerate(db_values):
-            if r['type'] == 'post':
-                # it's a post entry
-                qso_string = ''
-
-                q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
-                if r['post_date'] > 0:
-                    p_date = time.strftime("%Y-%m-%d", time.gmtime(r['post_date']))
-                else:
-                    p_date = None
-
-                qso_string += f"\n{q_date} {r['blog']} +{r['cmd']}"
-                if p_date:
-                    qso_string += f" {p_date}"
-                if len(r['title']):
-                    qso_string += f" {r['title']}"
-                qso_string += f"\n\n{r['body']}\n"
-
-                self.qso_box.insert(tk.END, qso_string)
-                self.qso_box.see(tk.END)
-                self.prev_is_listing = False
-
-            elif r['type'] == 'listing':
-                # it's a listing
-                qso_string = ''
-                if not self.prev_is_listing:
-                    qso_string = "\n----------------------------------------------\n"
-                q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
-                if r['post_date'] > 0:
-                    p_date = time.strftime("%Y-%m-%d", time.gmtime(r['post_date']))
-                else:
-                    p_date = None
-
-                qso_string += f"{q_date} {r['blog']} #{r['post_id']}"
-                if p_date:
-                    qso_string += f" {p_date}"
-
-                qso_string += f" {r['title']}\n"
-
-                self.qso_box.insert(tk.END, qso_string)
-                self.qso_box.see(tk.END)
-                self.prev_is_listing = True
-
-            elif r['type'] == 'cmd':
-                # it's an echoed command
-                qso_string = ''
-                q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
-                qso_string += f"\n{q_date} {r['blog']} {r['cmd']} {r['rsp']}\n"
-                self.qso_box.insert(tk.END, qso_string)
-                self.qso_box.see(tk.END)
-                self.prev_is_listing = True
-
-            elif r['type'] == 'progress':
-                # it's an echoed command
-                qso_string = ''
-                q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
-                qso_string += f"{q_date} {r['blog']} {r['cmd']} {r['rsp']}\n"
-                self.qso_box.insert(tk.END, qso_string)
-                self.qso_box.see(tk.END)
-                self.prev_is_listing = True
+            p_date = time.strftime("%Y-%m-%d", time.gmtime(r['post_date']))
+            qso_string = f"{r['post_id']} {p_date} {r['title']}\n"
+            self.qso_box.insert(tk.END, qso_string)
+            self.qso_box.see(tk.END)
 
         self.qso_box.configure(state=tk.DISABLED)
         return
@@ -552,125 +496,113 @@ class GuiCli:
         return
 
 
-class GuiBlogList:
+class GuiTable:
 
-    blog_list = None  # this is a list of blog entries, each of which is a dictionary
-    blog_list_headers = [
-        {'db_col': 'station', 'type': 'Text', 'suffix': '', 'width': 8,
-         'text': 'Blog', 'widget': tk.Button()},
-        {'db_col': 'latest_post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 8,
-         'text': 'Latest\nPost ID', 'widget': tk.Button()},
-        {'db_col': 'latest_post_date', 'type': 'Date', 'suffix': '', 'width': 12,
-         'text': 'Latest\nPost Date', 'widget': tk.Button()},
-        {'db_col': 'last_seen_date', 'type': 'DateTime', 'suffix': '', 'width': 16,
-         'text': 'Last Seen', 'widget': tk.Button()},
-        {'db_col': 'is_selected', 'db_type': 'Int', 'divisor': 1, 'suffix': '', 'width': 0,
-         'text': None, 'widget': tk.Button()},
-    ]
+    table_data = None  # this is a list of entries, each of which is a dictionary
+    table_headers = None
+    select_cb = None
 
-    def __init__(self, frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
+    def get_cell_string(self, col: int, db_data) -> str:
+        if self.table_headers[col]['type'] == 'Int':
+            number = int(int(db_data) / int(self.table_headers[col]['divisor']))
+            value = locale.format_string("%d", number, grouping=True) + self.table_headers[col]['suffix']
 
-        self.f2b_q = f2b_q
-        self.b2f_q = b2f_q
+        elif self.table_headers[col]['type'] == 'Float':
+            number = float(float(db_data) / float(self.table_headers[col]['divisor']))
+            value = locale.format_string("%0.3f", number, grouping=True) + self.table_headers[col]['suffix']
 
-        # construct the blog list grid
-        self.blog_list = [[{} for _, _ in enumerate(self.blog_list_headers)] for _ in range(settings.max_blogs)]
+        elif self.table_headers[col]['type'] == 'Date':
+            if int(db_data) > 0:
+                value = time.strftime(
+                    "%Y-%m-%d", time.gmtime(db_data)
+                ) + self.table_headers[col]['suffix']
+            else:
+                value = 'unknown'
 
-        # initialise the blog list grid
-        for row, _ in enumerate(self.blog_list):
-            for col, blog in enumerate(self.blog_list[row]):
-                blog['db_col'] = self.blog_list_headers[col]['db_col']
+        elif self.table_headers[col]['type'] == 'DateTime':
+            if int(db_data) > 0:
+                value = time.strftime(
+                    "%Y-%m-%d %H:%M", time.gmtime(db_data)
+                ) + self.table_headers[col]['suffix']
+            else:
+                value = 'unknown'
+        else:
+            value = db_data + self.table_headers[col]['suffix']
+
+        return value
+
+    def __init__(self, frame, column_defs, max_rows: int, select_method):
+        self.table_headers = column_defs
+        self.select_cb = select_method
+
+        # construct the table
+        self.table_data = [[{} for _, _ in enumerate(self.table_headers)] for _ in range(max_rows + 1)]
+
+        # initialise the table
+        for row, _ in enumerate(self.table_data):
+            for col, blog in enumerate(self.table_data[row]):
+                blog['db_col'] = self.table_headers[col]['db_col']
                 blog['tv'] = None
                 blog['widget'] = tk.Text()
                 blog['selected'] = tk.FALSE
 
         # set the blog list columns to equal weight
-        frame.grid(columnspan=len(self.blog_list_headers))
-        for i, _ in enumerate(self.blog_list_headers):
+        frame.grid(columnspan=len(self.table_headers))
+        for i, _ in enumerate(self.table_headers):
             frame.columnconfigure(i, weight=1)
 
         # set the blog list headers
-        for col, blog_hdr in enumerate(self.blog_list_headers):
+        for col, blog_hdr in enumerate(self.table_headers):
             if blog_hdr['text']:
                 blog_hdr['widget'] = tk.Button(
                     frame,
-                    text=self.blog_list_headers[col]['text'],
+                    text=self.table_headers[col]['text'],
                     relief='flat',
                     bg='white',
                     font=font_main_ul,
-                    justify=tk.CENTER,
+                    justify=blog_hdr['justify'],
                     anchor=tk.W
                 )
                 blog_hdr['widget'].grid(row=0, column=col)
 
         # add the blog list Text widgets to the grid
-        for row, _ in enumerate(self.blog_list):
-            for col, blog in enumerate(self.blog_list[row]):
-                if self.blog_list_headers[col]['text']:
+        for row, _ in enumerate(self.table_data):
+            for col, blog in enumerate(self.table_data[row]):
+                if self.table_headers[col]['text']:
                     blog['widget'] = tk.Text(
                         frame,
                         bg='white',
                         font=font_main,
                         relief=tk.FLAT,
-                        width=self.blog_list_headers[col]['width'],
+                        width=self.table_headers[col]['width'],
                         height=1,
                         padx=10
                     )
                     blog['widget'].grid(column=col, row=(row + 1))  # need to row+1 to allow for header
 
-    def reload_blog_list(self):
+    def reload_table(self, db_values):
         # clear all entries
-        for row, _ in enumerate(self.blog_list):
-            for col, blog in enumerate(self.blog_list[row]):
+        for row, _ in enumerate(self.table_data):
+            for col, blog in enumerate(self.table_data[row]):
                 blog['widget'].configure(state=tk.NORMAL)
                 blog['widget'].delete(1.0, tk.END)
 
-        blogs_table = DbTable('blogs')
-
         fields = []
-        for field in self.blog_list_headers:
+        for field in self.table_headers:
             fields.append(field['db_col'])
-
-        db_values = blogs_table.select(order_by='last_seen_date', desc=True, limit=30,
-                                       hdr_list=fields)
 
         for row, db_row in enumerate(db_values):
             for col, col_name in enumerate(list(db_row)):
                 if col_name == 'is_selected':  # this marks the end of the list, and we don't add it to the grid
                     break
 
-                if self.blog_list_headers[col]['type'] == 'Int':
-                    number = int(int(db_row[col_name])/int(self.blog_list_headers[col]['divisor']))
-                    value = locale.format_string("%d", number, grouping=True) + self.blog_list_headers[col]['suffix']
-
-                elif self.blog_list_headers[col]['type'] == 'Float':
-                    number = float(float(db_row[col_name])/float(self.blog_list_headers[col]['divisor']))
-                    value = locale.format_string("%0.3f", number, grouping=True) + self.blog_list_headers[col]['suffix']
-
-                elif self.blog_list_headers[col]['type'] == 'Date':
-                    if int(db_row[col_name]) > 0:
-                        value = time.strftime(
-                            "%Y-%m-%d", time.gmtime(db_row[col_name])
-                        ) + self.blog_list_headers[col]['suffix']
-                    else:
-                        value = 'unknown'
-
-                elif self.blog_list_headers[col]['type'] == 'DateTime':
-                    if int(db_row[col_name]) > 0:
-                        value = time.strftime(
-                            "%Y-%m-%d %H:%M", time.gmtime(db_row[col_name])
-                        ) + self.blog_list_headers[col]['suffix']
-                    else:
-                        value = 'unknown'
-                else:
-                    value = db_row[col_name] + self.blog_list_headers[col]['suffix']
-
-                blog_cell = self.blog_list[row][col]
-                blog_cell['widget'].tag_configure('tag_all', justify='center')
+                value = self.get_cell_string(col, db_row[col_name])
+                blog_cell = self.table_data[row][col]
+                blog_cell['widget'].tag_configure('tag_all', justify=self.table_headers[col]['justify'])
                 blog_cell['widget'].insert('1.0', value)
                 blog_cell['widget'].tag_add('tag_all', '1.0', tk.END)
                 blog_cell['widget'].tag_bind('tag_all', '<Button-1>',
-                                             ft.partial(self.select_blog, row))
+                                             ft.partial(self.select_cb, row))
                 if db_row['is_selected']:  # check the selected flag
                     blog_cell['widget'].configure(bg='#3498db')
                 else:  # check the selected flag
@@ -679,26 +611,53 @@ class GuiBlogList:
 
         return
 
-    def get_value_by_row_db_col(self, row: int, db_col: str):
-        for i, col in enumerate(self.blog_list_headers):
-            if col['db_col'] == db_col:
-                return self.blog_list[row][i]['widget'].get(1.0, tk.END).replace('\n', '')
 
-        return None
+class GuiBlogList(GuiTable):
+    blog_list_headers = [
+        {'db_col': 'station', 'type': 'Text', 'suffix': '', 'width': 10,
+         'text': 'Blog', 'widget': tk.Button(), 'justify': 'center'},
+        {'db_col': 'frequency', 'type': 'Float', 'divisor': 1000000, 'suffix': '', 'width': 8,
+         'text': 'Freq\nMHz', 'widget': tk.Button(), 'justify': 'center'},
+        {'db_col': 'latest_post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 6,
+         'text': 'Latest\nPost ID', 'widget': tk.Button(), 'justify': 'center'},
+        {'db_col': 'latest_post_date', 'type': 'Date', 'suffix': '', 'width': 10,
+         'text': 'Latest\nPost Date', 'widget': tk.Button(), 'justify': 'center'},
+        {'db_col': 'last_seen_date', 'type': 'DateTime', 'suffix': '', 'width': 15,
+         'text': 'Last Seen', 'widget': tk.Button(), 'justify': 'center'},
+        {'db_col': 'is_selected', 'db_type': 'Int', 'divisor': 1, 'suffix': '', 'width': 0,
+         'text': None, 'widget': tk.Button(), 'justify': 'center'},
+    ]
+
+    db_values = None  # data returned from the blog table query
+
+    def __init__(self, frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
+        self.f2b_q = f2b_q
+        self.b2f_q = b2f_q
+        super().__init__(frame, self.blog_list_headers, settings.max_blogs, self.cb_row_select)
+
+    def reload_blog_list(self):
+        blogs_table = DbTable('blogs')
+
+        fields = []
+        for field in self.blog_list_headers:
+            fields.append(field['db_col'])
+
+        self.db_values = blogs_table.select(
+            order_by='last_seen_date', desc=True, limit=settings.max_blogs, hdr_list=fields
+        )
+
+        self.reload_table(self.db_values)
+
+        return
 
     # noinspection PyGlobalUndefined
-    def select_blog(self, row, event):
+    def cb_row_select(self, row, event):
         req = GuiMessage()
         req.set_cmd('S')
-        station = self.get_value_by_row_db_col(row, 'station')
-        freq = self.get_value_by_row_db_col(row, 'frequency')
-        req.set_cli_input(f'@ {station} on {freq} is now the selected blog')
+        station = self.db_values[row]['station']
         req.set_blog(station)
         req.set_station(station)
-        freq_string = self.get_value_by_row_db_col(row, 'frequency')
-        # annoyingly, we must convert a string in the form 14,078 MHz back into an integer
-        freq_string = re.findall(r"([0-9]*)[.,]?([0-9]+) MHz", freq_string)
-        freq = (int(freq_string[0][0]) * 1000000) + (int(freq_string[0][1]) * 1000)
+        freq = self.db_values[row]['frequency']
         req.set_frequency(freq)
         req.set_ts()
         self.f2b_q.put(req)
@@ -712,16 +671,16 @@ class GuiMain:
         pane_main.pack(fill='both', expand=1, side='top')
 
         frame_left = tk.Frame(pane_main, bg='white')
-        pane_main.add(frame_left, width=400)
+        pane_main.add(frame_left, width=480)
 
         frame_mid = tk.Frame(pane_main, bg='white')
-        pane_main.add(frame_mid, width=480)
+        pane_main.add(frame_mid, width=520)
 
         frame_right = tk.Frame(pane_main, bg='white')
-        pane_main.add(frame_right, width=280)
+        pane_main.add(frame_right, width=160)
 
         # Blog list area - right of main
-        frame_blog_list = tk.Frame(frame_left, bg='white', padx=4, pady=4)
+        frame_blog_list = tk.Frame(frame_left, bg='white', padx=4, pady=4, width=1.0)
         frame_blog_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
         self.blog_list = GuiBlogList(frame_blog_list, f2b_q, b2f_q)
@@ -742,7 +701,6 @@ class GuiMain:
         frame_latest_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
         self.latest_posts = GuiLatestPosts(frame_latest_list, f2b_q)
-
 
     def reload_latest(self):
         self.latest_posts.reload_latest()
