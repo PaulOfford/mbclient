@@ -1,3 +1,5 @@
+# ToDo: Be sure to merge changes in db_cleanup into the initial setup
+
 from db_root import *
 import os
 import time

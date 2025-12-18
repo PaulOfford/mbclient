@@ -597,6 +597,7 @@ class GuiBlogList(GuiTable):
     db_values = None  # data returned from the blog table query
 
     def __init__(self, frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
+        # ToDo: this frame needs horizontal and vertical scroll bars
         self.f2b_q = f2b_q
         self.b2f_q = b2f_q
         super().__init__(frame, self.blog_list_headers, settings.max_blogs, self.cb_row_select)
@@ -648,6 +649,7 @@ class GuiPostListBox(GuiTable):
     db_values = None  # data returned from the blog table query
 
     def __init__(self, frame: tk.Frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
+        # ToDo: this frame needs horizontal and vertical scroll bars
         self.f2b_q = f2b_q
         self.b2f_q = b2f_q
 
