@@ -525,7 +525,16 @@ class BeProcessor:
         self.process_list_cmd(req)
 
     def process_get_cmd(self, req: GuiMessage):
-        post_ids = [req.get_post_id()]
+        post_id = req.get_post_id()
+
+        # set this as the selected post
+        post_table = DbTable('post')
+        post_table.update(where=None, value_dictionary={'is_selected': 0})
+        post_table.update(where=f"post_id={post_id}",
+                 value_dictionary={'is_selected': 1})
+
+        # we have to put the post_id in a list because get_posts_via_cache handles list commands too
+        post_ids = [post_id]
         self.get_posts_via_cache(req, post_ids)
 
         self.signal_reload('post_list')

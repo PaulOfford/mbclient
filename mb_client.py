@@ -41,10 +41,6 @@ class MbClient:
         if status.post_list_updated > status.last_checked:
             self.main.reload_post_list_box()
 
-        if status.cli_updated > status.last_checked:
-            self.main.reload_cli()
-            logging.logmsg(4, "reload_cli()")
-
         if status.blogs_updated > status.last_checked:
             self.main.reload_blog_list()
             logging.logmsg(4, "reload_blog_list()")

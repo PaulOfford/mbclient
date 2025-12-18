@@ -9,7 +9,7 @@ class Settings:
     startup_dimensions = None
     font_size = None
     max_latest = None
-    max_qsos = None
+    max_posts = None
     max_blogs = None
     max_listing = 5  # ToDo: put this in the database
     use_gmt = 1
@@ -45,7 +45,7 @@ class Settings:
         self.startup_dimensions = f"{self.startup_width}x{self.startup_height}"
         self.font_size = self.get_setting('font_size')
         self.max_latest = self.get_setting('max_latest')
-        self.max_qsos = self.get_setting('max_qsos')
+        self.max_posts = self.get_setting('max_posts')
         self.max_blogs = self.get_setting('max_blogs')
         self.max_listing = self.get_setting('max_listing')
         self.use_gmt = self.get_setting('use_gmt')
@@ -63,7 +63,7 @@ class Settings:
         self.set_setting('max_latest', limit)
 
     def set_max_qsos(self, limit: int):
-        self.set_setting('max_qsos', limit)
+        self.set_setting('max_posts', limit)
 
     def set_max_blogs(self, limit: int):
         self.set_setting('max_blogs', limit)

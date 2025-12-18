@@ -333,47 +333,6 @@ class GuiLatestPosts:
         return
 
 
-class GuiQsoBox:
-
-    qso_box = []
-
-    prev_is_listing = False
-
-    qso_cols = ['blog', 'post_id', 'post_date', 'title']
-
-    def __init__(self, frame: tk.Frame):
-
-        v = tk.Scrollbar(frame, orient='vertical')
-        v.pack(side=tk.RIGHT, fill='y')
-        self.qso_box = tk.Text(frame, width=480, wrap=tk.WORD, padx=10, pady=10,
-                               font=font_main, bg='#ffeaa7', yscrollcommand=v.set,
-                               spacing1=1.1, spacing2=1.1)
-        v.config(command=self.qso_box.yview)
-        self.qso_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
-
-    def reload_post_list_box(self):
-
-        status = Status()
-
-        post_table = DbTable('post')
-        db_values = post_table.select_latest(
-            where=f"blog='{status.selected_blog}'", order_by='post_id', order='DESC',
-            limit=settings.max_qsos, hdr_list=self.qso_cols
-        )
-
-        self.qso_box.configure(state=tk.NORMAL)
-        self.qso_box.delete(1.0, 'end')
-
-        for i, r in enumerate(db_values):
-            p_date = time.strftime("%Y-%m-%d", time.gmtime(r['post_date']))
-            qso_string = f"{r['post_id']} {p_date} {r['title']}\n"
-            self.qso_box.insert(tk.END, qso_string)
-            self.qso_box.see(tk.END)
-
-        self.qso_box.configure(state=tk.DISABLED)
-        return
-
-
 class GuiCli:
 
     cli_hdr_text = tk.StringVar()
@@ -540,11 +499,11 @@ class GuiTable:
 
         # initialise the table
         for row, _ in enumerate(self.table_data):
-            for col, blog in enumerate(self.table_data[row]):
-                blog['db_col'] = self.table_headers[col]['db_col']
-                blog['tv'] = None
-                blog['widget'] = tk.Text()
-                blog['selected'] = tk.FALSE
+            for col, row_data in enumerate(self.table_data[row]):
+                row_data['db_col'] = self.table_headers[col]['db_col']
+                row_data['tv'] = None
+                row_data['widget'] = tk.Text()
+                row_data['selected'] = tk.FALSE
 
         # set the blog list columns to equal weight
         frame.grid(columnspan=len(self.table_headers))
@@ -552,23 +511,29 @@ class GuiTable:
             frame.columnconfigure(i, weight=1)
 
         # set the blog list headers
-        for col, blog_hdr in enumerate(self.table_headers):
-            if blog_hdr['text']:
-                blog_hdr['widget'] = tk.Button(
+        for col, headers in enumerate(self.table_headers):
+            if headers['label']:
+                headers['widget'] = tk.Text(
                     frame,
-                    text=self.table_headers[col]['text'],
-                    relief='flat',
                     bg='white',
-                    font=font_main_ul,
-                    justify=blog_hdr['justify'],
-                    anchor=tk.W
+                    font=font_main_bold,
+                    relief=tk.FLAT,
+                    width=self.table_headers[col]['width'],
+                    height=1,
+                    padx=10
                 )
-                blog_hdr['widget'].grid(row=0, column=col)
+                headers['widget'].grid(row=0, column=col)
+                headers['widget'].tag_configure('tag_all', justify=self.table_headers[col]['justify'])
+                headers['widget'].insert('1.0', self.table_headers[col]['label'])
+                headers['widget'].tag_add('tag_all', '1.0', tk.END)
+                headers['widget'].tag_bind('tag_all', '<Button-1>',
+                                             ft.partial(self.cb_hdr_click, col))
+                headers['widget'].configure(state=tk.DISABLED)
 
         # add the blog list Text widgets to the grid
         for row, _ in enumerate(self.table_data):
             for col, blog in enumerate(self.table_data[row]):
-                if self.table_headers[col]['text']:
+                if self.table_headers[col]['label']:
                     blog['widget'] = tk.Text(
                         frame,
                         bg='white',
@@ -583,9 +548,10 @@ class GuiTable:
     def reload_table(self, db_values):
         # clear all entries
         for row, _ in enumerate(self.table_data):
-            for col, blog in enumerate(self.table_data[row]):
-                blog['widget'].configure(state=tk.NORMAL)
-                blog['widget'].delete(1.0, tk.END)
+            for col, row_data in enumerate(self.table_data[row]):
+                row_data['widget'].configure(state=tk.NORMAL)
+                row_data['widget'].configure(bg='#ffffff')
+                row_data['widget'].delete(1.0, tk.END)
 
         fields = []
         for field in self.table_headers:
@@ -597,17 +563,17 @@ class GuiTable:
                     break
 
                 value = self.get_cell_string(col, db_row[col_name])
-                blog_cell = self.table_data[row][col]
-                blog_cell['widget'].tag_configure('tag_all', justify=self.table_headers[col]['justify'])
-                blog_cell['widget'].insert('1.0', value)
-                blog_cell['widget'].tag_add('tag_all', '1.0', tk.END)
-                blog_cell['widget'].tag_bind('tag_all', '<Button-1>',
+                cell = self.table_data[row][col]
+                cell['widget'].tag_configure('tag_all', justify=self.table_headers[col]['justify'])
+                cell['widget'].insert('1.0', value)
+                cell['widget'].tag_add('tag_all', '1.0', tk.END)
+                cell['widget'].tag_bind('tag_all', '<Button-1>',
                                              ft.partial(self.select_cb, row))
                 if db_row['is_selected']:  # check the selected flag
-                    blog_cell['widget'].configure(bg='#3498db')
+                    cell['widget'].configure(bg='#6699FF')
                 else:  # check the selected flag
-                    blog_cell['widget'].configure(bg='#ffffff')
-                blog_cell['widget'].configure(state=tk.DISABLED)
+                    cell['widget'].configure(bg='#ffffff')
+                cell['widget'].configure(state=tk.DISABLED)
 
         return
 
@@ -615,17 +581,17 @@ class GuiTable:
 class GuiBlogList(GuiTable):
     blog_list_headers = [
         {'db_col': 'station', 'type': 'Text', 'suffix': '', 'width': 10,
-         'text': 'Blog', 'widget': tk.Button(), 'justify': 'center'},
+         'label': 'Blog', 'widget': tk.Button(), 'justify': 'left'},
         {'db_col': 'frequency', 'type': 'Float', 'divisor': 1000000, 'suffix': '', 'width': 8,
-         'text': 'Freq\nMHz', 'widget': tk.Button(), 'justify': 'center'},
+         'label': 'Freq\nMHz', 'widget': tk.Button(), 'justify': 'center'},
         {'db_col': 'latest_post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 6,
-         'text': 'Latest\nPost ID', 'widget': tk.Button(), 'justify': 'center'},
+         'label': 'Latest\nPost ID', 'widget': tk.Button(), 'justify': 'center'},
         {'db_col': 'latest_post_date', 'type': 'Date', 'suffix': '', 'width': 10,
-         'text': 'Latest\nPost Date', 'widget': tk.Button(), 'justify': 'center'},
+         'label': 'Latest\nPost Date', 'widget': tk.Button(), 'justify': 'center'},
         {'db_col': 'last_seen_date', 'type': 'DateTime', 'suffix': '', 'width': 15,
-         'text': 'Last Seen', 'widget': tk.Button(), 'justify': 'center'},
+         'label': 'Last Seen', 'widget': tk.Button(), 'justify': 'center'},
         {'db_col': 'is_selected', 'db_type': 'Int', 'divisor': 1, 'suffix': '', 'width': 0,
-         'text': None, 'widget': tk.Button(), 'justify': 'center'},
+         'label': None, 'widget': tk.Button(), 'justify': 'center'},
     ]
 
     db_values = None  # data returned from the blog table query
@@ -663,6 +629,61 @@ class GuiBlogList(GuiTable):
         self.f2b_q.put(req)
         logging.logmsg(3, f"fe: {req}")
 
+    def cb_hdr_click(self, col, event):
+        pass
+
+class GuiPostListBox(GuiTable):
+
+    post_list_headers = [
+        {'db_col': 'post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 6,
+         'label': 'Latest\nPost ID', 'widget': tk.Button(), 'justify': 'center'},
+        {'db_col': 'post_date', 'type': 'Date', 'suffix': '', 'width': 10,
+         'label': 'Latest\nPost Date', 'widget': tk.Button(), 'justify': 'center'},
+        {'db_col': 'title', 'type': 'Text', 'suffix': '', 'width': 128,
+         'label': 'Subject', 'widget': tk.Button(), 'justify': 'left'},
+        {'db_col': 'is_selected', 'db_type': 'Int', 'divisor': 1, 'suffix': '', 'width': 0,
+         'label': None, 'widget': tk.Button(), 'justify': 'center'},
+    ]
+
+    db_values = None  # data returned from the blog table query
+
+    def __init__(self, frame: tk.Frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
+        self.f2b_q = f2b_q
+        self.b2f_q = b2f_q
+
+        super().__init__(frame, self.post_list_headers, settings.max_blogs, self.cb_row_select)
+
+    def reload_post_list(self):
+        status = Status()
+
+        post_table = DbTable('post')
+
+        fields = []
+        for field in self.post_list_headers:
+            fields.append(field['db_col'])
+
+        self.db_values = post_table.select(
+            where=f"blog='{status.selected_blog}'",
+            order_by='post_id', desc=True,
+            limit=settings.max_posts,
+            hdr_list=fields
+        )
+
+        self.reload_table(self.db_values)
+
+        return
+
+    def cb_row_select(self, row, event):
+        req = GuiMessage()
+        req.set_cmd('G')
+        req.set_post_id(self.db_values[row]['post_id'])
+        req.set_ts()
+        self.f2b_q.put(req)
+        logging.logmsg(3, f"fe: {req}")
+
+    def cb_hdr_click(self, col, event):
+        pass
+
 
 class GuiMain:
 
@@ -685,16 +706,16 @@ class GuiMain:
 
         self.blog_list = GuiBlogList(frame_blog_list, f2b_q, b2f_q)
 
-        # QSO Area follows - middle of main
-        frame_qso = tk.Frame(frame_mid)
-        frame_qso.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        # Post List Area follows - middle of main
+        frame_post_list = tk.Frame(frame_mid)
+        frame_post_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        self.qso_box = GuiQsoBox(frame_qso)
+        self.qso_box = GuiPostListBox(frame_post_list, f2b_q, b2f_q)
 
-        frame_cli = tk.Frame(frame_mid)
-        frame_cli.pack(side=tk.BOTTOM, padx=4)
-
-        self.cli = GuiCli(frame_mid, f2b_q)
+        # frame_cli = tk.Frame(frame_mid)
+        # frame_cli.pack(side=tk.BOTTOM, padx=4)
+        #
+        # self.cli = GuiCli(frame_mid, f2b_q)
 
         # Latest Posts area
         frame_latest_list = tk.Frame(frame_right, bg='white')
@@ -706,10 +727,7 @@ class GuiMain:
         self.latest_posts.reload_latest()
 
     def reload_post_list_box(self):
-        self.qso_box.reload_post_list_box()
-
-    def reload_cli(self):
-        self.cli.reload_cli()
+        self.qso_box.reload_post_list()
 
     def reload_blog_list(self):
         self.blog_list.reload_blog_list()
