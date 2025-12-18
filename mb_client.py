@@ -38,8 +38,12 @@ class MbClient:
         if status.latest_updated > status.last_checked:
             self.main.reload_latest()
 
-        if status.post_list_updated > status.last_checked:
-            self.main.reload_post_list_box()
+        if status.qso_updated > status.last_checked:
+            self.main.reload_qso_box()
+
+        if status.cli_updated > status.last_checked:
+            self.main.reload_cli()
+            logging.logmsg(4, "reload_cli()")
 
         if status.blogs_updated > status.last_checked:
             self.main.reload_blog_list()
@@ -132,7 +136,7 @@ class MbClient:
 
         self.main = GuiMain(frame=frame_main, f2b_q=self.f2b_q, b2f_q=self.b2f_q)  # populate the main area
 
-        self.main.reload_post_list_box()
+        self.main.reload_qso_box()
 
         self.main.reload_blog_list()
 
