@@ -29,6 +29,22 @@ def compress_date(post_epoch: int) -> str:
         return ''
 
 
+def add_progress(progress_msg: str):
+    status = Status()
+    progress_table = DbTable('progress')
+
+    progress_table.insert(
+        row={
+            'qso_date': time.time(),
+            'blog': status.selected_blog,
+            'station': status.selected_station,
+            'frequency': status.radio_frequency,
+            'offset': status.offset,
+            'message': progress_msg
+        }
+    )
+
+
 class MbRspProcessors:
 
     qso_fields = ['qso_date', 'type', 'blog', 'station', 'directed_to', 'frequency',
@@ -274,13 +290,20 @@ class MbRspProcessors:
                 # process if the result was positive
                 if result[2] == '+':
                     self.cmd = f"{result[2]}{result[3]}{result[4]}~"
+                    logmsg(1, self.cmd)
+                    add_progress(self.cmd)
                     getattr(MbRspProcessors, entry['proc'])(self, result)
                 elif result[1] == '@MB':
                     getattr(MbRspProcessors, entry['proc'])(self, result)
+                    progress_msg = f"{result[1]} {result[2]} {result[3]}"
+                    logmsg(1, progress_msg)
+                    add_progress(progress_msg)
                 else:
                     self.mb_status.reload_status()
                     if result[1] == self.mb_status.callsign:  # we only need to show an error if this rsp was for us
-                        self.qso_append_error(f"{result[2]}{result[3]}{result[4]}~", f"{result[5]}")
+                        error_msg = f"{result[2]}{result[3]}{result[4]}~"
+                        logmsg(1, error_msg)
+                        add_progress(error_msg)
                 break
 
 
@@ -329,62 +352,6 @@ class BeProcessor:
         notify_msg.set_rc(0)
         self.b2f_q.put(notify_msg)
         return
-
-    def qso_append_cli_input(self, msg_object: GuiMessage):
-
-        row = {}
-
-        self.status.reload_status()
-
-        cmd_type = msg_object.get_cli_input().strip()
-        cmd_type = cmd_type[0:1]
-
-        row['qso_date'] = time.time()
-        row['type'] = 'cmd'
-
-        if cmd_type == 'Q':
-            row['blog'] = "@MB"
-            row['station'] = "@MB"
-        else:
-            row['blog'] = msg_object.get_blog()
-            row['station'] = msg_object.get_station()
-
-        row['directed_to'] = self.status.callsign
-        row['frequency'] = self.status.user_frequency
-        row['offset'] = self.status.offset
-        row['cmd'] = msg_object.get_cli_input()
-        row['rsp'] = ''
-        row['post_id'] = msg_object.get_post_id()
-        row['post_date'] = msg_object.get_post_date()
-        row['title'] = ''
-        row['body'] = ''
-
-        qso_table = DbTable('qso')
-        qso_table.insert(row)
-
-        self.signal_reload('qso')
-
-    def qso_append_progress(self, blog, station, cli_input: str, rsp_text: str):
-        self.status.reload_status()
-        qso_table = DbTable('qso')
-        db_values = qso_table.select(limit=1, hdr_list=self.qso_fields)
-        for row in db_values:
-            row['qso_date'] = time.time()
-            row['type'] = 'progress'
-            row['blog'] = blog
-            row['station'] = station
-            row['directed_to'] = self.status.callsign
-            row['frequency'] = self.status.user_frequency
-            row['offset'] = self.status.offset
-            row['cmd'] = cli_input
-            row['rsp'] = rsp_text
-            row['post_id'] = 0
-            row['post_date'] = 0
-            row['title'] = ''
-            row['body'] = ''
-            qso_table.insert(row)
-
-        self.signal_reload('qso')
 
     # when we call this function, the post_id_list must contain post_ids in numerical order
     def get_posts_via_cache(self, req: GuiMessage, post_id_list: list):
@@ -437,7 +404,6 @@ class BeProcessor:
                     row['qso_date'] = time.time()
                     row['directed_to'] = self.status.callsign
                     row['cmd'] = req.cli_input
-                    qso_table.insert(row)
                     break
 
             if not value['has_entry']:
@@ -454,8 +420,6 @@ class BeProcessor:
             posts_needed += str(post)
 
         # form a request to get the posts in the svr_request_list
-        self.qso_append_progress(blog, station, 'Requesting details from the server for: ', f"{svr_request_list}")
-
         payload = f"{cmd}{posts_needed}~"
         logmsg(3, 'comms: send: ' + str(payload))
         mblog_api_req = CommsMessage()
@@ -706,7 +670,6 @@ class BeProcessor:
 
         if len(req.get_blog()) > 0:
             self.select_blog(req)
-            self.qso_append_cli_input(req)
         elif req.get_frequency() > 0:
             self.set_rig_frequency(req.get_frequency())
 
@@ -717,38 +680,76 @@ class BeProcessor:
         pass
 
     def preprocess(self, msg_object: GuiMessage):
+        command = msg_object.get_cmd()
+        msg_prefix = "BeProcessor:preprocess: "
 
-        if msg_object.get_cmd() == 'X':
+        if command == 'X':
+            logmsg(1, f"{msg_prefix}{command}")
+            add_progress(command)
             exit(0)
-        elif msg_object.get_cmd() == 'L':
-            self.qso_append_cli_input(msg_object)
+        elif command == 'L':
+            # Get abbreviated list
+            process_msg = f"{command}{msg_object.get_op()}{msg_object.get_post_id()}~"
+            logmsg(1, f"{msg_prefix}{process_msg}")
+            add_progress(process_msg)
             self.process_list_cmd(msg_object)
-        elif msg_object.get_cmd() == 'E':
-            self.qso_append_cli_input(msg_object)
+        elif command == 'E':
+            # Get full list details
+            process_msg = f"{command}{msg_object.get_op()}{msg_object.get_post_id()}~"
+            logmsg(1, f"{msg_prefix}{process_msg}")
+            add_progress(process_msg)
             self.process_extended_cmd(msg_object)
-        elif msg_object.get_cmd() == 'G':
-            self.qso_append_cli_input(msg_object)
+        elif command == 'G':
+            # Get post(s)
+            process_msg = f"{command}{msg_object.get_post_id()}~"
+            logmsg(1, f"{msg_prefix}{process_msg}")
+            add_progress(process_msg)
             self.process_get_cmd(msg_object)
-        elif msg_object.get_cmd() == 'R':
-            self.qso_append_cli_input(msg_object)
+        elif command == 'R':
+            # Refresh a post (results in sending a Get to the server)
+            process_msg = f"{command}{msg_object.get_post_id()}~"
+            logmsg(1, f"{msg_prefix}{process_msg}")
+            add_progress(process_msg)
             self.process_refresh_cmd(msg_object)
-        elif msg_object.get_cmd() == 'I':
-            self.qso_append_cli_input(msg_object)
+        elif command == 'I':
+            # Get information from the server
+            process_msg = f"{command}~"
+            logmsg(1, f"{msg_prefix}{process_msg}")
+            add_progress(process_msg)
             self.process_info_cmd(msg_object)
-        elif msg_object.get_cmd() == 'S':
+        elif command == 'S':
+            # Switch to a blog (internal - no server command is sent)
+            process_msg = f"{command}"
+            logmsg(1, f"{msg_prefix}{process_msg}")
+            add_progress(process_msg)
             self.process_set_cmd(msg_object)
-        elif msg_object.get_cmd() == 'C':
-            self.qso_append_cli_input(msg_object)
+        elif command == 'C':
+            # Change the config - not implemented
+            process_msg = f"{command}"
+            logmsg(1, f"{msg_prefix}{process_msg}")
+            add_progress(process_msg)
             self.process_config_cmd(msg_object)
-        elif msg_object.get_cmd() == 'P':
-            self.qso_append_cli_input(msg_object)
+        elif command == 'P':
+            # Initiate a Scan - not implemented
+            process_msg = f"{command}"
+            logmsg(1, f"{msg_prefix}{process_msg}")
+            add_progress(process_msg)
             self.process_scan_cmd(msg_object)
-        elif msg_object.get_cmd() == 'Q':
-            self.qso_append_cli_input(msg_object)
+        elif command == 'Q':
+            # Query command to elicit an announcement from all MB servers
+            process_msg = f"{command}"
+            logmsg(1, f"{msg_prefix}{process_msg}")
+            add_progress(process_msg)
             self.process_query_cmd(msg_object)
-        elif msg_object.get_cmd() == 'WX':
-            self.qso_append_cli_input(msg_object)
+        elif command == 'WX':
+            # Request a weather report - results in G0~ to the server
+            process_msg = f"{command}"
+            logmsg(1, f"{msg_prefix}{process_msg}")
+            add_progress(process_msg)
             self.process_weather_cmd(msg_object)
+
+        self.signal_reload('qso')
+
 
     def process_mb_rsp(self, comms_msg: CommsMessage):
         processor = MbRspProcessors(comms_msg, self.b2f_q)

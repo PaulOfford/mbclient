@@ -129,6 +129,17 @@ c.execute("""CREATE TABLE qso (
     body text
 )""")
 
+# qso types are cmd, listing, post or progress
+logmsg(1, "db_setup.py: Creating progress table")
+c.execute("""CREATE TABLE progress (
+    qso_date integer,
+    blog text,
+    station text,
+    frequency integer,
+    offset integer,
+    message text
+)""")
+
 logmsg(1, "db_setup.py: Creating blogs table")
 c.execute("""CREATE TABLE blogs (
     blog text,
