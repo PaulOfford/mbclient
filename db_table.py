@@ -72,7 +72,7 @@ class DbTable:
     # This method returns a list of dictionaries with the columns selected by the
     # hdr_list, in the order of the columns in the hdr_list.
     # The hdr_list must contain a key db_col with a value of the name of a database column.
-    def select_latest(self, where=None, group_by=None, order_by=None, limit=0, hdr_list=None):
+    def select_latest(self, where=None, group_by=None, order_by=None, order='ASC', limit=0, hdr_list=None):
 
         db = sqlite3.connect(db_file)
         c = db.cursor()
@@ -97,7 +97,7 @@ class DbTable:
 
         query += " DESC"
         query += f" LIMIT {limit}"
-        query += f") ORDER BY {order_by} ASC"
+        query += f") ORDER BY {order_by} {order}"
 
         logging.logmsg(3, query)
 
