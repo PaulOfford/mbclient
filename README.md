@@ -14,5 +14,5 @@ Microblog client
 
 * sys_update - Timestamp of the last system-wide update
 * news_update - Timestamp of the last news update
-* post_list_update - Timestamp of the last post list update
+* qso_update - Timestamp of the last qso update
 * blogs_update - Timestamp of the last blogs update
