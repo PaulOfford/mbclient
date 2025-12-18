@@ -294,8 +294,8 @@ class GuiLatestPosts:
 
         status = Status()
 
-        qso_table = DbTable('qso')
-        db_values = qso_table.select(
+        post_table = DbTable('post')
+        db_values = post_table.select(
             where=f"directed_to!='{status.callsign}' AND title IS NOT ''",
             group_by='post_id',
             order_by='qso_date',
@@ -351,12 +351,12 @@ class GuiQsoBox:
         v.config(command=self.qso_box.yview)
         self.qso_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
 
-    def reload_qso_box(self):
+    def reload_post_list_box(self):
 
         status = Status()
 
-        qso_table = DbTable('qso')
-        db_values = qso_table.select_latest(
+        post_table = DbTable('post')
+        db_values = post_table.select_latest(
             where=f"blog='{status.selected_blog}'", order_by='post_id', order='DESC',
             limit=settings.max_qsos, hdr_list=self.qso_cols
         )
@@ -705,8 +705,8 @@ class GuiMain:
     def reload_latest(self):
         self.latest_posts.reload_latest()
 
-    def reload_qso_box(self):
-        self.qso_box.reload_qso_box()
+    def reload_post_list_box(self):
+        self.qso_box.reload_post_list_box()
 
     def reload_cli(self):
         self.cli.reload_cli()

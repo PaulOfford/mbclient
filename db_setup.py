@@ -97,7 +97,7 @@ with db:
             'last_checked': 0,
             'hdr_updated': 0,
             'latest_updated': 0,
-            'qso_updated': 0,
+            'post_list_updated': 0,
             'cli_updated': 0,
             'blogs_updated': 0,
             'radio_frequency': 14078000,

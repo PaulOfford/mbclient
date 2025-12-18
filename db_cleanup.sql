@@ -10,3 +10,5 @@ CREATE TABLE progress (
     frequency integer,
     offset integer,
     message text);
+ALTER TABLE qso RENAME TO post;
+ALTER TABLE status RENAME COLUMN qso_updated TO post_list_updated;

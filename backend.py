@@ -45,7 +45,7 @@ def add_progress(progress_msg: str):
     )
 
 
-class MbRspProcessors:
+class ServerMsgProcessors:
 
     qso_fields = ['qso_date', 'type', 'blog', 'station', 'directed_to', 'frequency',
                   'offset', 'cmd', 'rsp', 'post_id', 'post_date', 'title', 'body']
@@ -82,8 +82,8 @@ class MbRspProcessors:
             status.set_hdr_updated()
         elif ui_area == 'latest':
             status.set_latest_updated()
-        elif ui_area == 'qso':
-            status.set_qso_updated()
+        elif ui_area == 'post_list':
+            status.set_post_list_updated()
         elif ui_area == 'cli':
             status.set_cli_updated()
         elif ui_area == 'blogs':
@@ -149,8 +149,8 @@ class MbRspProcessors:
 
     def qso_append_error(self, cli_input: str, rsp_text: str):
         self.mb_status.reload_status()
-        qso_table = DbTable('qso')
-        db_values = qso_table.select(limit=1, hdr_list=self.qso_fields)
+        post_table = DbTable('post')
+        db_values = post_table.select(limit=1, hdr_list=self.qso_fields)
         for row in db_values:
             row['qso_date'] = self.qso_date
             row['type'] = 'cmd'
@@ -165,8 +165,8 @@ class MbRspProcessors:
             row['post_date'] = 0
             row['title'] = ''
             row['body'] = ''
-            qso_table.insert(row)
-        self.signal_reload('qso')
+            post_table.insert(row)
+        self.signal_reload('post_list')
 
     def process_announcement(self, req: list):
         # we need to support two formats of announcement
@@ -219,14 +219,15 @@ class MbRspProcessors:
                         self.rsp = rsp_lines[0]
                         self.title = f"{self.cmd} {rsp_lines[0]}"
 
-            qso_table = DbTable('qso')
+            post_table = DbTable('post')
+            # Update an existing QSO entry or create a new one
             row = {'qso_date': self.qso_date, 'type': 'listing', 'blog': self.blog, 'station': self.station,
                    'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset, 'cmd': self.cmd,
                    'rsp': self.rsp, 'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title,
                    'body': self.body}
-            qso_table.insert(row)
+            post_table.insert(row)
 
-            self.signal_reload('qso')
+            self.signal_reload('post_list')
             self.update_blog_list(self.blog, self.station, self.post_id, self.post_date)
 
     def process_extended(self, req: list):
@@ -234,18 +235,18 @@ class MbRspProcessors:
 
     def process_post(self, req: list):
         # push the data into the database
-        qso_table = DbTable('qso')
+        post_table = DbTable('post')
 
         # do we have the title for this blog
         self.post_id = int(req[4])
-        db_values = qso_table.select(where=f"blog='{self.blog}' AND post_id={self.post_id} AND title IS NOT ''",
+        db_values = post_table.select(where=f"blog='{self.blog}' AND post_id={self.post_id} AND title IS NOT ''",
                                      limit=1, hdr_list=['title'])
         for row in db_values:
             self.title = row['title']
 
         # do we have the date for this blog
         self.post_id = int(req[4])
-        db_values = qso_table.select(where=f"blog='{self.blog}' AND post_id={self.post_id} AND post_date > 0",
+        db_values = post_table.select(where=f"blog='{self.blog}' AND post_id={self.post_id} AND post_date > 0",
                                      limit=1, hdr_list=['post_date'])
         for row in db_values:
             self.post_date = row['post_date']
@@ -254,7 +255,7 @@ class MbRspProcessors:
                'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset,
                'cmd': f'{req[3]}{req[4]}~', 'rsp': self.rsp, 'post_id': int(req[4]), 'post_date': 0, 'title': '',
                'body': req[5]}
-        qso_table.insert(row)
+        post_table.insert(row)
 
     def process_weather(self, req: list):
         req.insert(4, 0)  # insert a dummy post_id into the request
@@ -292,9 +293,9 @@ class MbRspProcessors:
                     self.cmd = f"{result[2]}{result[3]}{result[4]}~"
                     logmsg(1, self.cmd)
                     add_progress(self.cmd)
-                    getattr(MbRspProcessors, entry['proc'])(self, result)
+                    getattr(ServerMsgProcessors, entry['proc'])(self, result)
                 elif result[1] == '@MB':
-                    getattr(MbRspProcessors, entry['proc'])(self, result)
+                    getattr(ServerMsgProcessors, entry['proc'])(self, result)
                     progress_msg = f"{result[1]} {result[2]} {result[3]}"
                     logmsg(1, progress_msg)
                     add_progress(progress_msg)
@@ -330,8 +331,8 @@ class BeProcessor:
             status.set_hdr_updated()
         elif ui_area == 'latest':
             status.set_latest_updated()
-        elif ui_area == 'qso':
-            status.set_qso_updated()
+        elif ui_area == 'post_list':
+            status.set_post_list_updated()
         elif ui_area == 'cli':
             status.set_cli_updated()
         elif ui_area == 'blogs':
@@ -383,8 +384,8 @@ class BeProcessor:
         elif cmd == 'G':
             where_clause += " and body<>''"
 
-        qso_table = DbTable('qso')
-        db_values = qso_table.select(
+        post_table = DbTable('post')
+        db_values = post_table.select(
             where=where_clause,
             group_by='post_id',
             order_by='post_id, body, title', desc=True,
@@ -517,7 +518,7 @@ class BeProcessor:
         self.get_posts_via_cache(req, post_ids)
 
         # get the frontend to reload the qso box
-        self.signal_reload('qso')
+        self.signal_reload('post_list')
         return
 
     def process_extended_cmd(self, req: GuiMessage):
@@ -527,13 +528,13 @@ class BeProcessor:
         post_ids = [req.get_post_id()]
         self.get_posts_via_cache(req, post_ids)
 
-        self.signal_reload('qso')
+        self.signal_reload('post_list')
         return
 
     def process_refresh_cmd(self, req: GuiMessage):
         post_id = req.get_post_id()
         # remove the post from the cache
-        q = DbTable('qso')
+        q = DbTable('post')
         where_clause = f"type='post' AND blog='{req.get_blog()}' AND post_id={post_id} AND body IS NOT NULL"
         q.delete(where=where_clause)
 
@@ -748,19 +749,19 @@ class BeProcessor:
             add_progress(process_msg)
             self.process_weather_cmd(msg_object)
 
-        self.signal_reload('qso')
+        self.signal_reload('post_list')
 
 
     def process_mb_rsp(self, comms_msg: CommsMessage):
-        processor = MbRspProcessors(comms_msg, self.b2f_q)
+        processor = ServerMsgProcessors(comms_msg, self.b2f_q)
         # check to see if this is a listing, extended listing or post and process accordingly
         processor.parse_rx_message(comms_msg.get_payload())
 
-        self.signal_reload('qso')
+        self.signal_reload('post_list')
 
     def process_mb_notify(self, comms_msg: CommsMessage):
         # ToDo: we should only insert an entry in qso if we don't have an entry already
-        processor = MbRspProcessors(comms_msg, self.b2f_q)
+        processor = ServerMsgProcessors(comms_msg, self.b2f_q)
         # check to see if this is a listing, extended listing or post and process accordingly
         processor.parse_rx_message(comms_msg.get_payload())
 
