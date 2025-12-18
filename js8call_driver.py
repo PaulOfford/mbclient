@@ -187,7 +187,7 @@ class Js8CallDriver:
                     messages = self.js8call_api.listen()
 
                 for message in messages:
-                    logmsg(1, 'js8drv: recv: ' + str(message))
+                    logmsg(2, 'js8drv: recv: ' + str(message))
                     typ = message.get('type', '')
                     value = message.get('value', '')
                     params = message.get('params', {})
