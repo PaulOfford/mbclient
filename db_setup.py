@@ -1,3 +1,5 @@
+# ToDo: Be sure to merge changes in db_cleanup into the initial setup
+
 from db_root import *
 import os
 import time
@@ -97,7 +99,7 @@ with db:
             'last_checked': 0,
             'hdr_updated': 0,
             'latest_updated': 0,
-            'qso_updated': 0,
+            'post_list_updated': 0,
             'cli_updated': 0,
             'blogs_updated': 0,
             'radio_frequency': 14078000,
@@ -127,6 +129,17 @@ c.execute("""CREATE TABLE qso (
     post_date integer,
     title text,
     body text
+)""")
+
+# qso types are cmd, listing, post or progress
+logmsg(1, "db_setup.py: Creating progress table")
+c.execute("""CREATE TABLE progress (
+    qso_date integer,
+    blog text,
+    station text,
+    frequency integer,
+    offset integer,
+    message text
 )""")
 
 logmsg(1, "db_setup.py: Creating blogs table")
