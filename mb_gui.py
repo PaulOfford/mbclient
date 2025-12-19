@@ -243,96 +243,6 @@ class GuiHeader:
         self.set_callsign()
 
 
-class GuiLatestPosts:
-
-    f2b_q = None
-    latest_box = None
-    latest_cols = ['post_id', 'qso_date', 'blog', 'station', 'frequency', 'title']
-
-    def __init__(self, frame: tk.Frame, f2b_q: queue.Queue):
-
-        self.f2b_q = f2b_q
-
-        latest_list_hdr = tk.Label(
-            frame,
-            text="Latest Posts",
-            bg='white',
-            font=font_main_ul,
-            justify=tk.LEFT,
-            anchor=tk.W,
-            padx=10, pady=12
-        )
-        latest_list_hdr.pack(anchor='ne', fill=tk.X)
-
-        self.latest_box = tk.Text(
-            frame, width=300, wrap=tk.WORD, padx=10, pady=5,
-            font=font_main, bg='#ffffff',
-            spacing1=1.1, spacing2=1.1,
-            borderwidth=0
-        )
-        self.latest_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
-
-        self.reload_latest()
-
-    def get_post(self, blog: str, station: str, frequency: int, post_id: int, event):
-
-        req = GuiMessage()
-
-        req.set_blog(blog)
-        req.set_station(station)
-        req.set_frequency(frequency)
-        req.set_cli_input(f'G {post_id}')
-        req.set_cmd('G')
-        req.set_op('eq')
-        req.set_post_id(post_id)
-        req.set_post_date(0)
-        req.set_ts()
-        self.f2b_q.put(req)
-        logging.logmsg(3, f"fe: {req}")
-
-    def reload_latest(self):
-
-        status = Status()
-
-        post_table = DbTable('post')
-        db_values = post_table.select(
-            where=f"directed_to!='{status.callsign}' AND title IS NOT ''",
-            group_by='post_id',
-            order_by='qso_date',
-            desc=True,
-            limit=settings.max_latest,
-            hdr_list=self.latest_cols
-        )
-
-        self.latest_box.configure(state=tk.NORMAL)
-        self.latest_box.delete(1.0, 'end')
-
-        for i, r in enumerate(db_values):
-            latest_string = ''
-
-            q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
-
-            latest_string += f"{q_date} - {r['blog']}"
-            latest_string += f" - {r['title']}"
-            latest_string += f"\n"
-
-            tag_name = 'tag_latest_row_' + str(i)
-
-            self.latest_box.tag_configure(tag_name, justify='left')
-            self.latest_box.insert(tk.END, latest_string)
-            self.latest_box.see(tk.END)
-            coords_start = f'{i+1}.0'
-            coords_end = f'{i+1}.{len(latest_string)}'
-            self.latest_box.tag_add(tag_name, coords_start, coords_end)
-            self.latest_box.tag_bind(
-                tag_name, '<Button-1>',
-                ft.partial(self.get_post, r['blog'], r['station'], r['frequency'], r['post_id'])
-            )
-
-        self.latest_box.configure(state=tk.DISABLED)
-        return
-
-
 class GuiCli:
 
     cli_hdr_text = tk.StringVar()
@@ -633,6 +543,7 @@ class GuiBlogList(GuiTable):
     def cb_hdr_click(self, col, event):
         pass
 
+
 class GuiPostListBox(GuiTable):
 
     post_list_headers = [
@@ -676,8 +587,11 @@ class GuiPostListBox(GuiTable):
         return
 
     def cb_row_select(self, row, event):
+        status = Status()
+
         req = GuiMessage()
         req.set_cmd('G')
+        req.set_blog(status.selected_blog)
         req.set_post_id(self.db_values[row]['post_id'])
         req.set_ts()
         self.f2b_q.put(req)
@@ -685,6 +599,93 @@ class GuiPostListBox(GuiTable):
 
     def cb_hdr_click(self, col, event):
         pass
+
+
+class GuiPostContent:
+
+    f2b_q = None
+    post_box = None
+    post_cols = ['qso_date', 'post_id', 'post_date', 'title', 'body', 'is_selected']
+
+    def __init__(self, frame: tk.Frame, f2b_q: queue.Queue):
+        status = Status()
+        self.f2b_q = f2b_q
+
+        post_content_hdr = tk.Label(
+            frame,
+            text="Post",
+            bg='white',
+            font=font_main_ul,
+            justify=tk.LEFT,
+            anchor=tk.W,
+            padx=10, pady=12
+        )
+        post_content_hdr.pack(anchor='ne', fill=tk.X)
+
+        self.post_box = tk.Text(
+            frame, width=300, wrap=tk.WORD, padx=10, pady=5,
+            font=font_main, bg='#ffffff',
+            spacing1=1.1, spacing2=1.1,
+            borderwidth=0
+        )
+        self.post_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
+
+        self.reload_post_content()
+
+    def get_post(self, blog: str, station: str, frequency: int, post_id: int, event):
+
+        req = GuiMessage()
+
+        req.set_blog(blog)
+        req.set_station(station)
+        req.set_frequency(frequency)
+        req.set_cli_input(f'G {post_id}')
+        req.set_cmd('G')
+        req.set_op('eq')
+        req.set_post_id(post_id)
+        req.set_post_date(0)
+        req.set_ts()
+        self.f2b_q.put(req)
+        logging.logmsg(3, f"fe: {req}")
+
+    def reload_post_content(self):
+        status = Status()
+        post_string = f"{status.selected_post}"
+
+        qso_table = DbTable('post')
+        db_values = qso_table.select_latest(
+            where=f"post_id={status.selected_post}",
+            order_by='post_id',
+            limit=1,
+            hdr_list=self.post_cols
+        )
+
+        self.post_box.configure(state=tk.NORMAL)
+        self.post_box.delete(1.0, 'end')
+
+        if len(db_values) > 0:
+            for i, r in enumerate(db_values):
+                q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
+                if r['post_date'] > 0:
+                    p_date = time.strftime("%Y-%m-%d", time.gmtime(r['post_date']))
+                    post_string += f" {p_date}"
+
+                if len(r['title']):
+                    post_string += f" {r['title']}"
+
+                if len(r['body']):
+                    post_string += f"\n\n{r['body']}\n"
+                else:
+                    # we need to ask the operator if we should get the post from the server
+                    post_string += f"\n\nWe don't have the content for this post in the cache. "
+                    post_string += f"Click here to get it from the server."
+
+                self.post_box.insert(tk.END, post_string)
+                self.post_box.see(tk.END)
+
+        self.post_box.configure(state=tk.DISABLED)
+
+        return
 
 
 class GuiMain:
@@ -712,7 +713,7 @@ class GuiMain:
         frame_post_list = tk.Frame(frame_mid)
         frame_post_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        self.qso_box = GuiPostListBox(frame_post_list, f2b_q, b2f_q)
+        self.post_list = GuiPostListBox(frame_post_list, f2b_q, b2f_q)
 
         # frame_cli = tk.Frame(frame_mid)
         # frame_cli.pack(side=tk.BOTTOM, padx=4)
@@ -723,13 +724,13 @@ class GuiMain:
         frame_latest_list = tk.Frame(frame_right, bg='white')
         frame_latest_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        self.latest_posts = GuiLatestPosts(frame_latest_list, f2b_q)
+        self.post_content = GuiPostContent(frame_latest_list, f2b_q)
 
-    def reload_latest(self):
-        self.latest_posts.reload_latest()
+    def reload_post_content(self):
+        self.post_content.reload_post_content()
 
     def reload_post_list_box(self):
-        self.qso_box.reload_post_list()
+        self.post_list.reload_post_list()
 
     def reload_blog_list(self):
         self.blog_list.reload_blog_list()
