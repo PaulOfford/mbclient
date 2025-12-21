@@ -308,12 +308,12 @@ class BeProcessor:
         status = Status()
         if ui_area == 'header':
             status.set_hdr_updated()
-        elif ui_area == 'post_list':
-            status.set_post_list_updated()
-        elif ui_area == 'cli':
-            status.set_cli_updated()
         elif ui_area == 'blogs':
             status.set_blogs_updated()
+        elif ui_area == 'post_list':
+            status.set_post_list_updated()
+        elif ui_area == 'post':
+            status.set_post_updated()
 
         notify_msg = GuiMessage()
 
@@ -773,7 +773,7 @@ class BeProcessor:
             self.process_weather_cmd(msg_object)
 
         self.signal_reload('post_list')
-
+        self.signal_reload('post')
 
     def process_mb_rsp(self, comms_msg: CommsMessage):
         processor = ServerMsgProcessors(comms_msg, self.b2f_q)

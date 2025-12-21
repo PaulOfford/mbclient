@@ -654,7 +654,7 @@ class GuiPostContent:
 
         qso_table = DbTable('post')
         db_values = qso_table.select_latest(
-            where=f"post_id={status.selected_post}",
+            where=f"blog='{status.selected_blog}' AND post_id={status.selected_post}",
             order_by='post_id',
             limit=1,
             hdr_list=self.post_cols
