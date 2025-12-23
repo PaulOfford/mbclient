@@ -590,7 +590,7 @@ class GuiPostListBox(GuiTable):
         status = Status()
 
         req = GuiMessage()
-        req.set_cmd('G')
+        req.set_cmd('F')
         req.set_blog(status.selected_blog)
         req.set_post_id(self.db_values[row]['post_id'])
         req.set_ts()
@@ -632,12 +632,11 @@ class GuiPostContent:
 
         self.reload_post_content()
 
-    def get_post(self, blog: str, station: str, frequency: int, post_id: int, event):
+    def get_post(self, blog: str, frequency: int, post_id: int):
 
         req = GuiMessage()
 
         req.set_blog(blog)
-        req.set_station(station)
         req.set_frequency(frequency)
         req.set_cli_input(f'G {post_id}')
         req.set_cmd('G')
@@ -647,6 +646,10 @@ class GuiPostContent:
         req.set_ts()
         self.f2b_q.put(req)
         logging.logmsg(3, f"fe: {req}")
+
+    def get_post_cb(self, e):
+        status = Status()
+        self.get_post(status.selected_blog, status.radio_frequency, status.selected_post)
 
     def reload_post_content(self):
         status = Status()
@@ -681,6 +684,14 @@ class GuiPostContent:
                     post_string += f"Click here to get it from the server."
 
                 self.post_box.insert(tk.END, post_string)
+
+                # we need to add a hotlink to allow the operator to get the missing content
+                self.post_box.tag_add('get_post_link', '1.0', tk.END)
+                self.post_box.tag_bind(
+                    'get_post_link', '<Button-1>',
+                    ft.partial(self.get_post_cb)
+                )
+
                 self.post_box.see(tk.END)
 
         self.post_box.configure(state=tk.DISABLED)
