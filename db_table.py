@@ -95,6 +95,7 @@ class DbTable:
         if order_by:
             query += f" ORDER BY {order_by}"
 
+        # ToDo: should the following line be under the "if order_by:" check i.e. indented
         query += " DESC"
         query += f" LIMIT {limit}"
         query += f") ORDER BY {order_by} {order}"

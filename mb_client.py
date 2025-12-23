@@ -35,8 +35,8 @@ class MbClient:
         if status.hdr_updated > status.last_checked:
             self.header.reload_header()
 
-        if status.latest_updated > status.last_checked:
-            self.main.reload_latest()
+        if status.post_updated > status.last_checked:
+            self.main.reload_post_content()
 
         if status.post_list_updated > status.last_checked:
             self.main.reload_post_list_box()
@@ -132,9 +132,9 @@ class MbClient:
 
         self.main = GuiMain(frame=frame_main, f2b_q=self.f2b_q, b2f_q=self.b2f_q)  # populate the main area
 
-        self.main.reload_post_list_box()
-
         self.main.reload_blog_list()
+        self.main.reload_post_list_box()
+        self.main.reload_post_content()
 
         root.after(200, self.process_updates)
         root.mainloop()
