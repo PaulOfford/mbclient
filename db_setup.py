@@ -50,19 +50,11 @@ with db:
     )
     c.execute(
         "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",
-        {'ts': time.time(), 'name': 'max_latest', 'val': '30', 'typ': 'integer'}
-    )
-    c.execute(
-        "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",
-        {'ts': time.time(), 'name': 'max_qsos', 'val': '50', 'typ': 'integer'}
-    )
-    c.execute(
-        "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",
         {'ts': time.time(), 'name': 'max_blogs', 'val': '30', 'typ': 'integer'}
     )
     c.execute(
         "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",
-        {'ts': time.time(), 'name': 'max_listing', 'val': '5', 'typ': 'integer'}
+        {'ts': time.time(), 'name': 'max_posts', 'val': '50', 'typ': 'integer'}
     )
     c.execute(
         "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",
