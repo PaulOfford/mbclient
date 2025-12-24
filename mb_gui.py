@@ -398,9 +398,10 @@ class GuiTable:
 
         return value
 
-    def __init__(self, frame, column_defs, max_rows: int, select_method):
+    def __init__(self, frame, column_defs, max_rows: int, select_method, hdr_click_method):
         self.table_headers = column_defs
         self.select_cb = select_method
+        self.hdr_click_cb = hdr_click_method
 
         # construct the table
         self.table_data = [[{} for _, _ in enumerate(self.table_headers)] for _ in range(max_rows + 1)]
@@ -434,8 +435,9 @@ class GuiTable:
                 headers['widget'].tag_configure('tag_all', justify=self.table_headers[col]['justify'])
                 headers['widget'].insert('1.0', self.table_headers[col]['label'])
                 headers['widget'].tag_add('tag_all', '1.0', tk.END)
-                headers['widget'].tag_bind('tag_all', '<Button-1>',
-                                             ft.partial(self.cb_hdr_click, col))
+                headers['widget'].tag_bind(
+                    'tag_all', '<Button-1>', ft.partial(self.hdr_click_cb, col)
+                )
                 headers['widget'].configure(state=tk.DISABLED)
 
         # add the blog list Text widgets to the grid
@@ -475,8 +477,9 @@ class GuiTable:
                 cell['widget'].tag_configure('tag_all', justify=self.table_headers[col]['justify'])
                 cell['widget'].insert('1.0', value)
                 cell['widget'].tag_add('tag_all', '1.0', tk.END)
-                cell['widget'].tag_bind('tag_all', '<Button-1>',
-                                             ft.partial(self.select_cb, row))
+                cell['widget'].tag_bind(
+                    'tag_all', '<Button-1>', ft.partial(self.select_cb, row)
+                )
                 if db_row['is_selected']:  # check the selected flag
                     cell['widget'].configure(bg='#6699FF')
                 else:  # check the selected flag
@@ -508,7 +511,9 @@ class GuiBlogList(GuiTable):
         # ToDo: this frame needs horizontal and vertical scroll bars
         self.f2b_q = f2b_q
         self.b2f_q = b2f_q
-        super().__init__(frame, self.blog_list_headers, settings.max_blogs, self.cb_row_select)
+        super().__init__(
+            frame, self.blog_list_headers, settings.max_blogs, self.cb_row_select, self.cb_hdr_click
+        )
 
     def reload_blog_list(self):
         blogs_table = DbTable('blogs')
@@ -562,7 +567,9 @@ class GuiPostListBox(GuiTable):
         self.f2b_q = f2b_q
         self.b2f_q = b2f_q
 
-        super().__init__(frame, self.post_list_headers, settings.max_blogs, self.cb_row_select)
+        super().__init__(
+            frame, self.post_list_headers, settings.max_blogs, self.cb_row_select, self.cb_hdr_click
+        )
 
     def reload_post_list(self):
         status = Status()
@@ -606,7 +613,6 @@ class GuiPostContent:
     post_cols = ['qso_date', 'post_id', 'post_date', 'title', 'body', 'is_selected']
 
     def __init__(self, frame: tk.Frame, f2b_q: queue.Queue):
-        status = Status()
         self.f2b_q = f2b_q
 
         post_content_hdr = tk.Label(
@@ -645,7 +651,7 @@ class GuiPostContent:
         self.f2b_q.put(req)
         logging.logmsg(3, f"fe: {req}")
 
-    def get_post_cb(self, e):
+    def get_post_cb(self, event):
         status = Status()
         self.get_post(status.selected_blog, status.radio_frequency, status.selected_post)
 
@@ -666,7 +672,6 @@ class GuiPostContent:
 
         if len(db_values) > 0:
             for i, r in enumerate(db_values):
-                q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
                 if r['post_date'] > 0:
                     p_date = time.strftime("%Y-%m-%d", time.gmtime(r['post_date']))
                     post_string += f" {p_date}"

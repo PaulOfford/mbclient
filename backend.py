@@ -80,14 +80,12 @@ class ServerMsgProcessors:
         status = Status()
         if ui_area == 'header':
             status.set_hdr_updated()
-        elif ui_area == 'post_content':
-            status.set_post_content_updated()
-        elif ui_area == 'post_list':
-            status.set_post_list_updated()
-        elif ui_area == 'cli':
-            status.set_cli_updated()
         elif ui_area == 'blogs':
             status.set_blogs_updated()
+        elif ui_area == 'post_list':
+            status.set_post_list_updated()
+        elif ui_area == 'post_content':
+            status.set_post_updated()
 
         notify_msg = GuiMessage()
 
@@ -220,8 +218,11 @@ class ServerMsgProcessors:
 
         # do we have the title for this blog
         self.post_id = int(msg_fields[4])
-        db_values = post_table.select(where=f"blog='{self.blog}' AND post_id={self.post_id}",
-                                     limit=1, hdr_list=['post_id'])
+        db_values = post_table.select(
+            where=f"blog='{self.blog}' AND post_id={self.post_id}",
+            limit=1,
+            hdr_list=['post_id']
+        )
 
         if len(db_values) > 0:
             post_table.update(
@@ -233,7 +234,7 @@ class ServerMsgProcessors:
 
         else:
             post_table.insert(
-                row = {
+                row={
                     'qso_date': self.qso_date,
                     'type': 'post',
                     'blog': status.selected_blog,
@@ -252,7 +253,6 @@ class ServerMsgProcessors:
             )
             # signal post table update
             status.set_post_list_updated()
-
 
     def process_weather(self, req: list):
         req.insert(4, 0)  # insert a dummy post_id into the request
@@ -540,8 +540,10 @@ class BeProcessor:
         # set this as the selected post
         post_table = DbTable('post')
         post_table.update(where=f"blog='{blog}'", value_dictionary={'is_selected': 0})
-        post_table.update(where=f"blog='{blog}' AND post_id={post_id}",
-                 value_dictionary={'is_selected': 1})
+        post_table.update(
+            where=f"blog='{blog}' AND post_id={post_id}",
+            value_dictionary={'is_selected': 1}
+        )
 
         # ToDo: we know the current post from the post table entry with is_selected set - we don't need another record
         self.status.set_current_post(post_id)
