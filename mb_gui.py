@@ -33,10 +33,8 @@ def settings_window():
         ('startup_width', 'Window Startup Width:', 'entry', tk.IntVar(sw)),
         ('startup_height', 'Window Startup Height:', 'entry', tk.IntVar(sw)),
         ('font_size', 'Font Size:', 'entry', tk.IntVar(sw)),
-        ('max_latest', 'Max Latest:', 'entry', tk.IntVar(sw)),
-        ('max_qsos', 'Max QSOs:', 'entry', tk.IntVar(sw)),
         ('max_blogs', 'Max Blogs:', 'entry', tk.IntVar(sw)),
-        ('max_listing', 'Max Listing:', 'entry', tk.IntVar(sw)),
+        ('max_posts', 'Max Posts:', 'entry', tk.IntVar(sw)),
         ('use_gmt', 'Use GMT for Clock and Log:', 'checkbox', tk.IntVar(sw)),
     ]
     entry_list = []
@@ -495,9 +493,9 @@ class GuiBlogList(GuiTable):
         {'db_col': 'frequency', 'type': 'Float', 'divisor': 1000000, 'suffix': '', 'width': 8,
          'label': 'Freq\nMHz', 'widget': tk.Button(), 'justify': 'center'},
         {'db_col': 'latest_post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 6,
-         'label': 'Latest\nPost ID', 'widget': tk.Button(), 'justify': 'center'},
+         'label': 'Latest', 'widget': tk.Button(), 'justify': 'center'},
         {'db_col': 'latest_post_date', 'type': 'Date', 'suffix': '', 'width': 10,
-         'label': 'Latest\nPost Date', 'widget': tk.Button(), 'justify': 'center'},
+         'label': 'Date', 'widget': tk.Button(), 'justify': 'center'},
         {'db_col': 'last_seen_date', 'type': 'DateTime', 'suffix': '', 'width': 15,
          'label': 'Last Seen', 'widget': tk.Button(), 'justify': 'center'},
         {'db_col': 'is_selected', 'db_type': 'Int', 'divisor': 1, 'suffix': '', 'width': 0,
@@ -548,9 +546,9 @@ class GuiPostListBox(GuiTable):
 
     post_list_headers = [
         {'db_col': 'post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 6,
-         'label': 'Latest\nPost ID', 'widget': tk.Button(), 'justify': 'center'},
+         'label': 'ID', 'widget': tk.Button(), 'justify': 'center'},
         {'db_col': 'post_date', 'type': 'Date', 'suffix': '', 'width': 10,
-         'label': 'Latest\nPost Date', 'widget': tk.Button(), 'justify': 'center'},
+         'label': 'Date', 'widget': tk.Button(), 'justify': 'center'},
         {'db_col': 'title', 'type': 'Text', 'suffix': '', 'width': 128,
          'label': 'Subject', 'widget': tk.Button(), 'justify': 'left'},
         {'db_col': 'is_selected', 'db_type': 'Int', 'divisor': 1, 'suffix': '', 'width': 0,

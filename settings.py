@@ -24,14 +24,19 @@ class Settings:
         db_values = self.settings_table.select(
             where=f"name='{name}'", order_by=None, desc=False, limit=1, hdr_list=self.settings_cols
         )
-        value_str = db_values[0]['val']
-        data_type = db_values[0]['typ']
-        if data_type == 'integer':
-            return int(value_str)
-        elif data_type == 'float':
-            return float(value_str)
-        elif data_type == 'text':
-            return value_str
+
+        if len(db_values) > 0:
+            value_str = db_values[0]['val']
+            data_type = db_values[0]['typ']
+            if data_type == 'integer':
+                return int(value_str)
+            elif data_type == 'float':
+                return float(value_str)
+            elif data_type == 'text':
+                return value_str
+
+        else:
+            return 'unknown'
 
     def set_setting(self, name: str, value: [int, float, str]):
         self.settings_table.update(
@@ -59,17 +64,11 @@ class Settings:
     def set_font_size(self, font_size: int):
         self.set_setting('font_size', font_size)
 
-    def set_max_latest(self, limit: int):
-        self.set_setting('max_latest', limit)
-
-    def set_max_qsos(self, limit: int):
-        self.set_setting('max_posts', limit)
-
     def set_max_blogs(self, limit: int):
         self.set_setting('max_blogs', limit)
 
-    def set_max_listing(self, limit: int):
-        self.set_setting('max_listing', limit)
+    def set_max_posts(self, limit: int):
+        self.set_setting('max_posts', limit)
 
     def set_use_gmt(self, choice: bool):
         if choice:
