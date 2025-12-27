@@ -294,13 +294,13 @@ class GuiCli:
             {'exp': '^L *> *(\\d+)$', 'cmd': 'L', 'op': 'gt', 'by': 'id'},
             {'exp': '^L *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'L', 'op': 'eq', 'by': 'date'},
             {'exp': '^L *> *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'L', 'op': 'gt', 'by': 'date'},
-            {'exp': '^L$', 'cmd': 'L', 'op': 'tail', 'by': None},
+            {'exp': '^L$', 'cmd': 'L', 'op': 'recent', 'by': None},
 
             {'exp': '^E *(\\d+)$', 'cmd': 'E', 'op': 'eq', 'by': 'id'},
             {'exp': '^E *> *(\\d+)$', 'cmd': 'E', 'op': 'gt', 'by': 'id'},
             {'exp': '^E *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'E', 'op': 'eq', 'by': 'date'},
             {'exp': '^E *> *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'E', 'op': 'gt', 'by': 'date'},
-            {'exp': '^E$', 'cmd': 'E', 'op': 'tail', 'by': None},
+            {'exp': '^E$', 'cmd': 'E', 'op': 'recent', 'by': None},
 
             {'exp': '^G *(\\d+)$', 'cmd': 'G', 'op': 'eq', 'by': 'id'},
             {'exp': '^R *(\\d+)$', 'cmd': 'R', 'op': 'eq', 'by': 'id'},
@@ -438,6 +438,7 @@ class GuiTable:
                 headers['widget'].tag_bind(
                     'tag_all', '<Button-1>', ft.partial(self.hdr_click_cb, col)
                 )
+
                 headers['widget'].configure(state=tk.DISABLED)
 
         # add the blog list Text widgets to the grid
@@ -480,6 +481,9 @@ class GuiTable:
                 cell['widget'].tag_bind(
                     'tag_all', '<Button-1>', ft.partial(self.select_cb, row)
                 )
+                cell['widget'].tag_bind(
+                    'tag_all', '<Button-3>', ft.partial(self.popup_cb, row)
+                )
                 if db_row['is_selected']:  # check the selected flag
                     cell['widget'].configure(bg='#6699FF')
                 else:  # check the selected flag
@@ -491,8 +495,10 @@ class GuiTable:
 
 class GuiBlogList(GuiTable):
     blog_list_headers = [
-        {'db_col': 'station', 'type': 'Text', 'suffix': '', 'width': 10,
+        {'db_col': 'blog', 'type': 'Text', 'suffix': '', 'width': 10,
          'label': 'Blog', 'widget': tk.Button(), 'justify': 'left'},
+        {'db_col': 'station', 'type': 'Text', 'suffix': '', 'width': 0,
+         'label': '', 'widget': tk.Button(), 'justify': 'left'},
         {'db_col': 'frequency', 'type': 'Float', 'divisor': 1000000, 'suffix': '', 'width': 8,
          'label': 'Freq\nMHz', 'widget': tk.Button(), 'justify': 'center'},
         {'db_col': 'latest_post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 6,
@@ -506,6 +512,8 @@ class GuiBlogList(GuiTable):
     ]
 
     db_values = None  # data returned from the blog table query
+    blog_list_pop_up = None  # pop up widget
+    clicked_row = None  # holds the db_values row number that has been right clicked
 
     def __init__(self, frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
         # ToDo: this frame needs horizontal and vertical scroll bars
@@ -514,6 +522,26 @@ class GuiBlogList(GuiTable):
         super().__init__(
             frame, self.blog_list_headers, settings.max_blogs, self.cb_row_select, self.cb_hdr_click
         )
+        # set up the pop up menu
+        self.blog_list_pop_up = tk.Menu(frame, tearoff=False)
+        self.blog_list_pop_up.add_command(label='Get recent', command=self.list_recent)
+        self.blog_list_pop_up.add_command(label='Refresh', command=self.check_for_latest)
+
+    # list_recent causes MbClient to update the Post List with the five most recent posts
+    def list_recent(self):
+        req = GuiMessage()
+        req.set_cmd('E')
+        req.set_blog(self.db_values[self.clicked_row]['blog'])
+        req.set_station(self.db_values[self.clicked_row]['station'])
+        req.set_frequency(self.db_values[self.clicked_row]['frequency'])
+        req.set_op('recent')
+        req.set_ts()
+        self.f2b_q.put(req)
+        logging.logmsg(3, f"fe: {req}")
+
+    # check_for_latest causes MbClient to request an @MB announcement
+    def check_for_latest(self):
+        pass
 
     def reload_blog_list(self):
         blogs_table = DbTable('blogs')
@@ -534,14 +562,15 @@ class GuiBlogList(GuiTable):
     def cb_row_select(self, row, event):
         req = GuiMessage()
         req.set_cmd('S')
-        station = self.db_values[row]['station']
-        req.set_blog(station)
-        req.set_station(station)
-        freq = self.db_values[row]['frequency']
-        req.set_frequency(freq)
+        req.set_blog(self.db_values[row]['blog'])
+        req.set_frequency(self.db_values[row]['frequency'])
         req.set_ts()
         self.f2b_q.put(req)
         logging.logmsg(3, f"fe: {req}")
+
+    def popup_cb(self, row, event):
+        self.clicked_row = row
+        self.blog_list_pop_up.tk_popup(event.x_root, event.y_root)
 
     def cb_hdr_click(self, col, event):
         pass
@@ -561,6 +590,7 @@ class GuiPostListBox(GuiTable):
     ]
 
     db_values = None  # data returned from the blog table query
+    post_list_pop_up = None
 
     def __init__(self, frame: tk.Frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
         # ToDo: this frame needs horizontal and vertical scroll bars
@@ -570,6 +600,10 @@ class GuiPostListBox(GuiTable):
         super().__init__(
             frame, self.post_list_headers, settings.max_blogs, self.cb_row_select, self.cb_hdr_click
         )
+        # set up the pop up menu
+        self.post_list_pop_up = tk.Menu(frame, tearoff=False)
+        self.post_list_pop_up.add_command(label='Refresh listing', command=self.refresh_listing)
+        self.post_list_pop_up.add_command(label='Refresh content', command=self.refresh_content)
 
     def reload_post_list(self):
         status = Status()
@@ -591,12 +625,33 @@ class GuiPostListBox(GuiTable):
 
         return
 
+    def popup_cb(self, row, event):
+        self.post_list_pop_up.tk_popup(event.x_root, event.y_root)
+
     def cb_row_select(self, row, event):
         status = Status()
 
         req = GuiMessage()
         req.set_cmd('F')
         req.set_blog(status.selected_blog)
+        req.set_post_id(self.db_values[row]['post_id'])
+        req.set_ts()
+        self.f2b_q.put(req)
+        logging.logmsg(3, f"fe: {req}")
+
+    def refresh_listing(self, row, event):
+        req = GuiMessage()
+        req.set_cmd('E')
+        req.set_blog(self.db_values[row]['blog'])
+        req.set_post_id(self.db_values[row]['post_id'])
+        req.set_ts()
+        self.f2b_q.put(req)
+        logging.logmsg(3, f"fe: {req}")
+
+    def refresh_content(self, row, event):
+        req = GuiMessage()
+        req.set_cmd('G')
+        req.set_blog(self.db_values[row]['blog'])
         req.set_post_id(self.db_values[row]['post_id'])
         req.set_ts()
         self.f2b_q.put(req)

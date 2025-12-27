@@ -15,5 +15,4 @@ ALTER TABLE post ADD COLUMN is_selected integer;
 ALTER TABLE status RENAME COLUMN qso_updated TO post_list_updated;
 UPDATE settings SET name = 'max_posts' WHERE name = 'max_qsos';
 ALTER TABLE status RENAME COLUMN latest_updated to post_updated;
-DELETE FROM settings WHERE name='max_listing';
 DELETE FROM settings WHERE name='max_latest';
