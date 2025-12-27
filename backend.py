@@ -443,20 +443,11 @@ class BeProcessor:
 
         return
 
-    def get_list_via_cache(self, req: GuiMessage, post_id_list: list):
-        # ToDo: this isn't working - it always sends a request to the server
+    def get_list_via_cache(self, req: GuiMessage, post_id_list: list) -> None:
         blog = req.get_blog()
         station = req.get_station()
 
         svr_request_list = []  # this is a list of post_ids we will need to request from the server
-
-        # set up the list of dictionaries fo the results
-        init_vals = {'cmd': '', 'post_id': 0, 'has_entry': False, 'date': 0, 'title': '', 'body': ''}
-
-        return_values = [{} for _ in range(len(post_id_list))]
-
-        for i, _ in enumerate(return_values):
-            return_values[i] = init_vals.copy()
 
         range_start = post_id_list[0]
         range_end = post_id_list[len(post_id_list) - 1]
@@ -476,50 +467,44 @@ class BeProcessor:
 
         self.status.reload_status()  # we'll need status data a bit later
 
-        for i, value in enumerate(return_values):
-            value.update({'post_id': post_id_list[i]})
+        found_post_id = False
+        for requested_post_id in post_id_list:
             for row in db_values:
-                if value['post_id'] == int(row['post_id']):
-                    value.update(
-                        {'cmd': req.cli_input, 'has_entry': True,
-                         'date': row['post_date'], 'title': row['title'], 'body': row['body']}
-                    )
-                    row['qso_date'] = time.time()
-                    row['directed_to'] = self.status.callsign
-                    row['cmd'] = req.cli_input
+                if requested_post_id == int(row['post_id']):
+                    found_post_id = True
                     break
 
-            if not value['has_entry']:
-                svr_request_list.append(value['post_id'])
+            if not found_post_id:
+                svr_request_list.append(requested_post_id)
 
-        # if we have all the return values (has_entry is true), we can return them
-        if len(svr_request_list) == 0:
-            return return_values
+            found_post_id = False
 
-        posts_needed = ''
-        for post in svr_request_list:
-            if len(posts_needed) > 0:
-                posts_needed += ','
-            posts_needed += str(post)
+        if len(svr_request_list) > 0:
+            # we need to send a request to the server
+            posts_needed = ''
+            for post in svr_request_list:
+                if len(posts_needed) > 0:
+                    posts_needed += ','
+                posts_needed += str(post)
 
-        # form a request to get the posts in the svr_request_list
-        payload = f"E{posts_needed}~"
-        logmsg(3, 'comms: send: ' + str(payload))
-        mblog_api_req = CommsMessage()
+            # form a request to get the posts in the svr_request_list
+            payload = f"E{posts_needed}~"
+            logmsg(3, 'comms: send: ' + str(payload))
+            mblog_api_req = CommsMessage()
 
-        mblog_api_req.set_ts(time.time())
-        mblog_api_req.set_direction('tx')
-        mblog_api_req.set_source(self.status.callsign)
-        mblog_api_req.set_destination(station)  # ToDo: change once we implement blog namespace
-        mblog_api_req.set_snr(0)
-        mblog_api_req.set_blog(blog)
-        mblog_api_req.set_typ('mb_req')
-        mblog_api_req.set_target('mb_service')
-        mblog_api_req.set_obj('service')
-        mblog_api_req.set_payload(str(payload))
-        self.comms_tx_q.put(mblog_api_req)
+            mblog_api_req.set_ts(time.time())
+            mblog_api_req.set_direction('tx')
+            mblog_api_req.set_source(self.status.callsign)
+            mblog_api_req.set_destination(station)
+            mblog_api_req.set_snr(0)
+            mblog_api_req.set_blog(blog)
+            mblog_api_req.set_typ('mb_req')
+            mblog_api_req.set_target('mb_service')
+            mblog_api_req.set_obj('service')
+            mblog_api_req.set_payload(str(payload))
+            self.comms_tx_q.put(mblog_api_req)
 
-        return return_values
+        return
 
     def process_list_cmd(self, req: GuiMessage):
 

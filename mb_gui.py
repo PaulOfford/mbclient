@@ -241,128 +241,6 @@ class GuiHeader:
         self.set_callsign()
 
 
-class GuiCli:
-
-    cli_hdr_text = tk.StringVar()
-    cli_text = None
-
-    input_is_valid = False
-
-    def __init__(self, frame, f2b_q: queue.Queue):
-
-        self.f2b_q = f2b_q
-
-        cli_hdr = tk.Label(frame,
-                           textvariable=self.cli_hdr_text,
-                           bg='#000000',
-                           fg='#ffffff',
-                           font=font_main,
-                           justify=tk.LEFT,
-                           anchor=tk.W,
-                           padx=4,
-                           pady=3,
-                           )
-        cli_hdr.pack(fill=tk.X, anchor=tk.W, padx=4, pady=4)
-        self.cli_hdr_text.set("Directed to:")
-
-        self.cli_text = tk.Entry(
-            frame,
-            font=font_main,
-            width=50,
-        )
-        self.cli_text.bind('<Key>', self.go_cli)
-        self.cli_text.pack(fill=tk.X, padx=4, pady=4)
-        self.reload_cli()
-
-    def reload_cli(self):
-        status = Status()
-        self.cli_hdr_text.set(f"Directed to: {status.selected_blog}")
-        self.cli_text.focus_set()
-
-    def clear_cli_input(self):
-        self.cli_text.delete(0, tk.END)
-
-    def set_error(self):
-        self.cli_text.config({"background": "Pink"})
-
-    def go_cli(self, event):
-
-        req = GuiMessage()
-
-        command_informat = [
-            {'exp': '^L *(\\d+)$', 'cmd': 'L', 'op': 'eq', 'by': 'id'},
-            {'exp': '^L *> *(\\d+)$', 'cmd': 'L', 'op': 'gt', 'by': 'id'},
-            {'exp': '^L *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'L', 'op': 'eq', 'by': 'date'},
-            {'exp': '^L *> *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'L', 'op': 'gt', 'by': 'date'},
-            {'exp': '^L$', 'cmd': 'L', 'op': 'recent', 'by': None},
-
-            {'exp': '^E *(\\d+)$', 'cmd': 'E', 'op': 'eq', 'by': 'id'},
-            {'exp': '^E *> *(\\d+)$', 'cmd': 'E', 'op': 'gt', 'by': 'id'},
-            {'exp': '^E *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'E', 'op': 'eq', 'by': 'date'},
-            {'exp': '^E *> *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'E', 'op': 'gt', 'by': 'date'},
-            {'exp': '^E$', 'cmd': 'E', 'op': 'recent', 'by': None},
-
-            {'exp': '^G *(\\d+)$', 'cmd': 'G', 'op': 'eq', 'by': 'id'},
-            {'exp': '^R *(\\d+)$', 'cmd': 'R', 'op': 'eq', 'by': 'id'},
-
-            {'exp': '^Q *$', 'cmd': 'Q', 'op': None, 'by': None},
-
-            {'exp': '^WX *$', 'cmd': 'WX', 'op': None, 'by': None},
-        ]
-
-        entry = None
-        result = None
-
-        self.cli_text.config({"background": "White"})
-
-        # check keystroke, if it's an Enter process else return
-        if event.char == '\r' and event.keysym == "Return":
-            self.input_is_valid = False
-            # get the text from the cli box
-            # shift to upper text and strip whitespace from start and end
-            input_text = self.cli_text.get().upper().strip()
-            # parse input using regex
-            for entry in command_informat:
-                # try to match the request
-                result = re.findall(entry['exp'], input_text)
-
-                if len(result) > 0:
-                    self.input_is_valid = True
-                    break
-                else:
-                    continue
-
-            if self.input_is_valid:
-                status = Status()
-                # send message to backend
-                req.set_blog(status.selected_blog)
-                req.set_station(status.selected_station)
-                req.set_cli_input(input_text)
-                req.set_cmd(entry['cmd'])
-                req.set_op(entry['op'])
-
-                if entry['by'] == 'id':
-                    req.set_post_id(int(result[0]))
-                elif entry['by'] == 'date':
-                    if len(result[0]) > 0:
-                        epoch_dt = int(time.mktime(time.strptime(result[0], "%Y-%m-%d")))
-                    else:
-                        epoch_dt = 0
-                    req.set_post_date(epoch_dt)
-                # else must be a tail
-
-                req.set_ts()
-                self.f2b_q.put(req)
-                logging.logmsg(3, f"fe: {req}")
-                # clear the text box
-                self.clear_cli_input()
-            else:
-                # turn cli box red if input is no good
-                self.set_error()
-
-        return
-
-
 class GuiTable:
 
     table_data = None  # this is a list of entries, each of which is a dictionary
@@ -563,6 +441,7 @@ class GuiBlogList(GuiTable):
         req = GuiMessage()
         req.set_cmd('S')
         req.set_blog(self.db_values[row]['blog'])
+        req.set_station(self.db_values[row]['blog'])
         req.set_frequency(self.db_values[row]['frequency'])
         req.set_ts()
         self.f2b_q.put(req)
@@ -783,11 +662,6 @@ class GuiMain:
         frame_post_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
         self.post_list = GuiPostListBox(frame_post_list, f2b_q, b2f_q)
-
-        # frame_cli = tk.Frame(frame_mid)
-        # frame_cli.pack(side=tk.BOTTOM, padx=4)
-        #
-        # self.cli = GuiCli(frame_mid, f2b_q)
 
         # Latest Posts area
         frame_latest_list = tk.Frame(frame_right, bg='white')
