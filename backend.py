@@ -243,6 +243,8 @@ class ServerMsgProcessors:
         # + or - for good or bad response [2], the original command [3],
         # a post_id or post_date or list of dates [4], and list entries separated by \n character [5]
 
+        directed_to = req[1]
+
         # push the data into the database
         rsp_lines = str(req[5]).split('\n')  # this is the list output
         for line in rsp_lines:
@@ -264,18 +266,40 @@ class ServerMsgProcessors:
                         self.title = f"{self.cmd} {rsp_lines[0]}"
 
             post_table = DbTable('post')
-            # Delete any existing entry and create a new one
-            post_table.delete(
-                where=f"blog='{self.blog}' AND post_id={self.post_id}"
+            # if we already have an entry for this post we only want to replace it
+            # if this listing was directed_to this station
+
+            db_values = post_table.select(
+                where=f"blog='{self.blog}' AND post_id={self.post_id}",
+                hdr_list=['body', 'is_selected']
             )
 
-            row = {'qso_date': self.qso_date, 'type': 'listing', 'blog': self.blog, 'station': self.station,
-                   'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset, 'cmd': self.cmd,
-                   'rsp': self.rsp, 'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title,
-                   'body': self.body, 'is_selected': 0}
-            post_table.insert(row)
+            if len(db_values) == 0:
+                # Delete any existing entry and create a new one
+                post_table.delete(
+                    where=f"blog='{self.blog}' AND post_id={self.post_id}"
+                )
+
+                row = {'qso_date': self.qso_date, 'type': 'listing', 'blog': self.blog, 'station': self.station,
+                       'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset, 'cmd': self.cmd,
+                       'rsp': self.rsp, 'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title,
+                       'body': '', 'is_selected': 0}
+                post_table.insert(row)
+
+            elif directed_to == status.callsign:
+                # Delete any existing entry and create a new one
+                post_table.delete(
+                    where=f"blog='{self.blog}' AND post_id={self.post_id}"
+                )
+
+                row = {'qso_date': self.qso_date, 'type': 'listing', 'blog': self.blog, 'station': self.station,
+                       'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset, 'cmd': self.cmd,
+                       'rsp': self.rsp, 'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title,
+                       'body': db_values[0]['body'], 'is_selected': db_values[0]['is_selected']}
+                post_table.insert(row)
 
             self.signal_reload('post_list')
+            self.signal_reload('post_content')
             self.update_blog_list(self.blog, self.station, status.radio_frequency, self.post_id, self.post_date)
 
     def process_extended(self, req: list):
@@ -527,8 +551,32 @@ class BeProcessor:
             for i in range(starting_post_id, latest_post_id + 1):
                 post_ids.append(i)
 
-        # do we have any of the information in the cache
-        self.get_list_via_cache(req, post_ids)
+        elif req.get_op() == 'more':
+            starting_post_id = max(req.get_post_id() - settings.max_listing, 1)
+
+            for i in range(starting_post_id, req.get_post_id()):
+                post_ids.append(i)
+
+        if req.get_cmd() == 'E':
+            # do we have any of the information in the cache
+            self.get_list_via_cache(req, post_ids)
+        elif req.get_cmd() == 'D':
+            # get the listing info from the server
+            payload = f"E{req.get_post_id()}~"
+            logmsg(3, 'comms: send: ' + str(payload))
+            mblog_api_req = CommsMessage()
+
+            mblog_api_req.set_ts(time.time())
+            mblog_api_req.set_direction('tx')
+            mblog_api_req.set_source(self.status.callsign)
+            mblog_api_req.set_destination(req.get_station())
+            mblog_api_req.set_snr(0)
+            mblog_api_req.set_blog(req.get_blog())
+            mblog_api_req.set_typ('mb_req')
+            mblog_api_req.set_target('mb_service')
+            mblog_api_req.set_obj('service')
+            mblog_api_req.set_payload(str(payload))
+            self.comms_tx_q.put(mblog_api_req)
 
         # get the frontend to reload the Post List
         self.signal_reload('post_list')
@@ -722,8 +770,15 @@ class BeProcessor:
             add_progress(process_msg)
             self.process_list_cmd(msg_object)
 
+        elif command == 'D':
+            # Get full list details not using the cache
+            process_msg = f"{command}{msg_object.get_op()}{msg_object.get_post_id()}~"
+            logmsg(1, f"{msg_prefix}{process_msg}")
+            add_progress(process_msg)
+            self.process_extended_cmd(msg_object)
+
         elif command == 'E':
-            # Get full list details
+            # Get full list details using the cache
             process_msg = f"{command}{msg_object.get_op()}{msg_object.get_post_id()}~"
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)

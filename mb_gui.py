@@ -5,6 +5,7 @@ import locale
 import functools as ft
 import re
 
+import status
 from _version import __version__
 from settings import *
 from message_q import *
@@ -35,6 +36,7 @@ def settings_window():
         ('font_size', 'Font Size:', 'entry', tk.IntVar(sw)),
         ('max_blogs', 'Max Blogs:', 'entry', tk.IntVar(sw)),
         ('max_posts', 'Max Posts:', 'entry', tk.IntVar(sw)),
+        ('max_listing', 'Max Listing:', 'entry', tk.IntVar(sw)),
         ('use_gmt', 'Use GMT for Clock and Log:', 'checkbox', tk.IntVar(sw)),
     ]
     entry_list = []
@@ -466,6 +468,8 @@ class GuiBlogList(GuiTable):
 class GuiPostListBox(GuiTable):
 
     post_list_headers = [
+        {'db_col': 'blog', 'type': 'Text', 'suffix': '', 'width': 0,
+         'label': '', 'widget': tk.Button(), 'justify': 'left'},
         {'db_col': 'post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 6,
          'label': 'ID', 'widget': tk.Button(), 'justify': 'center'},
         {'db_col': 'post_date', 'type': 'Date', 'suffix': '', 'width': 10,
@@ -478,6 +482,7 @@ class GuiPostListBox(GuiTable):
 
     db_values = None  # data returned from the blog table query
     post_list_pop_up = None
+    clicked_row = None  # holds the db_values row number that has been right clicked
 
     def __init__(self, frame: tk.Frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
         # ToDo: this frame needs horizontal and vertical scroll bars
@@ -489,6 +494,7 @@ class GuiPostListBox(GuiTable):
         )
         # set up the pop up menu
         self.post_list_pop_up = tk.Menu(frame, tearoff=False)
+        self.post_list_pop_up.add_command(label='Get more posts', command=self.get_more)
         self.post_list_pop_up.add_command(label='Refresh listing', command=self.refresh_listing)
         self.post_list_pop_up.add_command(label='Refresh content', command=self.refresh_content)
 
@@ -513,6 +519,7 @@ class GuiPostListBox(GuiTable):
         return
 
     def popup_cb(self, row, event):
+        self.clicked_row = row
         self.post_list_pop_up.tk_popup(event.x_root, event.y_root)
 
     def cb_row_select(self, row, event):
@@ -526,20 +533,44 @@ class GuiPostListBox(GuiTable):
         self.f2b_q.put(req)
         logging.logmsg(3, f"fe: {req}")
 
-    def refresh_listing(self, row, event):
+    def get_more(self):
+        status = Status()
+
         req = GuiMessage()
-        req.set_cmd('E')
-        req.set_blog(self.db_values[row]['blog'])
-        req.set_post_id(self.db_values[row]['post_id'])
+        req.set_cmd('E')  # we need get listing data
+        req.set_blog(self.db_values[self.clicked_row]['blog'])
+        req.set_post_id(self.db_values[self.clicked_row]['post_id'])
+        req.set_station(status.selected_station)
+        req.set_frequency(status.radio_frequency)
+        req.set_op('more')
         req.set_ts()
         self.f2b_q.put(req)
         logging.logmsg(3, f"fe: {req}")
 
-    def refresh_content(self, row, event):
+    def refresh_listing(self):
+        status = Status()
+
+        req = GuiMessage()
+        req.set_cmd('D')  # we need get listing data but not use the cache
+        req.set_blog(self.db_values[self.clicked_row]['blog'])
+        req.set_post_id(self.db_values[self.clicked_row]['post_id'])
+        req.set_station(status.selected_station)
+        req.set_frequency(status.radio_frequency)
+        req.set_op('eq')
+        req.set_ts()
+        self.f2b_q.put(req)
+        logging.logmsg(3, f"fe: {req}")
+
+    def refresh_content(self):
+        status = Status()
+
         req = GuiMessage()
         req.set_cmd('G')
-        req.set_blog(self.db_values[row]['blog'])
-        req.set_post_id(self.db_values[row]['post_id'])
+        req.set_blog(self.db_values[self.clicked_row]['blog'])
+        req.set_post_id(self.db_values[self.clicked_row]['post_id'])
+        req.set_station(status.selected_station)
+        req.set_frequency(status.radio_frequency)
+        req.set_op('eq')
         req.set_ts()
         self.f2b_q.put(req)
         logging.logmsg(3, f"fe: {req}")
