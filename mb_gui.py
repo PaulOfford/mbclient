@@ -419,7 +419,15 @@ class GuiBlogList(GuiTable):
 
     # check_for_latest causes MbClient to request an @MB announcement
     def check_for_latest(self):
-        pass
+        req = GuiMessage()
+        req.set_cmd('Q')
+        req.set_blog(self.db_values[self.clicked_row]['blog'])
+        req.set_station(self.db_values[self.clicked_row]['station'])
+        req.set_frequency(self.db_values[self.clicked_row]['frequency'])
+        req.set_op('latest')
+        req.set_ts()
+        self.f2b_q.put(req)
+        logging.logmsg(3, f"fe: {req}")
 
     def reload_blog_list(self):
         blogs_table = DbTable('blogs')
@@ -477,7 +485,7 @@ class GuiPostListBox(GuiTable):
         self.b2f_q = b2f_q
 
         super().__init__(
-            frame, self.post_list_headers, settings.max_blogs, self.cb_row_select, self.cb_hdr_click
+            frame, self.post_list_headers, settings.max_posts, self.cb_row_select, self.cb_hdr_click
         )
         # set up the pop up menu
         self.post_list_pop_up = tk.Menu(frame, tearoff=False)

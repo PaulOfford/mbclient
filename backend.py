@@ -714,12 +714,14 @@ class BeProcessor:
             logmsg(1, f"{msg_prefix}{command}")
             add_progress(command)
             exit(0)
+
         elif command == 'L':
             # Get abbreviated list
             process_msg = f"{command}{msg_object.get_op()}{msg_object.get_post_id()}~"
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_list_cmd(msg_object)
+
         elif command == 'E':
             # Get full list details
             process_msg = f"{command}{msg_object.get_op()}{msg_object.get_post_id()}~"
@@ -728,7 +730,7 @@ class BeProcessor:
             self.process_extended_cmd(msg_object)
 
         elif command == 'F':
-            # Get post(s)
+            # Fetch post(s)
             process_msg = f"{command}{msg_object.get_post_id()}~"
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
@@ -748,36 +750,42 @@ class BeProcessor:
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_refresh_cmd(msg_object)
+
         elif command == 'I':
             # Get information from the server
             process_msg = f"{command}~"
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_info_cmd(msg_object)
+
         elif command == 'S':
             # Switch to a blog (internal - no server command is sent)
             process_msg = f"{command}"
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_set_cmd(msg_object)
+
         elif command == 'C':
             # Change the config - not implemented
             process_msg = f"{command}"
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_config_cmd(msg_object)
+
         elif command == 'P':
             # Initiate a Scan - not implemented
             process_msg = f"{command}"
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_scan_cmd(msg_object)
+
         elif command == 'Q':
             # Query command to elicit an announcement from all MB servers
             process_msg = f"{command}"
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_query_cmd(msg_object)
+
         elif command == 'WX':
             # Request a weather report - results in G0~ to the server
             process_msg = f"{command}"
