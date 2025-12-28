@@ -5,6 +5,7 @@ import locale
 import functools as ft
 import re
 
+import status
 from _version import __version__
 from settings import *
 from message_q import *
@@ -35,6 +36,7 @@ def settings_window():
         ('font_size', 'Font Size:', 'entry', tk.IntVar(sw)),
         ('max_blogs', 'Max Blogs:', 'entry', tk.IntVar(sw)),
         ('max_posts', 'Max Posts:', 'entry', tk.IntVar(sw)),
+        ('max_listing', 'Max Listing:', 'entry', tk.IntVar(sw)),
         ('use_gmt', 'Use GMT for Clock and Log:', 'checkbox', tk.IntVar(sw)),
     ]
     entry_list = []
@@ -241,128 +243,6 @@ class GuiHeader:
         self.set_callsign()
 
 
-class GuiCli:
-
-    cli_hdr_text = tk.StringVar()
-    cli_text = None
-
-    input_is_valid = False
-
-    def __init__(self, frame, f2b_q: queue.Queue):
-
-        self.f2b_q = f2b_q
-
-        cli_hdr = tk.Label(frame,
-                           textvariable=self.cli_hdr_text,
-                           bg='#000000',
-                           fg='#ffffff',
-                           font=font_main,
-                           justify=tk.LEFT,
-                           anchor=tk.W,
-                           padx=4,
-                           pady=3,
-                           )
-        cli_hdr.pack(fill=tk.X, anchor=tk.W, padx=4, pady=4)
-        self.cli_hdr_text.set("Directed to:")
-
-        self.cli_text = tk.Entry(
-            frame,
-            font=font_main,
-            width=50,
-        )
-        self.cli_text.bind('<Key>', self.go_cli)
-        self.cli_text.pack(fill=tk.X, padx=4, pady=4)
-        self.reload_cli()
-
-    def reload_cli(self):
-        status = Status()
-        self.cli_hdr_text.set(f"Directed to: {status.selected_blog}")
-        self.cli_text.focus_set()
-
-    def clear_cli_input(self):
-        self.cli_text.delete(0, tk.END)
-
-    def set_error(self):
-        self.cli_text.config({"background": "Pink"})
-
-    def go_cli(self, event):
-
-        req = GuiMessage()
-
-        command_informat = [
-            {'exp': '^L *(\\d+)$', 'cmd': 'L', 'op': 'eq', 'by': 'id'},
-            {'exp': '^L *> *(\\d+)$', 'cmd': 'L', 'op': 'gt', 'by': 'id'},
-            {'exp': '^L *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'L', 'op': 'eq', 'by': 'date'},
-            {'exp': '^L *> *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'L', 'op': 'gt', 'by': 'date'},
-            {'exp': '^L$', 'cmd': 'L', 'op': 'tail', 'by': None},
-
-            {'exp': '^E *(\\d+)$', 'cmd': 'E', 'op': 'eq', 'by': 'id'},
-            {'exp': '^E *> *(\\d+)$', 'cmd': 'E', 'op': 'gt', 'by': 'id'},
-            {'exp': '^E *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'E', 'op': 'eq', 'by': 'date'},
-            {'exp': '^E *> *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'E', 'op': 'gt', 'by': 'date'},
-            {'exp': '^E$', 'cmd': 'E', 'op': 'tail', 'by': None},
-
-            {'exp': '^G *(\\d+)$', 'cmd': 'G', 'op': 'eq', 'by': 'id'},
-            {'exp': '^R *(\\d+)$', 'cmd': 'R', 'op': 'eq', 'by': 'id'},
-
-            {'exp': '^Q *$', 'cmd': 'Q', 'op': None, 'by': None},
-
-            {'exp': '^WX *$', 'cmd': 'WX', 'op': None, 'by': None},
-        ]
-
-        entry = None
-        result = None
-
-        self.cli_text.config({"background": "White"})
-
-        # check keystroke, if it's an Enter process else return
-        if event.char == '\r' and event.keysym == "Return":
-            self.input_is_valid = False
-            # get the text from the cli box
-            # shift to upper text and strip whitespace from start and end
-            input_text = self.cli_text.get().upper().strip()
-            # parse input using regex
-            for entry in command_informat:
-                # try to match the request
-                result = re.findall(entry['exp'], input_text)
-
-                if len(result) > 0:
-                    self.input_is_valid = True
-                    break
-                else:
-                    continue
-
-            if self.input_is_valid:
-                status = Status()
-                # send message to backend
-                req.set_blog(status.selected_blog)
-                req.set_station(status.selected_station)
-                req.set_cli_input(input_text)
-                req.set_cmd(entry['cmd'])
-                req.set_op(entry['op'])
-
-                if entry['by'] == 'id':
-                    req.set_post_id(int(result[0]))
-                elif entry['by'] == 'date':
-                    if len(result[0]) > 0:
-                        epoch_dt = int(time.mktime(time.strptime(result[0], "%Y-%m-%d")))
-                    else:
-                        epoch_dt = 0
-                    req.set_post_date(epoch_dt)
-                # else must be a tail
-
-                req.set_ts()
-                self.f2b_q.put(req)
-                logging.logmsg(3, f"fe: {req}")
-                # clear the text box
-                self.clear_cli_input()
-            else:
-                # turn cli box red if input is no good
-                self.set_error()
-
-        return
-
-
 class GuiTable:
 
     table_data = None  # this is a list of entries, each of which is a dictionary
@@ -398,9 +278,10 @@ class GuiTable:
 
         return value
 
-    def __init__(self, frame, column_defs, max_rows: int, select_method):
+    def __init__(self, frame, column_defs, max_rows: int, select_method, hdr_click_method):
         self.table_headers = column_defs
         self.select_cb = select_method
+        self.hdr_click_cb = hdr_click_method
 
         # construct the table
         self.table_data = [[{} for _, _ in enumerate(self.table_headers)] for _ in range(max_rows + 1)]
@@ -434,8 +315,10 @@ class GuiTable:
                 headers['widget'].tag_configure('tag_all', justify=self.table_headers[col]['justify'])
                 headers['widget'].insert('1.0', self.table_headers[col]['label'])
                 headers['widget'].tag_add('tag_all', '1.0', tk.END)
-                headers['widget'].tag_bind('tag_all', '<Button-1>',
-                                             ft.partial(self.cb_hdr_click, col))
+                headers['widget'].tag_bind(
+                    'tag_all', '<Button-1>', ft.partial(self.hdr_click_cb, col)
+                )
+
                 headers['widget'].configure(state=tk.DISABLED)
 
         # add the blog list Text widgets to the grid
@@ -475,8 +358,12 @@ class GuiTable:
                 cell['widget'].tag_configure('tag_all', justify=self.table_headers[col]['justify'])
                 cell['widget'].insert('1.0', value)
                 cell['widget'].tag_add('tag_all', '1.0', tk.END)
-                cell['widget'].tag_bind('tag_all', '<Button-1>',
-                                             ft.partial(self.select_cb, row))
+                cell['widget'].tag_bind(
+                    'tag_all', '<Button-1>', ft.partial(self.select_cb, row)
+                )
+                cell['widget'].tag_bind(
+                    'tag_all', '<Button-3>', ft.partial(self.popup_cb, row)
+                )
                 if db_row['is_selected']:  # check the selected flag
                     cell['widget'].configure(bg='#6699FF')
                 else:  # check the selected flag
@@ -488,8 +375,10 @@ class GuiTable:
 
 class GuiBlogList(GuiTable):
     blog_list_headers = [
-        {'db_col': 'station', 'type': 'Text', 'suffix': '', 'width': 10,
+        {'db_col': 'blog', 'type': 'Text', 'suffix': '', 'width': 10,
          'label': 'Blog', 'widget': tk.Button(), 'justify': 'left'},
+        {'db_col': 'station', 'type': 'Text', 'suffix': '', 'width': 0,
+         'label': '', 'widget': tk.Button(), 'justify': 'left'},
         {'db_col': 'frequency', 'type': 'Float', 'divisor': 1000000, 'suffix': '', 'width': 8,
          'label': 'Freq\nMHz', 'widget': tk.Button(), 'justify': 'center'},
         {'db_col': 'latest_post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 6,
@@ -503,12 +392,44 @@ class GuiBlogList(GuiTable):
     ]
 
     db_values = None  # data returned from the blog table query
+    blog_list_pop_up = None  # pop up widget
+    clicked_row = None  # holds the db_values row number that has been right clicked
 
     def __init__(self, frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
         # ToDo: this frame needs horizontal and vertical scroll bars
         self.f2b_q = f2b_q
         self.b2f_q = b2f_q
-        super().__init__(frame, self.blog_list_headers, settings.max_blogs, self.cb_row_select)
+        super().__init__(
+            frame, self.blog_list_headers, settings.max_blogs, self.cb_row_select, self.cb_hdr_click
+        )
+        # set up the pop up menu
+        self.blog_list_pop_up = tk.Menu(frame, tearoff=False)
+        self.blog_list_pop_up.add_command(label='Get recent', command=self.list_recent)
+        self.blog_list_pop_up.add_command(label='Refresh', command=self.check_for_latest)
+
+    # list_recent causes MbClient to update the Post List with the five most recent posts
+    def list_recent(self):
+        req = GuiMessage()
+        req.set_cmd('E')
+        req.set_blog(self.db_values[self.clicked_row]['blog'])
+        req.set_station(self.db_values[self.clicked_row]['station'])
+        req.set_frequency(self.db_values[self.clicked_row]['frequency'])
+        req.set_op('recent')
+        req.set_ts()
+        self.f2b_q.put(req)
+        logging.logmsg(3, f"fe: {req}")
+
+    # check_for_latest causes MbClient to request an @MB announcement
+    def check_for_latest(self):
+        req = GuiMessage()
+        req.set_cmd('Q')
+        req.set_blog(self.db_values[self.clicked_row]['blog'])
+        req.set_station(self.db_values[self.clicked_row]['station'])
+        req.set_frequency(self.db_values[self.clicked_row]['frequency'])
+        req.set_op('latest')
+        req.set_ts()
+        self.f2b_q.put(req)
+        logging.logmsg(3, f"fe: {req}")
 
     def reload_blog_list(self):
         blogs_table = DbTable('blogs')
@@ -529,14 +450,16 @@ class GuiBlogList(GuiTable):
     def cb_row_select(self, row, event):
         req = GuiMessage()
         req.set_cmd('S')
-        station = self.db_values[row]['station']
-        req.set_blog(station)
-        req.set_station(station)
-        freq = self.db_values[row]['frequency']
-        req.set_frequency(freq)
+        req.set_blog(self.db_values[row]['blog'])
+        req.set_station(self.db_values[row]['blog'])
+        req.set_frequency(self.db_values[row]['frequency'])
         req.set_ts()
         self.f2b_q.put(req)
         logging.logmsg(3, f"fe: {req}")
+
+    def popup_cb(self, row, event):
+        self.clicked_row = row
+        self.blog_list_pop_up.tk_popup(event.x_root, event.y_root)
 
     def cb_hdr_click(self, col, event):
         pass
@@ -545,6 +468,8 @@ class GuiBlogList(GuiTable):
 class GuiPostListBox(GuiTable):
 
     post_list_headers = [
+        {'db_col': 'blog', 'type': 'Text', 'suffix': '', 'width': 0,
+         'label': '', 'widget': tk.Button(), 'justify': 'left'},
         {'db_col': 'post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 6,
          'label': 'ID', 'widget': tk.Button(), 'justify': 'center'},
         {'db_col': 'post_date', 'type': 'Date', 'suffix': '', 'width': 10,
@@ -556,13 +481,22 @@ class GuiPostListBox(GuiTable):
     ]
 
     db_values = None  # data returned from the blog table query
+    post_list_pop_up = None
+    clicked_row = None  # holds the db_values row number that has been right clicked
 
     def __init__(self, frame: tk.Frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
         # ToDo: this frame needs horizontal and vertical scroll bars
         self.f2b_q = f2b_q
         self.b2f_q = b2f_q
 
-        super().__init__(frame, self.post_list_headers, settings.max_blogs, self.cb_row_select)
+        super().__init__(
+            frame, self.post_list_headers, settings.max_posts, self.cb_row_select, self.cb_hdr_click
+        )
+        # set up the pop up menu
+        self.post_list_pop_up = tk.Menu(frame, tearoff=False)
+        self.post_list_pop_up.add_command(label='Get more posts', command=self.get_more)
+        self.post_list_pop_up.add_command(label='Refresh listing', command=self.refresh_listing)
+        self.post_list_pop_up.add_command(label='Refresh content', command=self.refresh_content)
 
     def reload_post_list(self):
         status = Status()
@@ -584,6 +518,10 @@ class GuiPostListBox(GuiTable):
 
         return
 
+    def popup_cb(self, row, event):
+        self.clicked_row = row
+        self.post_list_pop_up.tk_popup(event.x_root, event.y_root)
+
     def cb_row_select(self, row, event):
         status = Status()
 
@@ -591,6 +529,48 @@ class GuiPostListBox(GuiTable):
         req.set_cmd('F')
         req.set_blog(status.selected_blog)
         req.set_post_id(self.db_values[row]['post_id'])
+        req.set_ts()
+        self.f2b_q.put(req)
+        logging.logmsg(3, f"fe: {req}")
+
+    def get_more(self):
+        status = Status()
+
+        req = GuiMessage()
+        req.set_cmd('E')  # we need get listing data
+        req.set_blog(self.db_values[self.clicked_row]['blog'])
+        req.set_post_id(self.db_values[self.clicked_row]['post_id'])
+        req.set_station(status.selected_station)
+        req.set_frequency(status.radio_frequency)
+        req.set_op('more')
+        req.set_ts()
+        self.f2b_q.put(req)
+        logging.logmsg(3, f"fe: {req}")
+
+    def refresh_listing(self):
+        status = Status()
+
+        req = GuiMessage()
+        req.set_cmd('D')  # we need get listing data but not use the cache
+        req.set_blog(self.db_values[self.clicked_row]['blog'])
+        req.set_post_id(self.db_values[self.clicked_row]['post_id'])
+        req.set_station(status.selected_station)
+        req.set_frequency(status.radio_frequency)
+        req.set_op('eq')
+        req.set_ts()
+        self.f2b_q.put(req)
+        logging.logmsg(3, f"fe: {req}")
+
+    def refresh_content(self):
+        status = Status()
+
+        req = GuiMessage()
+        req.set_cmd('G')
+        req.set_blog(self.db_values[self.clicked_row]['blog'])
+        req.set_post_id(self.db_values[self.clicked_row]['post_id'])
+        req.set_station(status.selected_station)
+        req.set_frequency(status.radio_frequency)
+        req.set_op('eq')
         req.set_ts()
         self.f2b_q.put(req)
         logging.logmsg(3, f"fe: {req}")
@@ -606,7 +586,6 @@ class GuiPostContent:
     post_cols = ['qso_date', 'post_id', 'post_date', 'title', 'body', 'is_selected']
 
     def __init__(self, frame: tk.Frame, f2b_q: queue.Queue):
-        status = Status()
         self.f2b_q = f2b_q
 
         post_content_hdr = tk.Label(
@@ -645,7 +624,7 @@ class GuiPostContent:
         self.f2b_q.put(req)
         logging.logmsg(3, f"fe: {req}")
 
-    def get_post_cb(self, e):
+    def get_post_cb(self, event):
         status = Status()
         self.get_post(status.selected_blog, status.radio_frequency, status.selected_post)
 
@@ -666,7 +645,6 @@ class GuiPostContent:
 
         if len(db_values) > 0:
             for i, r in enumerate(db_values):
-                q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
                 if r['post_date'] > 0:
                     p_date = time.strftime("%Y-%m-%d", time.gmtime(r['post_date']))
                     post_string += f" {p_date}"
@@ -723,11 +701,6 @@ class GuiMain:
         frame_post_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
         self.post_list = GuiPostListBox(frame_post_list, f2b_q, b2f_q)
-
-        # frame_cli = tk.Frame(frame_mid)
-        # frame_cli.pack(side=tk.BOTTOM, padx=4)
-        #
-        # self.cli = GuiCli(frame_mid, f2b_q)
 
         # Latest Posts area
         frame_latest_list = tk.Frame(frame_right, bg='white')

@@ -92,16 +92,16 @@ class MbClient:
     def run_client(self):
 
         # set up the menu bar
-        top_menu = tk.Menu(root)
+        top_menu = tk.Menu(root, tearoff=False)
         root.config(menu=top_menu)
 
-        file_menu = tk.Menu(top_menu)
+        file_menu = tk.Menu(top_menu, tearoff=False)
         top_menu.add_cascade(label='File', menu=file_menu)
         file_menu.add_command(label='Settings    F2', command=lambda: settings_window())
         file_menu.add_separator()
         file_menu.add_command(label='Exit', command=self.client_shutdown)
 
-        band_menu = tk.Menu(top_menu)
+        band_menu = tk.Menu(top_menu, tearoff=False)
         top_menu.add_cascade(label='Band', menu=band_menu)
         band_menu.add_command(label='160m:   1.842 000 MHz', command=ft.partial(self.set_frequency, 1842000))
         band_menu.add_command(label='80m:    3.578 000 MHz', command=ft.partial(self.set_frequency, 3578000))

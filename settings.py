@@ -8,7 +8,6 @@ class Settings:
     startup_height = None
     startup_dimensions = None
     font_size = None
-    max_latest = None
     max_posts = None
     max_blogs = None
     max_listing = 5  # ToDo: put this in the database
@@ -49,7 +48,6 @@ class Settings:
         self.startup_height = self.get_setting('startup_height')
         self.startup_dimensions = f"{self.startup_width}x{self.startup_height}"
         self.font_size = self.get_setting('font_size')
-        self.max_latest = self.get_setting('max_latest')
         self.max_posts = self.get_setting('max_posts')
         self.max_blogs = self.get_setting('max_blogs')
         self.max_listing = self.get_setting('max_listing')

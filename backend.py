@@ -45,6 +45,71 @@ def add_progress(progress_msg: str):
     )
 
 
+class Blog:
+
+    name = ''
+
+    def __init__(self, blog_name):
+        self.name = blog_name
+
+
+class BlogInstance(Blog):
+
+    station = None
+
+    def __init__(self, blog_name, blog_station):
+        super().__init__(
+            blog_name
+        )
+        self.station = blog_station
+
+
+class BlogInstanceFQ(BlogInstance):
+
+    freq = None
+    snr = None
+    capabilities = None
+    latest_post_id = None
+    latest_post_date = None
+    last_seen = None
+    is_selected = None
+
+    blogs_fields = [
+        'blog',
+        'station',
+        'frequency',
+        'snr',
+        'capabilities',
+        'latest_post_id',
+        'latest_post_date',
+        'last_seen_date',
+        'is_selected'
+    ]
+
+    def __init__(self, blog_name: str, blog_station: str, blog_freq: int):
+        super().__init__(blog_name, blog_station)
+        self.freq = blog_freq
+
+        blogs_table = DbTable('blogs')
+        results = blogs_table.select(
+            where=f"blog='{self.name}' AND station='{self.station}' AND frequency={self.freq}",
+            limit=1, hdr_list=self.blogs_fields
+        )
+        if len(results) > 0:
+            self.snr = results[0]['snr']
+            self.capabilities = results[0]['capabilities']
+            self.latest_post_id = results[0]['latest_post_id']
+            self.latest_post_date = results[0]['latest_post_date']
+            self.last_seen = results[0]['last_seen_date']
+            self.is_selected = results[0]['is_selected']
+
+    def get_latest_post_details(self):
+        return self.latest_post_id, self.latest_post_date
+
+    def get_last_seen(self):
+        return self.last_seen
+
+
 class ServerMsgProcessors:
 
     qso_fields = ['qso_date', 'type', 'blog', 'station', 'directed_to', 'frequency',
@@ -80,14 +145,12 @@ class ServerMsgProcessors:
         status = Status()
         if ui_area == 'header':
             status.set_hdr_updated()
-        elif ui_area == 'post_content':
-            status.set_post_content_updated()
-        elif ui_area == 'post_list':
-            status.set_post_list_updated()
-        elif ui_area == 'cli':
-            status.set_cli_updated()
         elif ui_area == 'blogs':
             status.set_blogs_updated()
+        elif ui_area == 'post_list':
+            status.set_post_list_updated()
+        elif ui_area == 'post_content':
+            status.set_post_updated()
 
         notify_msg = GuiMessage()
 
@@ -105,11 +168,11 @@ class ServerMsgProcessors:
         self.b2f_q.put(notify_msg)
         return
 
-    def update_blog_list(self, blog: str, station: str, post_id: int, post_date: float = 0):
+    def update_blog_list(self, blog: str, station: str, freq: int, post_id: int, post_date: float = 0):
         # do we have a blog entry for this blog at this station
         blogs_table = DbTable('blogs')
         results = blogs_table.select(
-            where=f"blog='{blog}' AND station='{station}' AND frequency={self.frequency}",
+            where=f"blog='{blog}' AND station='{station}' AND frequency={freq}",
             limit=1, hdr_list=['latest_post_id', 'latest_post_date']
         )
         if len(results) > 0:
@@ -128,19 +191,19 @@ class ServerMsgProcessors:
                         'latest_post_date': post_date,
                         'last_seen_date': time.time()
                     },
-                    where=f"blog='{blog}' AND station='{station}' AND frequency={self.frequency}"
+                    where=f"blog='{blog}' AND station='{station}' AND frequency={freq}"
                 )
             else:
                 blogs_table.update(
                     value_dictionary={
                         'last_seen_date': time.time()
                     },
-                    where=f"blog='{blog}' AND station='{station}' AND frequency={self.frequency}"
+                    where=f"blog='{blog}' AND station='{station}' AND frequency={freq}"
                 )
         else:
             # no existing blogs entry so create one
             blogs_table.insert(
-                row={'blog': blog, 'station': station, 'frequency': self.frequency,
+                row={'blog': blog, 'station': station, 'frequency': freq,
                      'snr': self.snr, 'capabilities': 'LEG', 'post_id': post_id,
                      'latest_post_date': post_date, 'last_seen_date': time.time(),
                      'is_selected': 0}
@@ -151,6 +214,8 @@ class ServerMsgProcessors:
         # we need to support two formats of announcement
         # old:  callsign callsign blog_name post_id date_time
         # new:  callsign callsign post_id date_time
+
+        status = Status()
 
         station = req[0]
 
@@ -170,13 +235,15 @@ class ServerMsgProcessors:
             announcement_post_id = int(req[3])
             announcement_post_date = time.mktime(time.strptime(req[4] + " GMT", "%Y-%m-%d %Z"))
 
-        self.update_blog_list(blog, station, announcement_post_id, announcement_post_date)
+        self.update_blog_list(blog, station, status.radio_frequency, announcement_post_id, announcement_post_date)
 
     def process_listing(self, req: list, is_extended=False):
-
+        status = Status()
         # the req list has source station [0], destination station [1],
         # + or - for good or bad response [2], the original command [3],
         # a post_id or post_date or list of dates [4], and list entries separated by \n character [5]
+
+        directed_to = req[1]
 
         # push the data into the database
         rsp_lines = str(req[5]).split('\n')  # this is the list output
@@ -199,15 +266,41 @@ class ServerMsgProcessors:
                         self.title = f"{self.cmd} {rsp_lines[0]}"
 
             post_table = DbTable('post')
-            # Update an existing QSO entry or create a new one
-            row = {'qso_date': self.qso_date, 'type': 'listing', 'blog': self.blog, 'station': self.station,
-                   'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset, 'cmd': self.cmd,
-                   'rsp': self.rsp, 'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title,
-                   'body': self.body}
-            post_table.insert(row)
+            # if we already have an entry for this post we only want to replace it
+            # if this listing was directed_to this station
+
+            db_values = post_table.select(
+                where=f"blog='{self.blog}' AND post_id={self.post_id}",
+                hdr_list=['body', 'is_selected']
+            )
+
+            if len(db_values) == 0:
+                # Delete any existing entry and create a new one
+                post_table.delete(
+                    where=f"blog='{self.blog}' AND post_id={self.post_id}"
+                )
+
+                row = {'qso_date': self.qso_date, 'type': 'listing', 'blog': self.blog, 'station': self.station,
+                       'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset, 'cmd': self.cmd,
+                       'rsp': self.rsp, 'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title,
+                       'body': '', 'is_selected': 0}
+                post_table.insert(row)
+
+            elif directed_to == status.callsign:
+                # Delete any existing entry and create a new one
+                post_table.delete(
+                    where=f"blog='{self.blog}' AND post_id={self.post_id}"
+                )
+
+                row = {'qso_date': self.qso_date, 'type': 'listing', 'blog': self.blog, 'station': self.station,
+                       'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset, 'cmd': self.cmd,
+                       'rsp': self.rsp, 'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title,
+                       'body': db_values[0]['body'], 'is_selected': db_values[0]['is_selected']}
+                post_table.insert(row)
 
             self.signal_reload('post_list')
-            self.update_blog_list(self.blog, self.station, self.post_id, self.post_date)
+            self.signal_reload('post_content')
+            self.update_blog_list(self.blog, self.station, status.radio_frequency, self.post_id, self.post_date)
 
     def process_extended(self, req: list):
         self.process_listing(req, True)
@@ -220,8 +313,11 @@ class ServerMsgProcessors:
 
         # do we have the title for this blog
         self.post_id = int(msg_fields[4])
-        db_values = post_table.select(where=f"blog='{self.blog}' AND post_id={self.post_id}",
-                                     limit=1, hdr_list=['post_id'])
+        db_values = post_table.select(
+            where=f"blog='{self.blog}' AND post_id={self.post_id}",
+            limit=1,
+            hdr_list=['post_id']
+        )
 
         if len(db_values) > 0:
             post_table.update(
@@ -233,7 +329,7 @@ class ServerMsgProcessors:
 
         else:
             post_table.insert(
-                row = {
+                row={
                     'qso_date': self.qso_date,
                     'type': 'post',
                     'blog': status.selected_blog,
@@ -252,7 +348,6 @@ class ServerMsgProcessors:
             )
             # signal post table update
             status.set_post_list_updated()
-
 
     def process_weather(self, req: list):
         req.insert(4, 0)  # insert a dummy post_id into the request
@@ -307,7 +402,7 @@ class ServerMsgProcessors:
 
 class BeProcessor:
 
-    qso_fields = ['qso_date', 'type', 'blog', 'station', 'directed_to', 'frequency',
+    post_fields = ['qso_date', 'type', 'blog', 'station', 'directed_to', 'frequency',
                   'offset', 'cmd', 'rsp', 'post_id', 'post_date', 'title', 'body']
 
     f2b_q = None
@@ -372,123 +467,102 @@ class BeProcessor:
 
         return
 
-    def get_list_via_cache(self, req: GuiMessage, post_id_list: list):
-        # ToDo: this isn't working - it always sends a request to the server
+    def get_list_via_cache(self, req: GuiMessage, post_id_list: list) -> None:
         blog = req.get_blog()
         station = req.get_station()
-        cmd = req.get_cmd()
 
         svr_request_list = []  # this is a list of post_ids we will need to request from the server
-
-        # set up the list of dictionaries fo the results
-        init_vals = {'cmd': '', 'post_id': 0, 'has_entry': False, 'date': 0, 'title': '', 'body': ''}
-
-        return_values = [{} for _ in range(len(post_id_list))]
-
-        for i, _ in enumerate(return_values):
-            return_values[i] = init_vals.copy()
 
         range_start = post_id_list[0]
         range_end = post_id_list[len(post_id_list) - 1]
 
         # form a sql WHERE clause based on command
-        where_clause = f"blog='{blog}' and post_id>={range_start} and post_id<={range_end}"
-
-        if cmd == 'L':
-            where_clause += " and title<>''"
-        elif cmd == 'E':
-            where_clause += " and title<>'' and post_date>0"
-        elif cmd == 'G':
-            where_clause += " and body<>''"
+        where_clause  = f"blog='{blog}'"
+        where_clause += f" AND post_id>={range_start} and post_id<={range_end}"
+        where_clause +=  " AND title<>'' and post_date>0"
 
         post_table = DbTable('post')
         db_values = post_table.select(
             where=where_clause,
             group_by='post_id',
             order_by='post_id, body, title', desc=True,
-            hdr_list=self.qso_fields
+            hdr_list=self.post_fields
         )
 
         self.status.reload_status()  # we'll need status data a bit later
 
-        for i, value in enumerate(return_values):
-            value.update({'post_id': post_id_list[i]})
+        found_post_id = False
+        for requested_post_id in post_id_list:
             for row in db_values:
-                if value['post_id'] == int(row['post_id']):
-                    value.update(
-                        {'cmd': req.cli_input, 'has_entry': True,
-                         'date': row['post_date'], 'title': row['title'], 'body': row['body']}
-                    )
-                    row['qso_date'] = time.time()
-                    row['directed_to'] = self.status.callsign
-                    row['cmd'] = req.cli_input
+                if requested_post_id == int(row['post_id']):
+                    found_post_id = True
                     break
 
-            if not value['has_entry']:
-                svr_request_list.append(value['post_id'])
+            if not found_post_id:
+                svr_request_list.append(requested_post_id)
 
-        # if we have all the return values (has_entry is true), we can return them
-        if len(svr_request_list) == 0:
-            return return_values
+            found_post_id = False
 
-        posts_needed = ''
-        for post in svr_request_list:
-            if len(posts_needed) > 0:
-                posts_needed += ','
-            posts_needed += str(post)
+        if len(svr_request_list) > 0:
+            # we need to send a request to the server
+            posts_needed = ''
+            for post in svr_request_list:
+                if len(posts_needed) > 0:
+                    posts_needed += ','
+                posts_needed += str(post)
 
-        # form a request to get the posts in the svr_request_list
-        payload = f"{cmd}{posts_needed}~"
-        logmsg(3, 'comms: send: ' + str(payload))
-        mblog_api_req = CommsMessage()
+            # form a request to get the posts in the svr_request_list
+            payload = f"E{posts_needed}~"
+            logmsg(3, 'comms: send: ' + str(payload))
+            mblog_api_req = CommsMessage()
 
-        mblog_api_req.set_ts(time.time())
-        mblog_api_req.set_direction('tx')
-        mblog_api_req.set_source(self.status.callsign)
-        mblog_api_req.set_destination(station)  # ToDo: change once we implement blog namespace
-        mblog_api_req.set_snr(0)
-        mblog_api_req.set_blog(blog)
-        mblog_api_req.set_typ('mb_req')
-        mblog_api_req.set_target('mb_service')
-        mblog_api_req.set_obj('service')
-        mblog_api_req.set_payload(str(payload))
-        self.comms_tx_q.put(mblog_api_req)
+            mblog_api_req.set_ts(time.time())
+            mblog_api_req.set_direction('tx')
+            mblog_api_req.set_source(self.status.callsign)
+            mblog_api_req.set_destination(station)
+            mblog_api_req.set_snr(0)
+            mblog_api_req.set_blog(blog)
+            mblog_api_req.set_typ('mb_req')
+            mblog_api_req.set_target('mb_service')
+            mblog_api_req.set_obj('service')
+            mblog_api_req.set_payload(str(payload))
+            self.comms_tx_q.put(mblog_api_req)
 
-        return return_values
-
-    @staticmethod
-    def get_posts_tail(blog: str, station: str):
-        fields = ['latest_post_id', 'latest_post_date']
-
-        blogs_table = DbTable('blogs')
-        db_values = blogs_table.select(order_by='latest_post_id', desc=True, limit=1,
-                                       where=f"blog='{blog}' and station='{station}'", hdr_list=fields)
-        return db_values
+        return
 
     def process_list_cmd(self, req: GuiMessage):
-        # If the request is to list based on a date or dates, we need to go to the server
-        # because we have no way of knowing if we have all posts with a certain date.
-        # If the request is a TAIL listing, we need to get the latest post number from the
-        # blogs table as the range end, subtract from it the max_listing value to get a range start
-        # and then get everything in that range.
-        # If the request is to list a specific post by post id, simply check the cache for that.
 
-        if req.get_post_date() > 0:
-            compressed_date = compress_date(req.get_post_date())
+        post_ids = []
 
-            if req.cmd == 'L':
-                api_cmd = 'M'
-            elif req.cmd == 'E':
-                api_cmd = 'F'
-            else:
-                api_cmd = ''
+        if req.get_op() == 'eq':
+            post_ids.append(req.get_post_id())
 
-            if req.get_op() == 'eq':
-                api_cmd += 'E'
-            elif req.get_op() == 'gt':
-                api_cmd += 'G'
+        elif req.get_op() == 'gt':
+            for i in range(settings.max_listing):
+                post_ids.append(req.get_post_id() + 1 + i)
 
-            payload = f"{api_cmd}{compressed_date}~"
+        elif req.get_op() == 'recent':
+            # get the latest post id for this blog
+            blog_obj = BlogInstanceFQ(req.get_blog(), req.get_blog(), req.get_frequency())
+            latest_post_id, latest_post_date = blog_obj.get_latest_post_details()
+
+            starting_post_id = max(latest_post_id - settings.max_listing + 1, 1)
+
+            for i in range(starting_post_id, latest_post_id + 1):
+                post_ids.append(i)
+
+        elif req.get_op() == 'more':
+            starting_post_id = max(req.get_post_id() - settings.max_listing, 1)
+
+            for i in range(starting_post_id, req.get_post_id()):
+                post_ids.append(i)
+
+        if req.get_cmd() == 'E':
+            # do we have any of the information in the cache
+            self.get_list_via_cache(req, post_ids)
+        elif req.get_cmd() == 'D':
+            # get the listing info from the server
+            payload = f"E{req.get_post_id()}~"
             logmsg(3, 'comms: send: ' + str(payload))
             mblog_api_req = CommsMessage()
 
@@ -504,28 +578,6 @@ class BeProcessor:
             mblog_api_req.set_payload(str(payload))
             self.comms_tx_q.put(mblog_api_req)
 
-            return
-
-        post_ids = []
-
-        if req.get_op() == 'eq':
-            post_ids.append(req.get_post_id())
-        elif req.get_op() == 'gt':
-            for i in range(settings.max_listing):
-                post_ids.append(req.get_post_id() + 1 + i)
-        elif req.get_op() == 'tail':
-            # get the latest post id for this blog
-            latest_post = self.get_posts_tail(req.get_blog(), req.get_station())
-
-            for i in range(
-                    latest_post[0]['latest_post_id'] - settings.max_listing + 1,
-                    latest_post[0]['latest_post_id'] + 1
-            ):
-                post_ids.append(i)
-
-        # do we have any of the information in the cache
-        self.get_list_via_cache(req, post_ids)
-
         # get the frontend to reload the Post List
         self.signal_reload('post_list')
         return
@@ -539,9 +591,14 @@ class BeProcessor:
 
         # set this as the selected post
         post_table = DbTable('post')
-        post_table.update(where=f"blog='{blog}'", value_dictionary={'is_selected': 0})
-        post_table.update(where=f"blog='{blog}' AND post_id={post_id}",
-                 value_dictionary={'is_selected': 1})
+        post_table.update(
+            where=f"blog='{blog}'",
+            value_dictionary={'is_selected': 0}
+        )
+        post_table.update(
+            where=f"blog='{blog}' AND post_id={post_id}",
+            value_dictionary={'is_selected': 1}
+        )
 
         # ToDo: we know the current post from the post table entry with is_selected set - we don't need another record
         self.status.set_current_post(post_id)
@@ -705,21 +762,30 @@ class BeProcessor:
             logmsg(1, f"{msg_prefix}{command}")
             add_progress(command)
             exit(0)
+
         elif command == 'L':
             # Get abbreviated list
             process_msg = f"{command}{msg_object.get_op()}{msg_object.get_post_id()}~"
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_list_cmd(msg_object)
+
+        elif command == 'D':
+            # Get full list details not using the cache
+            process_msg = f"{command}{msg_object.get_op()}{msg_object.get_post_id()}~"
+            logmsg(1, f"{msg_prefix}{process_msg}")
+            add_progress(process_msg)
+            self.process_extended_cmd(msg_object)
+
         elif command == 'E':
-            # Get full list details
+            # Get full list details using the cache
             process_msg = f"{command}{msg_object.get_op()}{msg_object.get_post_id()}~"
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_extended_cmd(msg_object)
 
         elif command == 'F':
-            # Get post(s)
+            # Fetch post(s)
             process_msg = f"{command}{msg_object.get_post_id()}~"
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
@@ -739,36 +805,42 @@ class BeProcessor:
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_refresh_cmd(msg_object)
+
         elif command == 'I':
             # Get information from the server
             process_msg = f"{command}~"
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_info_cmd(msg_object)
+
         elif command == 'S':
             # Switch to a blog (internal - no server command is sent)
             process_msg = f"{command}"
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_set_cmd(msg_object)
+
         elif command == 'C':
             # Change the config - not implemented
             process_msg = f"{command}"
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_config_cmd(msg_object)
+
         elif command == 'P':
             # Initiate a Scan - not implemented
             process_msg = f"{command}"
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_scan_cmd(msg_object)
+
         elif command == 'Q':
             # Query command to elicit an announcement from all MB servers
             process_msg = f"{command}"
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_query_cmd(msg_object)
+
         elif command == 'WX':
             # Request a weather report - results in G0~ to the server
             process_msg = f"{command}"
