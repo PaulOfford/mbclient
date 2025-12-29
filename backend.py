@@ -43,6 +43,7 @@ def add_progress(progress_msg: str):
             'message': progress_msg
         }
     )
+    status.set_progress_updated()
 
 
 class Blog:
@@ -386,11 +387,16 @@ class ServerMsgProcessors:
                     logmsg(1, self.cmd)
                     add_progress(self.cmd)
                     getattr(ServerMsgProcessors, entry['proc'])(self, result)
+
                 elif result[1] == '@MB':
                     getattr(ServerMsgProcessors, entry['proc'])(self, result)
-                    progress_msg = f"{result[1]} {result[2]} {result[3]}"
+                    try:
+                        progress_msg = f"{result[1]} {result[2]} {result[3]}{result[4]}{result[5]}"
+                    except:
+                        progress_msg = f"{result[1]} {result[2]} {result[3]}"
                     logmsg(1, progress_msg)
                     add_progress(progress_msg)
+
                 else:
                     self.mb_status.reload_status()
                     if result[1] == self.mb_status.callsign:  # we only need to show an error if this rsp was for us
@@ -726,7 +732,7 @@ class BeProcessor:
                     where=None,
                     value_dictionary={
                         'hdr_updated': time.time(),
-                        'cli_updated': time.time(),
+                        'progress_updated': time.time(),
                         'blogs_updated': time.time()
                     }
                 )

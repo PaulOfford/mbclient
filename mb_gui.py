@@ -23,6 +23,7 @@ font_main = font.Font(family='Ariel', size=settings.font_size, weight='normal')
 font_main_ul = font.Font(family='Ariel', size=settings.font_size, weight='normal', underline=True)
 font_main_hdr = font.Font(family='Ariel', size=(int(settings.font_size*1.25)), weight='normal')
 font_main_bold = font.Font(family='Ariel', size=settings.font_size, weight='bold')
+font_console = font.Font(family='Courier', size=settings.font_size, weight='normal')
 
 
 def settings_window():
@@ -591,8 +592,8 @@ class GuiPostContent:
         post_content_hdr = tk.Label(
             frame,
             text="Post",
-            bg='white',
-            font=font_main_ul,
+            bg='black', fg='white',
+            font=font_main_bold,
             justify=tk.LEFT,
             anchor=tk.W,
             padx=10, pady=12
@@ -675,6 +676,61 @@ class GuiPostContent:
         return
 
 
+class GuiProgress:
+
+    progress_box = []
+
+    progress_cols = ['qso_date', 'blog', 'station', 'frequency', 'offset', 'message']
+
+    def __init__(self, frame: tk.Frame):
+
+        progress_box_hdr = tk.Label(
+            frame,
+            text="Progress",
+            bg='black', fg='white',
+            font=font_main_bold,
+            justify=tk.LEFT,
+            anchor=tk.W,
+            padx=10, pady=12
+        )
+        progress_box_hdr.pack(anchor='ne', fill=tk.X)
+
+        v = tk.Scrollbar(frame, orient='vertical')
+        v.pack(side=tk.RIGHT, fill='y')
+        self.progress_box = tk.Text(frame, width=300, wrap=tk.WORD, padx=10, pady=10,
+                                    font=font_console, bg='white', yscrollcommand=v.set,
+                                    spacing1=1.1, spacing2=1.1)
+        v.config(command=self.progress_box.yview)
+        self.progress_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
+
+    def reload_progress_box(self):
+
+        status = Status()
+
+        progress_table = DbTable('progress')
+        db_values = progress_table.select(
+            order_by='qso_date',
+            hdr_list=self.progress_cols
+        )
+
+        self.progress_box.configure(state=tk.NORMAL)
+        self.progress_box.delete(1.0, 'end')
+
+        for i, r in enumerate(db_values):
+            progress_string = ''
+
+            q_date = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(r['qso_date']))
+
+            progress_string += f"\n{q_date} {r['blog']} {r['message']}"
+
+            self.progress_box.insert(tk.END, progress_string)
+            self.progress_box.see(tk.END)
+            self.prev_is_listing = False
+
+        self.progress_box.configure(state=tk.DISABLED)
+        return
+
+
 class GuiMain:
 
     def __init__(self, frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
@@ -703,16 +759,26 @@ class GuiMain:
         self.post_list = GuiPostListBox(frame_post_list, f2b_q, b2f_q)
 
         # Latest Posts area
-        frame_latest_list = tk.Frame(frame_right, bg='white')
-        frame_latest_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        frame_post_content = tk.Frame(frame_right, bg='white')
+        frame_post_content.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        self.post_content = GuiPostContent(frame_latest_list, f2b_q)
+        self.post_content = GuiPostContent(frame_post_content, f2b_q)
 
-    def reload_post_content(self):
-        self.post_content.reload_post_content()
+        # Latest Progress area
+        frame_progress = tk.Frame(frame_right, bg='white')
+        frame_progress.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=1)
+
+        self.progress = GuiProgress(frame_progress)
+
+    def reload_blog_list(self):
+        self.blog_list.reload_blog_list()
 
     def reload_post_list_box(self):
         self.post_list.reload_post_list()
 
-    def reload_blog_list(self):
-        self.blog_list.reload_blog_list()
+    def reload_post_content(self):
+        self.post_content.reload_post_content()
+
+
+    def reload_progress_box(self):
+        self.progress.reload_progress_box()

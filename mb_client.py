@@ -35,15 +35,18 @@ class MbClient:
         if status.hdr_updated > status.last_checked:
             self.header.reload_header()
 
-        if status.post_updated > status.last_checked:
-            self.main.reload_post_content()
+        if status.blogs_updated > status.last_checked:
+            self.main.reload_blog_list()
+            logging.logmsg(4, "reload_blog_list()")
 
         if status.post_list_updated > status.last_checked:
             self.main.reload_post_list_box()
 
-        if status.blogs_updated > status.last_checked:
-            self.main.reload_blog_list()
-            logging.logmsg(4, "reload_blog_list()")
+        if status.post_updated > status.last_checked:
+            self.main.reload_post_content()
+
+        if status.progress_updated > status.last_checked:
+            self.main.reload_progress_box()
 
         status.update_last_checked()
 
@@ -135,6 +138,7 @@ class MbClient:
         self.main.reload_blog_list()
         self.main.reload_post_list_box()
         self.main.reload_post_content()
+        self.main.reload_progress_box()
 
         root.after(200, self.process_updates)
         root.mainloop()

@@ -67,7 +67,7 @@ c.execute("""CREATE TABLE status (
     hdr_updated float,
     post_updated float,
     qso_updated float,
-    cli_updated float,
+    progress_updated float,
     blogs_updated float,
     radio_frequency integer,
     user_frequency integer,
@@ -83,7 +83,7 @@ logmsg(1, "db_setup.py: Loading default status values")
 with db:
     c.execute(
         "INSERT INTO status VALUES ("
-        ":last_checked, :hdr_updated, :post_updated, :qso_updated, :blogs_updated, :cli_updated, "
+        ":last_checked, :hdr_updated, :post_updated, :qso_updated, :blogs_updated, :progress_updated, "
         ":radio_frequency, :user_frequency, :offset, :is_scanning, :req_outstanding, "
         ":callsign, :selected_blog, :selected_station"
         ")",
@@ -92,7 +92,7 @@ with db:
             'hdr_updated': 0,
             'post_updated': 0,
             'post_list_updated': 0,
-            'cli_updated': 0,
+            'progress_updated': 0,
             'blogs_updated': 0,
             'radio_frequency': 14078000,
             'user_frequency': 14078000,
