@@ -397,9 +397,9 @@ class GuiTable:
                     'tag_all', '<Button-3>', ft.partial(self.popup_cb, row)
                 )
                 if db_row['is_selected']:  # check the selected flag
-                    cell['widget'].configure(bg='#6699FF')
+                    cell['widget'].configure(bg='#6699FF', fg='#ffffff')
                 else:  # check the selected flag
-                    cell['widget'].configure(bg='#ffffff')
+                    cell['widget'].configure(bg='#ffffff', fg='#000000')
                 cell['widget'].configure(state=tk.DISABLED)
 
         return
