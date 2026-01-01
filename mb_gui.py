@@ -1,5 +1,6 @@
 import queue
 import tkinter as tk
+from tkinter import ttk
 import tkinter.font as font
 import locale
 import functools as ft
@@ -94,6 +95,28 @@ def settings_window():
     tk.Button(
         sw_frame, text='Save', font='8', command=save_entries
     ).grid(row=len(label_list)+2, column=1)
+
+
+class ScrollableFrame(ttk.Frame):
+    def __init__(self, container, *args, **kwargs):
+        super().__init__(container, *args, **kwargs)
+        canvas = tk.Canvas(self)
+        scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
+        self.scrollable_frame = ttk.Frame(canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
 
 class GuiHeader:
@@ -284,6 +307,10 @@ class GuiTable:
         self.select_cb = select_method
         self.hdr_click_cb = hdr_click_method
 
+        # we need a header frame and a body frame
+        frame_hdr = tk.Frame(frame, pady=4, bg='white')
+        frame_body = ScrollableFrame(frame)
+
         # construct the table
         self.table_data = [[{} for _, _ in enumerate(self.table_headers)] for _ in range(max_rows + 1)]
 
@@ -295,16 +322,16 @@ class GuiTable:
                 row_data['widget'] = tk.Text()
                 row_data['selected'] = tk.FALSE
 
-        # set the blog list columns to equal weight
-        frame.grid(columnspan=len(self.table_headers))
+        # set the columns to equal weight
+        frame_hdr.grid(columnspan=len(self.table_headers))
         for i, _ in enumerate(self.table_headers):
             frame.columnconfigure(i, weight=1)
 
-        # set the blog list headers
+        # set the headers
         for col, headers in enumerate(self.table_headers):
             if headers['label']:
                 headers['widget'] = tk.Text(
-                    frame,
+                    frame_hdr,
                     bg='white',
                     font=font_main_bold,
                     relief=tk.FLAT,
@@ -322,12 +349,13 @@ class GuiTable:
 
                 headers['widget'].configure(state=tk.DISABLED)
 
+
         # add the blog list Text widgets to the grid
         for row, _ in enumerate(self.table_data):
             for col, blog in enumerate(self.table_data[row]):
                 if self.table_headers[col]['label']:
                     blog['widget'] = tk.Text(
-                        frame,
+                        frame_body.scrollable_frame,
                         bg='white',
                         font=font_main,
                         relief=tk.FLAT,
@@ -336,6 +364,9 @@ class GuiTable:
                         padx=10
                     )
                     blog['widget'].grid(column=col, row=(row + 1))  # need to row+1 to allow for header
+
+        frame_hdr.pack(fill=tk.BOTH, expand=0, side='top', anchor='n', padx=4)
+        frame_body.pack(fill=tk.BOTH, expand=1, side='top', anchor='n', padx=4)
 
     def reload_table(self, db_values):
         # clear all entries
@@ -403,6 +434,7 @@ class GuiBlogList(GuiTable):
         super().__init__(
             frame, self.blog_list_headers, settings.max_blogs, self.cb_row_select, self.cb_hdr_click
         )
+
         # set up the pop up menu
         self.blog_list_pop_up = tk.Menu(frame, tearoff=False)
         self.blog_list_pop_up.add_command(label='Get recent', command=self.list_recent)
@@ -734,14 +766,14 @@ class GuiProgress:
 class GuiMain:
 
     def __init__(self, frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
-        pane_main = tk.PanedWindow(frame, bg='#606060')
+        pane_main = tk.PanedWindow(frame, bg='white')
         pane_main.pack(fill='both', expand=1, side='top')
 
         frame_left = tk.Frame(pane_main, bg='white')
         pane_main.add(frame_left, width=480)
 
         frame_mid = tk.Frame(pane_main, bg='white')
-        pane_main.add(frame_mid, width=520)
+        pane_main.add(frame_mid, width=560)
 
         frame_right = tk.Frame(pane_main, bg='white')
         pane_main.add(frame_right, width=160)
@@ -753,7 +785,7 @@ class GuiMain:
         self.blog_list = GuiBlogList(frame_blog_list, f2b_q, b2f_q)
 
         # Post List Area follows - middle of main
-        frame_post_list = tk.Frame(frame_mid)
+        frame_post_list = tk.Frame(frame_mid, bg='white', padx=4, pady=4)
         frame_post_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
         self.post_list = GuiPostListBox(frame_post_list, f2b_q, b2f_q)
