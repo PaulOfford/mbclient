@@ -671,6 +671,24 @@ class BeProcessor:
         self.comms_tx_q.put(mblog_api_req)
         return
 
+    def process_info_cmd(self, req: GuiMessage):
+        payload = f"INFO?"
+        logmsg(3, 'comms: send: ' + str(payload))
+        mblog_api_req = CommsMessage()
+
+        mblog_api_req.set_ts(time.time())
+        mblog_api_req.set_direction('tx')
+        mblog_api_req.set_source(self.status.callsign)
+        mblog_api_req.set_destination(req.get_blog())
+        mblog_api_req.set_snr(0)
+        mblog_api_req.set_blog(req.get_blog())
+        mblog_api_req.set_typ('mb_req')
+        mblog_api_req.set_target('mb_service')
+        mblog_api_req.set_obj('service')
+        mblog_api_req.set_payload(str(payload))
+        self.comms_tx_q.put(mblog_api_req)
+        return
+
     def process_weather_cmd(self, req: GuiMessage):
         payload = f"WX~"
         logmsg(3, 'comms: send: ' + str(payload))
@@ -730,9 +748,6 @@ class BeProcessor:
         )
 
         self.signal_reload('header')
-
-    def process_info_cmd(self, req: GuiMessage):
-        pass
 
     def select_blog(self, req: GuiMessage):
 
@@ -844,7 +859,7 @@ class BeProcessor:
 
         elif command == 'I':
             # Get information from the server
-            process_msg = f"{command}~"
+            process_msg = f"INFO?"
             logmsg(1, f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_info_cmd(msg_object)

@@ -454,6 +454,7 @@ class GuiBlogList(GuiTable):
         self.blog_list_pop_up = tk.Menu(frame, tearoff=False)
         self.blog_list_pop_up.add_command(label='Get recent', command=self.list_recent)
         self.blog_list_pop_up.add_command(label='Refresh', command=self.check_for_latest)
+        self.blog_list_pop_up.add_command(label='Get info', command=self.get_blog_info)
 
     # list_recent causes MbClient to update the Post List with the five most recent posts
     def list_recent(self):
@@ -471,6 +472,17 @@ class GuiBlogList(GuiTable):
     def check_for_latest(self):
         req = GuiMessage()
         req.set_cmd('Q')
+        req.set_blog(self.db_values[self.clicked_row]['blog'])
+        req.set_station(self.db_values[self.clicked_row]['station'])
+        req.set_frequency(self.db_values[self.clicked_row]['frequency'])
+        req.set_op('latest')
+        req.set_ts()
+        self.f2b_q.put(req)
+        logging.logmsg(3, f"fe: {req}")
+
+    def get_blog_info(self):
+        req = GuiMessage()
+        req.set_cmd('I')
         req.set_blog(self.db_values[self.clicked_row]['blog'])
         req.set_station(self.db_values[self.clicked_row]['station'])
         req.set_frequency(self.db_values[self.clicked_row]['frequency'])
