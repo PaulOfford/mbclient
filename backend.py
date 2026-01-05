@@ -355,6 +355,29 @@ class ServerMsgProcessors:
         self.process_post(req)
         pass
 
+    def process_info(self, msg_fields: list):
+        status = Status()
+        blog = msg_fields[0]
+        info = msg_fields[3]
+
+        # push the data into the database
+        blogs_table = DbTable('blogs')
+
+        # do we have the title for this blog
+        db_values = blogs_table.select(
+            where=f"blog='{blog}' AND frequency={status.radio_frequency}",
+            limit=1,
+            hdr_list=['info']
+        )
+
+        if len(db_values) > 0:
+            blogs_table.update(
+                value_dictionary={'info': info},
+                where=f"blog='{self.blog}' AND frequency={status.radio_frequency}"
+            )
+            # signal post table update
+            status.set_blogs_updated()
+
     def parse_rx_message(self, mb_rsp_string: str):
         rsp_patterns = [
             {'exp': "^([A-Z,0-9\/]+): +(@MB) +(\\d+) +(\\d{2})(\\d{2})(\\d{2})",
@@ -369,6 +392,7 @@ class ServerMsgProcessors:
             {'exp': "^(\\S+): +(\\S+) +([+-])([EF][EG])([\\dABC]*)~\n*([\\S\\s]+)", 'proc': 'process_extended'},
             {'exp': "^(\\S+): +(\\S+) +([+-])(G)(\\d+)~\n*([\\S\\s]+)", 'proc': 'process_post'},
             {'exp': "^(\\S+): +(\\S+) +([+-])(WX)~\n*([\\S\\s]+)", 'proc': 'process_weather'},
+            {'exp': "^(\\S+): +(\\S+) +(INFO) +([\\S\\s]+)", 'proc': 'process_info'},
         ]
         for entry in rsp_patterns:
             # try to match the request
@@ -394,6 +418,12 @@ class ServerMsgProcessors:
                         progress_msg = f"{result[1]} {result[2]} {result[3]}{result[4]}{result[5]}"
                     except:
                         progress_msg = f"{result[1]} {result[2]} {result[3]}"
+                    logmsg(1, progress_msg)
+                    add_progress(progress_msg)
+
+                elif result[2] == 'INFO':
+                    getattr(ServerMsgProcessors, entry['proc'])(self, result)
+                    progress_msg = f"{result[1]} {result[2]} {result[3]}"
                     logmsg(1, progress_msg)
                     add_progress(progress_msg)
 

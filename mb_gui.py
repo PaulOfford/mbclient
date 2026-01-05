@@ -544,30 +544,27 @@ class GuiBlogInfo:
         self.blog_info_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
 
     def reload_blog_info_box(self):
-
         status = Status()
+        info_string = ""
 
-        progress_table = DbTable('progress')
-        db_values = progress_table.select(
-            order_by='qso_date',
-            hdr_list=self.progress_cols
+        blogs_table = DbTable('blogs')
+        db_values = blogs_table.select(
+            where=f"blog='{status.selected_blog}' AND frequency={status.radio_frequency}",
+            limit=1,
+            hdr_list=['info']
         )
 
         self.blog_info_box.configure(state=tk.NORMAL)
         self.blog_info_box.delete(1.0, 'end')
 
-        for i, r in enumerate(db_values):
-            progress_string = ''
+        if len(db_values) > 0:
+            info_string = db_values[0]['info']
 
-            q_date = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(r['qso_date']))
-
-            progress_string += f"\n{q_date} {r['blog']} {r['message']}"
-
-            self.blog_info_box.insert(tk.END, progress_string)
-            self.blog_info_box.see(tk.END)
-            self.prev_is_listing = False
+        self.blog_info_box.insert(tk.END, info_string)
+        self.blog_info_box.see(tk.END)
 
         self.blog_info_box.configure(state=tk.DISABLED)
+
         return
 
 
@@ -894,6 +891,7 @@ class GuiMain:
 
     def reload_blog_list(self):
         self.blog_list.reload_blog_list()
+        self.blog_info.reload_blog_info_box()
 
     def reload_post_list_box(self):
         self.post_list.reload_post_list()
