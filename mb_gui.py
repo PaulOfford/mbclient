@@ -98,24 +98,39 @@ def settings_window():
 
 
 class ScrollableFrame(ttk.Frame):
+    canvas = None
+    scrollable_frame = None
+
+    def on_mousewheel(self, event):
+        self.canvas.yview_scroll(int(-1*(event.delta/120)), 'units')
+
+    def focus_in(self, event):
+        self.canvas.bind_all('<MouseWheel>', self.on_mousewheel)
+
+    def focus_out(self, event):
+        self.canvas.unbind_all('<MouseWheel>')
+
     def __init__(self, container, *args, **kwargs):
         super().__init__(container, *args, **kwargs)
-        canvas = tk.Canvas(self)
-        scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
-        self.scrollable_frame = ttk.Frame(canvas)
+        self.canvas = tk.Canvas(self)
+        scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.canvas.bind('<Enter>', self.focus_in)
+        self.canvas.bind('<Leave>', self.focus_out)
+
+        self.scrollable_frame = ttk.Frame(self.canvas)
 
         self.scrollable_frame.bind(
             "<Configure>",
-            lambda e: canvas.configure(
-                scrollregion=canvas.bbox("all")
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
             )
         )
 
-        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
 
-        canvas.configure(yscrollcommand=scrollbar.set)
+        self.canvas.configure(yscrollcommand=scrollbar.set)
 
-        canvas.pack(side="left", fill="both", expand=True)
+        self.canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
 
@@ -498,6 +513,64 @@ class GuiBlogList(GuiTable):
         pass
 
 
+class GuiBlogInfo:
+
+    blog_info_box = []
+
+    progress_cols = ['qso_date', 'blog', 'station', 'frequency', 'offset', 'message']
+
+    def __init__(self, frame: tk.Frame):
+
+        blog_info_box_hdr = tk.Label(
+            frame,
+            text="Blog Information",
+            bg='black', fg='white',
+            font=font_main_bold,
+            justify=tk.LEFT,
+            anchor=tk.W,
+            padx=10, pady=12
+        )
+        blog_info_box_hdr.pack(anchor='ne', fill=tk.X)
+
+        v = tk.Scrollbar(frame, orient='vertical')
+        v.pack(side=tk.RIGHT, fill='y')
+        self.blog_info_box = tk.Text(
+            frame, width=480,
+            wrap=tk.WORD, padx=10, pady=10,
+            font=font_main, bg='white', yscrollcommand=v.set,
+            spacing1=1.1, spacing2=1.1
+        )
+        v.config(command=self.blog_info_box.yview)
+        self.blog_info_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
+
+    def reload_blog_info_box(self):
+
+        status = Status()
+
+        progress_table = DbTable('progress')
+        db_values = progress_table.select(
+            order_by='qso_date',
+            hdr_list=self.progress_cols
+        )
+
+        self.blog_info_box.configure(state=tk.NORMAL)
+        self.blog_info_box.delete(1.0, 'end')
+
+        for i, r in enumerate(db_values):
+            progress_string = ''
+
+            q_date = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(r['qso_date']))
+
+            progress_string += f"\n{q_date} {r['blog']} {r['message']}"
+
+            self.blog_info_box.insert(tk.END, progress_string)
+            self.blog_info_box.see(tk.END)
+            self.prev_is_listing = False
+
+        self.blog_info_box.configure(state=tk.DISABLED)
+        return
+
+
 class GuiPostListBox(GuiTable):
 
     post_list_headers = [
@@ -714,6 +787,15 @@ class GuiProgress:
 
     progress_cols = ['qso_date', 'blog', 'station', 'frequency', 'offset', 'message']
 
+    def on_mousewheel(self, event):
+        self.progress_box.yview_scroll(int(-1*(event.delta/120)), 'units')
+
+    def focus_in(self, event):
+        self.progress_box.bind_all('<MouseWheel>', self.on_mousewheel)
+
+    def focus_out(self, event):
+        self.progress_box.unbind_all('<MouseWheel>')
+
     def __init__(self, frame: tk.Frame):
 
         progress_box_hdr = tk.Label(
@@ -734,6 +816,8 @@ class GuiProgress:
                                     spacing1=1.1, spacing2=1.1)
         v.config(command=self.progress_box.yview)
         self.progress_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
+        self.progress_box.bind('<Enter>', self.focus_in)
+        self.progress_box.bind('<Leave>', self.focus_out)
 
     def reload_progress_box(self):
 
@@ -778,11 +862,17 @@ class GuiMain:
         frame_right = tk.Frame(pane_main, bg='white')
         pane_main.add(frame_right, width=160)
 
-        # Blog list area - right of main
-        frame_blog_list = tk.Frame(frame_left, bg='white', padx=4, pady=4, width=1.0)
+        # Blog list area - left of main
+        frame_blog_list = tk.Frame(frame_left, bg='white', padx=4, pady=4)
         frame_blog_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
         self.blog_list = GuiBlogList(frame_blog_list, f2b_q, b2f_q)
+
+        # Blog Information area
+        frame_blog_info = tk.Frame(frame_left, bg='white', padx=4, pady=4)
+        frame_blog_info.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=1)
+
+        self.blog_info = GuiBlogInfo(frame_blog_info)
 
         # Post List Area follows - middle of main
         frame_post_list = tk.Frame(frame_mid, bg='white', padx=4, pady=4)
