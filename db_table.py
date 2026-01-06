@@ -1,8 +1,17 @@
 import sqlite3
 import os
+import re
 import logging
+from db_root import db_file
 
-db_file = os.getenv('APPDATA') + '/MbClient/mblog.db'
+# handle use of environmental variable in the path to the database
+expression = r"^%(\S+)%\/([\S\s]+)"
+db_path_elements = re.findall(expression, db_file)
+
+if len(db_path_elements) > 0:
+    db_file_spec = os.getenv(db_path_elements[0][0]) + '\\' + db_path_elements[0][1]
+else:
+    db_file_spec = db_file
 
 
 class DbTable:
@@ -14,7 +23,7 @@ class DbTable:
     def __init__(self, table):
         self.table = table
 
-        db = sqlite3.connect(db_file)
+        db = sqlite3.connect(db_file_spec)
         db.row_factory = sqlite3.Row
         c = db.cursor()
         query = f"SELECT * FROM {table} LIMIT 1"
@@ -33,7 +42,7 @@ class DbTable:
     # The hdr_list must contain a key db_col with a value of the name of a database column.
     def select(self, where=None, group_by=None, order_by=None, desc=False, limit=0, hdr_list=None):
 
-        db = sqlite3.connect(db_file)
+        db = sqlite3.connect(db_file_spec)
         c = db.cursor()
 
         select_cols = ''
@@ -75,7 +84,7 @@ class DbTable:
     # The hdr_list must contain a key db_col with a value of the name of a database column.
     def select_latest(self, where=None, group_by=None, order_by=None, order='ASC', limit=0, hdr_list=None):
 
-        db = sqlite3.connect(db_file)
+        db = sqlite3.connect(db_file_spec)
         c = db.cursor()
 
         select_cols = ''
@@ -118,7 +127,7 @@ class DbTable:
         return result
 
     def update(self, where=None, value_dictionary=None):
-        db = sqlite3.connect(db_file)
+        db = sqlite3.connect(db_file_spec)
         db.row_factory = sqlite3.Row
         c = db.cursor()
 
@@ -147,7 +156,7 @@ class DbTable:
         db.close()
 
     def insert(self, row: dict):
-        db = sqlite3.connect(db_file)
+        db = sqlite3.connect(db_file_spec)
         db.row_factory = sqlite3.Row
         c = db.cursor()
 
@@ -173,7 +182,7 @@ class DbTable:
 
     def delete(self, where=None):
 
-        db = sqlite3.connect(db_file)
+        db = sqlite3.connect(db_file_spec)
         c = db.cursor()
 
         query = f"DELETE FROM {self.table}"

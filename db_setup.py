@@ -1,15 +1,24 @@
-from db_root import *
+from db_root import db_file
 import os
 import time
 import sqlite3
 from logging import *
+import re
 
-db_file = os.getenv('APPDATA') + '/MbClient/mblog.db'
+# handle use of environmental variable in the path to the database
+expression = r"^%(\S+)%\/([\S\s]+)"
+db_path_elements = re.findall(expression, db_file)
 
-if os.path.exists(db_file):
-    os.remove(db_file)
+if len(db_path_elements) > 0:
+    db_file_spec = os.getenv(db_path_elements[0][0]) + '\\' + db_path_elements[0][1]
+else:
+    db_file_spec = db_file
 
-db = sqlite3.connect(db_file)
+
+if os.path.exists(db_file_spec):
+    os.remove(db_file_spec)
+
+db = sqlite3.connect(db_file_spec)
 
 c = db.cursor()
 
@@ -26,6 +35,7 @@ def iso_string_to_epoch(iso_str: str):
 
     dt = dt.replace(tzinfo=timezone.utc)
     return dt.timestamp()
+
 
 logmsg(1, "db_setup.py: Creating the progress table")
 c.execute("""CREATE TABLE progress (
