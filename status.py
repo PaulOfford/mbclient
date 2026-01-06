@@ -3,13 +3,13 @@ from db_table import *
 
 
 class Status:
-    status_cols = ['last_checked', 'hdr_updated', 'post_updated', 'post_list_updated', 'progress_updated', 'blogs_updated',
+    status_cols = ['last_checked', 'hdr_updated', 'post_updated', 'post_list_updated', 'progress_updated', 'blog_updated',
                    'radio_frequency', 'user_frequency', 'offset', 'is_scanning', 'req_outstanding', 'callsign',
                    'selected_blog', 'selected_station', 'selected_post']
 
     last_checked = 0  # timestamp of the last time we checked for updates
     hdr_updated = 0
-    blogs_updated = 0
+    blog_updated = 0
     post_list_updated = 0
     post_updated = 0
     progress_updated = 0
@@ -38,7 +38,7 @@ class Status:
         self.post_updated = db_values['post_updated']
         self.post_list_updated = db_values['post_list_updated']
         self.progress_updated = db_values['progress_updated']
-        self.blogs_updated = db_values['blogs_updated']
+        self.blogs_updated = db_values['blog_updated']
         self.radio_frequency = db_values['radio_frequency']
         self.user_frequency = db_values['user_frequency']
         self.is_scanning = db_values['is_scanning']
@@ -64,9 +64,9 @@ class Status:
         status_table.update(value_dictionary={'hdr_updated': time.time()})
         self.reload_status()
 
-    def set_blogs_updated(self):
+    def set_blog_updated(self):
         status_table = DbTable('status')
-        status_table.update(value_dictionary={'blogs_updated': time.time()})
+        status_table.update(value_dictionary={'blog_updated': time.time()})
         self.reload_status()
 
     def set_post_list_updated(self):
@@ -94,7 +94,7 @@ class Status:
                 'radio_frequency': frequency
             }
         )
-        self.set_blogs_updated()
+        self.set_blog_updated()
 
     def set_current_post(self, post: int):
         status_table = DbTable('status')

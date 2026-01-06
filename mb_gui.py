@@ -492,13 +492,13 @@ class GuiBlogList(GuiTable):
         logging.logmsg(3, f"fe: {req}")
 
     def reload_blog_list(self):
-        blogs_table = DbTable('blogs')
+        blog_table = DbTable('blog')
 
         fields = []
         for field in self.blog_list_headers:
             fields.append(field['db_col'])
 
-        self.db_values = blogs_table.select(
+        self.db_values = blog_table.select(
             order_by='last_seen_date', desc=True, limit=settings.max_blogs, hdr_list=fields
         )
 
@@ -559,8 +559,8 @@ class GuiBlogInfo:
         status = Status()
         info_string = ""
 
-        blogs_table = DbTable('blogs')
-        db_values = blogs_table.select(
+        blog_table = DbTable('blog')
+        db_values = blog_table.select(
             where=f"blog='{status.selected_blog}' AND frequency={status.radio_frequency}",
             limit=1,
             hdr_list=['info']
@@ -747,8 +747,8 @@ class GuiPostContent:
         status = Status()
         post_string = f"{status.selected_post}"
 
-        qso_table = DbTable('post')
-        db_values = qso_table.select_latest(
+        post_table = DbTable('post')
+        db_values = post_table.select_latest(
             where=f"blog='{status.selected_blog}' AND post_id={status.selected_post}",
             order_by='post_id',
             limit=1,

@@ -69,18 +69,16 @@ class BlogInstanceFQ(BlogInstance):
 
     freq = None
     snr = None
-    capabilities = None
     latest_post_id = None
     latest_post_date = None
     last_seen = None
     is_selected = None
 
-    blogs_fields = [
+    blog_field = [
         'blog',
         'station',
         'frequency',
         'snr',
-        'capabilities',
         'latest_post_id',
         'latest_post_date',
         'last_seen_date',
@@ -91,14 +89,13 @@ class BlogInstanceFQ(BlogInstance):
         super().__init__(blog_name, blog_station)
         self.freq = blog_freq
 
-        blogs_table = DbTable('blogs')
-        results = blogs_table.select(
+        blog_table = DbTable('blog')
+        results = blog_table.select(
             where=f"blog='{self.name}' AND station='{self.station}' AND frequency={self.freq}",
-            limit=1, hdr_list=self.blogs_fields
+            limit=1, hdr_list=self.blog_fields
         )
         if len(results) > 0:
             self.snr = results[0]['snr']
-            self.capabilities = results[0]['capabilities']
             self.latest_post_id = results[0]['latest_post_id']
             self.latest_post_date = results[0]['latest_post_date']
             self.last_seen = results[0]['last_seen_date']
@@ -113,7 +110,7 @@ class BlogInstanceFQ(BlogInstance):
 
 class ServerMsgProcessors:
 
-    qso_fields = ['qso_date', 'type', 'blog', 'station', 'directed_to', 'frequency',
+    qso_fields = ['qso_date', 'blog', 'station', 'directed_to', 'frequency',
                   'offset', 'cmd', 'rsp', 'post_id', 'post_date', 'title', 'body']
 
     mb_status = None
@@ -146,8 +143,8 @@ class ServerMsgProcessors:
         status = Status()
         if ui_area == 'header':
             status.set_hdr_updated()
-        elif ui_area == 'blogs':
-            status.set_blogs_updated()
+        elif ui_area == 'blog':
+            status.set_blog_updated()
         elif ui_area == 'post_list':
             status.set_post_list_updated()
         elif ui_area == 'post_content':
@@ -171,8 +168,8 @@ class ServerMsgProcessors:
 
     def update_blog_list(self, blog: str, station: str, freq: int, post_id: int, post_date: float = 0):
         # do we have a blog entry for this blog at this station
-        blogs_table = DbTable('blogs')
-        results = blogs_table.select(
+        blog_table = DbTable('blog')
+        results = blog_table.select(
             where=f"blog='{blog}' AND station='{station}' AND frequency={freq}",
             limit=1, hdr_list=['latest_post_id', 'latest_post_date']
         )
@@ -186,7 +183,7 @@ class ServerMsgProcessors:
             # blog list entry, but we do have that detail in the message we are handling.
             if post_id >= latest_post_id:
                 # update the existing entry
-                blogs_table.update(
+                blog_table.update(
                     value_dictionary={
                         'latest_post_id': post_id,
                         'latest_post_date': post_date,
@@ -195,21 +192,21 @@ class ServerMsgProcessors:
                     where=f"blog='{blog}' AND station='{station}' AND frequency={freq}"
                 )
             else:
-                blogs_table.update(
+                blog_table.update(
                     value_dictionary={
                         'last_seen_date': time.time()
                     },
                     where=f"blog='{blog}' AND station='{station}' AND frequency={freq}"
                 )
         else:
-            # no existing blogs entry so create one
-            blogs_table.insert(
+            # no existing blog entry so create one
+            blog_table.insert(
                 row={'blog': blog, 'station': station, 'frequency': freq,
                      'snr': self.snr, 'capabilities': 'LEG', 'post_id': post_id,
                      'latest_post_date': post_date, 'last_seen_date': time.time(),
                      'is_selected': 0}
             )
-        self.signal_reload('blogs')
+        self.signal_reload('blog')
 
     def process_announcement(self, req: list):
         # we need to support two formats of announcement
@@ -281,7 +278,7 @@ class ServerMsgProcessors:
                     where=f"blog='{self.blog}' AND post_id={self.post_id}"
                 )
 
-                row = {'qso_date': self.qso_date, 'type': 'listing', 'blog': self.blog, 'station': self.station,
+                row = {'qso_date': self.qso_date, 'blog': self.blog, 'station': self.station,
                        'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset, 'cmd': self.cmd,
                        'rsp': self.rsp, 'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title,
                        'body': '', 'is_selected': 0}
@@ -293,7 +290,7 @@ class ServerMsgProcessors:
                     where=f"blog='{self.blog}' AND post_id={self.post_id}"
                 )
 
-                row = {'qso_date': self.qso_date, 'type': 'listing', 'blog': self.blog, 'station': self.station,
+                row = {'qso_date': self.qso_date, 'blog': self.blog, 'station': self.station,
                        'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset, 'cmd': self.cmd,
                        'rsp': self.rsp, 'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title,
                        'body': db_values[0]['body'], 'is_selected': db_values[0]['is_selected']}
@@ -332,7 +329,6 @@ class ServerMsgProcessors:
             post_table.insert(
                 row={
                     'qso_date': self.qso_date,
-                    'type': 'post',
                     'blog': status.selected_blog,
                     'station': status.selected_station,
                     'directed_to': '',
@@ -361,22 +357,22 @@ class ServerMsgProcessors:
         info = msg_fields[3]
 
         # push the data into the database
-        blogs_table = DbTable('blogs')
+        blog_table = DbTable('blog')
 
         # do we have the title for this blog
-        db_values = blogs_table.select(
+        db_values = blog_table.select(
             where=f"blog='{blog}' AND frequency={status.radio_frequency}",
             limit=1,
             hdr_list=['info']
         )
 
         if len(db_values) > 0:
-            blogs_table.update(
+            blog_table.update(
                 value_dictionary={'info': info},
                 where=f"blog='{self.blog}' AND frequency={status.radio_frequency}"
             )
             # signal post table update
-            status.set_blogs_updated()
+            status.set_blog_updated()
 
     def parse_rx_message(self, mb_rsp_string: str):
         rsp_patterns = [
@@ -438,7 +434,7 @@ class ServerMsgProcessors:
 
 class BeProcessor:
 
-    post_fields = ['qso_date', 'type', 'blog', 'station', 'directed_to', 'frequency',
+    post_fields = ['qso_date', 'blog', 'station', 'directed_to', 'frequency',
                   'offset', 'cmd', 'rsp', 'post_id', 'post_date', 'title', 'body']
 
     f2b_q = None
@@ -457,8 +453,8 @@ class BeProcessor:
         status = Status()
         if ui_area == 'header':
             status.set_hdr_updated()
-        elif ui_area == 'blogs':
-            status.set_blogs_updated()
+        elif ui_area == 'blog':
+            status.set_blog_updated()
         elif ui_area == 'post_list':
             status.set_post_list_updated()
         elif ui_area == 'post':
@@ -644,9 +640,9 @@ class BeProcessor:
     def process_refresh_cmd(self, req: GuiMessage):
         post_id = req.get_post_id()
         # remove the post from the cache
-        q = DbTable('post')
-        where_clause = f"type='post' AND blog='{req.get_blog()}' AND post_id={post_id} AND body IS NOT NULL"
-        q.delete(where=where_clause)
+        post_table = DbTable('post')
+        where_clause = f"blog='{req.get_blog()}' AND post_id={post_id} AND body IS NOT NULL"
+        post_table.delete(where=where_clause)
 
         # now we've deleted the cache entry, we can process as though it were a GET
         req.cmd = 'G'
@@ -768,7 +764,7 @@ class BeProcessor:
                 )
 
                 # update the selected row
-                b = DbTable('blogs')
+                b = DbTable('blog')
                 b.update(where=None, value_dictionary={'is_selected': 0})
                 b.update(where=f"blog='{blog}' AND station='{station}' AND frequency={frequency}",
                          value_dictionary={'is_selected': 1})
@@ -778,7 +774,7 @@ class BeProcessor:
                     value_dictionary={
                         'hdr_updated': time.time(),
                         'progress_updated': time.time(),
-                        'blogs_updated': time.time()
+                        'blog_updated': time.time()
                     }
                 )
 
@@ -915,7 +911,7 @@ class BeProcessor:
         # check to see if this is a listing, extended listing or post and process accordingly
         processor.parse_rx_message(comms_msg.get_payload())
 
-        self.signal_reload('blogs')
+        self.signal_reload('blog')
         pass
 
     def process_status_radio_frequency(self, comms_msg: CommsMessage):

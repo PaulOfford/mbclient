@@ -1,1 +1,1 @@
-db_file = "C:/Development/microblog/mblog.db"
+db_file = "%AppData%/MbClient/mblog.db"

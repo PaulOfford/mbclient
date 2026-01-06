@@ -1,7 +1,8 @@
 import sqlite3
-
+import os
 import logging
-from db_root import *
+
+db_file = os.getenv('APPDATA') + '/MbClient/mblog.db'
 
 
 class DbTable:
