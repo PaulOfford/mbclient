@@ -1,1 +1,1 @@
-db_file = "%AppData%/MbClient/mblog.db"
+db_path = "%AppData%/MbClient/"

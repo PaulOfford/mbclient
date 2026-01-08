@@ -466,7 +466,7 @@ class GuiBlogList(GuiTable):
         req.set_op('recent')
         req.set_ts()
         self.f2b_q.put(req)
-        logging.logmsg(3, f"fe: {req}")
+        logmsg(3, f"fe: {req}")
 
     # check_for_latest causes MbClient to request an @MB announcement
     def check_for_latest(self):
@@ -478,7 +478,7 @@ class GuiBlogList(GuiTable):
         req.set_op('latest')
         req.set_ts()
         self.f2b_q.put(req)
-        logging.logmsg(3, f"fe: {req}")
+        logmsg(3, f"fe: {req}")
 
     def get_blog_info(self):
         req = GuiMessage()
@@ -489,7 +489,7 @@ class GuiBlogList(GuiTable):
         req.set_op('latest')
         req.set_ts()
         self.f2b_q.put(req)
-        logging.logmsg(3, f"fe: {req}")
+        logmsg(3, f"fe: {req}")
 
     def reload_blog_list(self):
         blog_table = DbTable('blog')
@@ -515,7 +515,7 @@ class GuiBlogList(GuiTable):
         req.set_frequency(self.db_values[row]['frequency'])
         req.set_ts()
         self.f2b_q.put(req)
-        logging.logmsg(3, f"fe: {req}")
+        logmsg(3, f"fe: {req}")
 
     def popup_cb(self, row, event):
         self.clicked_row = row
@@ -561,7 +561,7 @@ class GuiBlogInfo:
 
         blog_table = DbTable('blog')
         db_values = blog_table.select(
-            where=f"blog='{status.selected_blog}' AND frequency={status.radio_frequency}",
+            where=f"blog='{status.selected_blog}' AND frequency={status.radio_frequency} AND info IS NOT NULL",
             limit=1,
             hdr_list=['info']
         )
@@ -646,7 +646,7 @@ class GuiPostListBox(GuiTable):
         req.set_post_id(self.db_values[row]['post_id'])
         req.set_ts()
         self.f2b_q.put(req)
-        logging.logmsg(3, f"fe: {req}")
+        logmsg(3, f"fe: {req}")
 
     def get_more(self):
         status = Status()
@@ -660,7 +660,7 @@ class GuiPostListBox(GuiTable):
         req.set_op('more')
         req.set_ts()
         self.f2b_q.put(req)
-        logging.logmsg(3, f"fe: {req}")
+        logmsg(3, f"fe: {req}")
 
     def refresh_listing(self):
         status = Status()
@@ -674,7 +674,7 @@ class GuiPostListBox(GuiTable):
         req.set_op('eq')
         req.set_ts()
         self.f2b_q.put(req)
-        logging.logmsg(3, f"fe: {req}")
+        logmsg(3, f"fe: {req}")
 
     def refresh_content(self):
         status = Status()
@@ -688,7 +688,7 @@ class GuiPostListBox(GuiTable):
         req.set_op('eq')
         req.set_ts()
         self.f2b_q.put(req)
-        logging.logmsg(3, f"fe: {req}")
+        logmsg(3, f"fe: {req}")
 
     def cb_hdr_click(self, col, event):
         pass
@@ -737,7 +737,7 @@ class GuiPostContent:
         req.set_post_date(0)
         req.set_ts()
         self.f2b_q.put(req)
-        logging.logmsg(3, f"fe: {req}")
+        logmsg(3, f"fe: {req}")
 
     def get_post_cb(self, event):
         status = Status()
@@ -850,7 +850,6 @@ class GuiProgress:
 
             self.progress_box.insert(tk.END, progress_string)
             self.progress_box.see(tk.END)
-            self.prev_is_listing = False
 
         self.progress_box.configure(state=tk.DISABLED)
         return

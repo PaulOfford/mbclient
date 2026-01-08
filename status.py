@@ -1,11 +1,13 @@
 import time
-from db_table import *
+from db_table import DbTable
 
 
 class Status:
-    status_cols = ['last_checked', 'hdr_updated', 'post_updated', 'post_list_updated', 'progress_updated', 'blog_updated',
-                   'radio_frequency', 'user_frequency', 'offset', 'is_scanning', 'req_outstanding', 'callsign',
-                   'selected_blog', 'selected_station', 'selected_post']
+    status_cols = [
+        'last_checked', 'hdr_updated', 'post_updated', 'post_list_updated', 'progress_updated', 'blog_updated',
+        'radio_frequency', 'user_frequency', 'offset', 'is_scanning', 'callsign',
+        'selected_blog', 'selected_station', 'selected_post'
+    ]
 
     last_checked = 0  # timestamp of the last time we checked for updates
     hdr_updated = 0
@@ -38,11 +40,10 @@ class Status:
         self.post_updated = db_values['post_updated']
         self.post_list_updated = db_values['post_list_updated']
         self.progress_updated = db_values['progress_updated']
-        self.blogs_updated = db_values['blog_updated']
+        self.blog_updated = db_values['blog_updated']
         self.radio_frequency = db_values['radio_frequency']
         self.user_frequency = db_values['user_frequency']
         self.is_scanning = db_values['is_scanning']
-        self.req_outstanding = db_values['req_outstanding']
         self.callsign = db_values['callsign']
         self.selected_blog = db_values['selected_blog']
         self.selected_station = db_values['selected_station']

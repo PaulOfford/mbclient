@@ -3,7 +3,7 @@ import re
 
 from settings import *
 from message_q import *
-from logging import *
+from logging import logmsg
 
 
 # compress_date takes epoch as sole argument
@@ -278,10 +278,13 @@ class ServerMsgProcessors:
                     where=f"blog='{self.blog}' AND post_id={self.post_id}"
                 )
 
-                row = {'qso_date': self.qso_date, 'blog': self.blog, 'station': self.station,
-                       'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset, 'cmd': self.cmd,
-                       'rsp': self.rsp, 'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title,
-                       'body': '', 'is_selected': 0}
+                row = {
+                    'qso_date': self.qso_date, 'blog': self.blog, 'station': self.station,
+                    'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset,
+                    'cmd': self.cmd, 'rsp': self.rsp,
+                    'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title, 'body': '',
+                    'is_selected': 0
+                }
                 post_table.insert(row)
 
             elif directed_to == status.callsign:
@@ -290,10 +293,13 @@ class ServerMsgProcessors:
                     where=f"blog='{self.blog}' AND post_id={self.post_id}"
                 )
 
-                row = {'qso_date': self.qso_date, 'blog': self.blog, 'station': self.station,
-                       'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset, 'cmd': self.cmd,
-                       'rsp': self.rsp, 'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title,
-                       'body': db_values[0]['body'], 'is_selected': db_values[0]['is_selected']}
+                row = {
+                    'qso_date': self.qso_date, 'blog': self.blog, 'station': self.station,
+                    'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset,
+                    'cmd': self.cmd, 'rsp': self.rsp,
+                    'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title,
+                    'body': db_values[0]['body'], 'is_selected': db_values[0]['is_selected']
+                }
                 post_table.insert(row)
 
             self.signal_reload('post_list')
@@ -945,7 +951,7 @@ class BeProcessor:
         try:
             fe_msg: GuiMessage = self.f2b_q.get(block=False)
             if fe_msg:
-                logging.logmsg(3, f"backend: {fe_msg.cmd}")
+                logmsg(3, f"backend: {fe_msg.cmd}")
                 self.preprocess(fe_msg)
                 self.f2b_q.task_done()
         except queue.Empty:
@@ -954,7 +960,7 @@ class BeProcessor:
         # check for messages from the comms driver
         try:
             comms_rx: CommsMessage = self.comms_rx_q.get(block=True, timeout=0.1)  # if no msg waiting, throw an except
-            logging.logmsg(3, f"backend: {comms_rx.payload}")
+            logmsg(3, f"backend: {comms_rx.payload}")
             self.process_comms_rx(comms_rx)
             self.comms_rx_q.task_done()
         except queue.Empty:

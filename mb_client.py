@@ -35,9 +35,9 @@ class MbClient:
         if status.hdr_updated > status.last_checked:
             self.header.reload_header()
 
-        if status.blogs_updated > status.last_checked:
+        if status.blog_updated > status.last_checked:
             self.main.reload_blog_list()
-            logging.logmsg(4, "reload_blog_list()")
+            logmsg(4, "reload_blog_list()")
 
         if status.post_list_updated > status.last_checked:
             self.main.reload_post_list_box()
@@ -54,7 +54,7 @@ class MbClient:
 
         try:
             msg: GuiMessage = self.b2f_q.get(block=False)  # if no msg waiting, this will throw an exception
-            logging.logmsg(3, f"frontend: {msg.cmd} {msg.param}")
+            logmsg(3, f"frontend: {msg.cmd} {msg.param}")
             self.status_check()
             self.b2f_q.task_done()
         except queue.Empty:
@@ -88,7 +88,7 @@ class MbClient:
         req.set_frequency(freq)
         req.set_ts()
         self.f2b_q.put(req)
-        logging.logmsg(3, f"fe: {req}")
+        logmsg(3, f"fe: {req}")
 
         pass
 
