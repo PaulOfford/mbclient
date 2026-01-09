@@ -22,22 +22,44 @@ def iso_string_to_epoch(iso_str: str):
     return dt.timestamp()
 
 
-class NewDatabase:
+class MbDatabase:
     db_file = None
     
     def __init__(self):
         self.db_file = get_db_file_spec()
-        logmsg(1, f"db_setup.py: Working with database {self.db_file}")
+        logmsg(1, f"mb_database: Working with database {self.db_file}")
+
+    def determine_version(self):
+        v1_columns = [('settings',), ('status',), ('qso',), ('blogs',), ]
+        v2_columns = [('settings',), ('status',), ('post',), ('blog',), ('progress',)]
+
+        if os.path.exists(self.db_file):
+            db = sqlite3.connect(self.db_file)
+            cursor = db.cursor()
+            with db:
+                sql_cmd = "SELECT name FROM sqlite_master WHERE type='table'"
+                cursor.execute(sql_cmd)
+                rows = cursor.fetchall()
+
+            if rows == v1_columns:
+                version = 1
+            elif rows == v2_columns:
+                version = 2
+            else:
+                version = -1
+        else:
+            version = 0
+
+        return version
 
     def create(self):
         if os.path.exists(self.db_file):
             os.remove(self.db_file)
 
         db = sqlite3.connect(self.db_file)
-
         cursor = db.cursor()
 
-        logmsg(1, "db_setup.py: Creating the progress table")
+        logmsg(1, "mb_database: Creating the progress table")
         cursor.execute("""CREATE TABLE progress (
             qso_date integer,
             blog text,
@@ -47,10 +69,10 @@ class NewDatabase:
             message text
         )""")
 
-        logmsg(1, "db_setup.py: Creating the status table")
+        logmsg(1, "mb_database: Creating the status table")
         cursor.execute("""CREATE TABLE settings (ts float, name text, val text, typ text)""")
 
-        logmsg(1, "db_setup.py: Loading default settings")
+        logmsg(1, "mb_database: Loading default settings")
         with db:
             cursor.execute(
                 "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",
@@ -81,7 +103,7 @@ class NewDatabase:
                 {'ts': time.time(), 'name': 'max_listing', 'val': '5', 'typ': 'integer'}
             )
 
-        logmsg(1, "db_setup.py: Creating the status table")
+        logmsg(1, "mb_database: Creating the status table")
         cursor.execute("""CREATE TABLE status (
             last_checked float,
             hdr_updated float,
@@ -93,19 +115,18 @@ class NewDatabase:
             user_frequency integer,
             offset integer,
             is_scanning integer,
-            req_outstanding integer,
             callsign text,
             selected_blog text,
             selected_station text,
             selected_post integer
         )""")
 
-        logmsg(1, "db_setup.py: Loading default status values")
+        logmsg(1, "mb_database: Loading default status values")
         with db:
             cursor.execute(
                 "INSERT INTO status VALUES ("
                 ":last_checked, :hdr_updated, :post_updated, :post_list_updated, :blog_updated, :progress_updated, "
-                ":radio_frequency, :user_frequency, :offset, :is_scanning, :req_outstanding, "
+                ":radio_frequency, :user_frequency, :offset, :is_scanning, "
                 ":callsign, :selected_blog, :selected_station, :selected_post"
                 ")",
                 {
@@ -119,7 +140,6 @@ class NewDatabase:
                     'user_frequency': 14078000,
                     'offset': 1800,
                     'is_scanning': 0,
-                    'req_outstanding': 0,
                     'callsign': "Pending",
                     'selected_blog': "M0PXO",
                     'selected_station': "",
@@ -127,7 +147,7 @@ class NewDatabase:
                 }
             )
 
-        logmsg(1, "db_setup.py: Creating post table")
+        logmsg(1, "mb_database: Creating post table")
         cursor.execute("""CREATE TABLE post (
             qso_date integer,
             blog text,
@@ -136,7 +156,6 @@ class NewDatabase:
             frequency integer,
             offset integer,
             cmd text,
-            rsp text,
             post_id integer,
             post_date integer,
             title text,
@@ -144,7 +163,7 @@ class NewDatabase:
             is_selected integer
         )""")
 
-        logmsg(1, "db_setup.py: Creating blog table")
+        logmsg(1, "mb_database: Creating blog table")
         cursor.execute("""CREATE TABLE blog (
             blog text,
             station text,
@@ -163,7 +182,7 @@ class NewDatabase:
              'last_seen_date': "2026-01-05 17:15:00", 'info': "Sample server", 'is_selected': 1},
         ]
 
-        logmsg(1, "db_setup.py: Loading list of demo blogs")
+        logmsg(1, "mb_database: Loading list of demo blogs")
         for i, b in enumerate(blog_list):
             with db:
                 cursor.execute(
@@ -191,7 +210,6 @@ class NewDatabase:
                 'frequency': 14078000,
                 'offset': 1500,
                 'cmd': '',
-                'rsp': 'OK',
                 'post_id': 1,
                 'post_date': '2026-01-05 17:10:00',
                 'title': 'Welcome to Microblogging',
@@ -200,12 +218,12 @@ class NewDatabase:
             },
         ]
 
-        logmsg(1, "db_setup.py: Loading welcome info into the post table")
+        logmsg(1, "mb_database: Loading welcome info into the post table")
         for i, q in enumerate(welcome):
             with db:
                 cursor.execute(
                     "INSERT INTO post VALUES (:qso_date, :blog, :station, :directed_to,"
-                    " :frequency, :offset, :cmd, :rsp, :post_id, :post_date, :title, :body, :is_selected)",
+                    " :frequency, :offset, :cmd, :post_id, :post_date, :title, :body, :is_selected)",
                     {
                         'qso_date': iso_string_to_epoch(q['qso_date']),
                         'blog': q['blog'],
@@ -214,7 +232,6 @@ class NewDatabase:
                         'frequency': q['frequency'],
                         'offset': q['offset'],
                         'cmd': q['cmd'],
-                        'rsp': q['rsp'],
                         'post_id': q['post_id'],
                         'post_date': iso_string_to_epoch(q['post_date']),
                         'title': q['title'],
@@ -223,7 +240,7 @@ class NewDatabase:
                     }
                 )
 
-        logmsg(1, "db_setup.py: Closing the database connection")
+        logmsg(1, "mb_database: Closing the database connection")
         db.close()
 
     def migrate_from_v1(self):
@@ -234,47 +251,40 @@ class NewDatabase:
         with db:
             # we need to set one of the posts as selected
             sql_cmd = "SELECT blog, post_id, body FROM qso WHERE type='post'"
-            print(sql_cmd)
+            logmsg(1, f"mb_database: {sql_cmd}")
             cursor.execute(sql_cmd)
             rows = cursor.fetchall()
 
             for row in rows:
                 body = row[2].replace("'", "''")
                 sql_cmd = f"UPDATE qso SET body = '{body}' WHERE blog='{row[0]}' AND post_id={row[1]}"
-                print(sql_cmd)
+                logmsg(1, f"mb_database: {sql_cmd}")
                 cursor.execute(sql_cmd)
 
         # execute the SQL commands in db_migrate.sql
         f = open("./db_migrate.sql", "r")
         for sql_cmd in f.readlines():
-            print(sql_cmd, end='')
+            logmsg(1, f"mb_database: {sql_cmd[0:-2]}")
             with db:
                 cursor.execute(sql_cmd)
 
         with db:
             # we need to set one of the posts as selected
             sql_cmd = "SELECT post_id FROM post ORDER BY post_id DESC LIMIT 1"
-            print(sql_cmd)
-            result = cursor.execute(sql_cmd)
+            logmsg(1, f"mb_database: {sql_cmd}")
+            cursor.execute(sql_cmd)
             last_post = cursor.fetchone()
 
             sql_cmd = f"UPDATE status SET selected_post={last_post[0]}"
-            print(sql_cmd)
-            result = cursor.execute(sql_cmd)
+            logmsg(1, f"mb_database: {sql_cmd}")
+            cursor.execute(sql_cmd)
 
             sql_cmd = f"UPDATE post SET is_selected=1 WHERE post_id={last_post[0]}"
-            print(sql_cmd)
-            result = cursor.execute(sql_cmd)
+            logmsg(1, f"mb_database: {sql_cmd}")
+            cursor.execute(sql_cmd)
 
             sql_cmd = f"UPDATE status SET progress_updated = 0"
-            print(sql_cmd)
-            result = cursor.execute(sql_cmd)
+            logmsg(1, f"mb_database: {sql_cmd}")
+            cursor.execute(sql_cmd)
 
         return
-
-
-if __name__ == "__main__":
-    new_db = NewDatabase()
-    # new_db.create()
-
-    new_db.migrate_from_v1()

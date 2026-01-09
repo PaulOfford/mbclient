@@ -1,36 +1,40 @@
+import time
 import queue
 import tkinter as tk
 from tkinter import ttk
 import tkinter.font as font
 import locale
 import functools as ft
-import re
 
-import status
+from logging import logmsg
+from status import Status
 from _version import __version__
-from settings import *
-from message_q import *
+from settings import Settings
+from db_table import DbTable
+from message_q import GuiMessage
 
+base_font_size = Settings().font_size
 root = tk.Tk()
 window_title = "Microblog Client " + __version__
 root.title(window_title)
-root.geometry(settings.startup_dimensions)
+root.geometry(Settings().startup_dimensions)
 
-font_btn = font.Font(family='Ariel', size=(int(settings.font_size*1.125)), weight='normal')
-font_btn_bold = font.Font(family='Ariel', size=(int(settings.font_size*1.125)), weight='bold')
-font_hdr = font.Font(family='Ariel', size=(int(settings.font_size*1.75)), weight='normal')
-font_freq = font.Font(family='Seven Segment', size=(int(settings.font_size*3)), weight='normal')
-font_main = font.Font(family='Ariel', size=settings.font_size, weight='normal')
-font_main_ul = font.Font(family='Ariel', size=settings.font_size, weight='normal', underline=True)
-font_main_hdr = font.Font(family='Ariel', size=(int(settings.font_size*1.25)), weight='normal')
-font_main_bold = font.Font(family='Ariel', size=settings.font_size, weight='bold')
-font_console = font.Font(family='Courier', size=settings.font_size, weight='normal')
+font_btn = font.Font(family='Ariel', size=(int(base_font_size*1.125)), weight='normal')
+font_btn_bold = font.Font(family='Ariel', size=(int(base_font_size*1.125)), weight='bold')
+font_hdr = font.Font(family='Ariel', size=(int(base_font_size*1.75)), weight='normal')
+font_freq = font.Font(family='Seven Segment', size=(int(base_font_size*3)), weight='normal')
+font_main = font.Font(family='Ariel', size=base_font_size, weight='normal')
+font_main_ul = font.Font(family='Ariel', size=base_font_size, weight='normal', underline=True)
+font_main_hdr = font.Font(family='Ariel', size=(int(base_font_size*1.25)), weight='normal')
+font_main_bold = font.Font(family='Ariel', size=base_font_size, weight='bold')
+font_console = font.Font(family='Courier', size=base_font_size, weight='normal')
 
 
 def settings_window():
     sw = tk.Tk()
     sw.title("Settings")
     sw.geometry("400x320")
+    settings = Settings()
 
     label_list = [
         ('startup_width', 'Window Startup Width:', 'entry', tk.IntVar(sw)),
@@ -225,7 +229,7 @@ class GuiHeader:
         self.reload_header()
 
     def clock_tick(self, curtime=''):  # used for the header clock
-        if settings.use_gmt:
+        if Settings().use_gmt:
             newtime = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
         else:
             newtime = time.strftime('%Y-%m-%d %H:%M:%S')
@@ -364,7 +368,6 @@ class GuiTable:
 
                 headers['widget'].configure(state=tk.DISABLED)
 
-
         # add the blog list Text widgets to the grid
         for row, _ in enumerate(self.table_data):
             for col, blog in enumerate(self.table_data[row]):
@@ -447,7 +450,7 @@ class GuiBlogList(GuiTable):
         self.f2b_q = f2b_q
         self.b2f_q = b2f_q
         super().__init__(
-            frame, self.blog_list_headers, settings.max_blogs, self.cb_row_select, self.cb_hdr_click
+            frame, self.blog_list_headers, Settings().max_blogs, self.cb_row_select, self.cb_hdr_click
         )
 
         # set up the pop up menu
@@ -499,7 +502,7 @@ class GuiBlogList(GuiTable):
             fields.append(field['db_col'])
 
         self.db_values = blog_table.select(
-            order_by='last_seen_date', desc=True, limit=settings.max_blogs, hdr_list=fields
+            order_by='last_seen_date', desc=True, limit=Settings().max_blogs, hdr_list=fields
         )
 
         self.reload_table(self.db_values)
@@ -600,6 +603,8 @@ class GuiPostListBox(GuiTable):
     clicked_row = None  # holds the db_values row number that has been right clicked
 
     def __init__(self, frame: tk.Frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
+        settings = Settings()
+
         # ToDo: this frame needs horizontal and vertical scroll bars
         self.f2b_q = f2b_q
         self.b2f_q = b2f_q
@@ -615,6 +620,7 @@ class GuiPostListBox(GuiTable):
 
     def reload_post_list(self):
         status = Status()
+        # settings = Settings()
 
         post_table = DbTable('post')
 
@@ -625,7 +631,7 @@ class GuiPostListBox(GuiTable):
         self.db_values = post_table.select(
             where=f"blog='{status.selected_blog}'",
             order_by='post_id', desc=True,
-            limit=settings.max_posts,
+            limit=Settings().max_posts,
             hdr_list=fields
         )
 
@@ -830,8 +836,6 @@ class GuiProgress:
 
     def reload_progress_box(self):
 
-        status = Status()
-
         progress_table = DbTable('progress')
         db_values = progress_table.select(
             order_by='qso_date',
@@ -909,7 +913,6 @@ class GuiMain:
 
     def reload_post_content(self):
         self.post_content.reload_post_content()
-
 
     def reload_progress_box(self):
         self.progress.reload_progress_box()

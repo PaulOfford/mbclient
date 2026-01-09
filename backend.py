@@ -1,9 +1,12 @@
+import time
 import queue
 import re
 
-from settings import *
-from message_q import *
 from logging import logmsg
+from status import Status
+from settings import Settings
+from message_q import CommsMessage, GuiMessage
+from db_table import DbTable
 
 
 # compress_date takes epoch as sole argument
@@ -92,7 +95,7 @@ class BlogInstanceFQ(BlogInstance):
         blog_table = DbTable('blog')
         results = blog_table.select(
             where=f"blog='{self.name}' AND station='{self.station}' AND frequency={self.freq}",
-            limit=1, hdr_list=self.blog_fields
+            limit=1, hdr_list=self.blog_field
         )
         if len(results) > 0:
             self.snr = results[0]['snr']
@@ -111,7 +114,7 @@ class BlogInstanceFQ(BlogInstance):
 class ServerMsgProcessors:
 
     qso_fields = ['qso_date', 'blog', 'station', 'directed_to', 'frequency',
-                  'offset', 'cmd', 'rsp', 'post_id', 'post_date', 'title', 'body']
+                  'offset', 'cmd', 'post_id', 'post_date', 'title', 'body']
 
     mb_status = None
     qso_date = 0
@@ -122,7 +125,6 @@ class ServerMsgProcessors:
     offset = 0
     snr = 0
     cmd = ''
-    rsp = ''
     post_id = 0
     post_date = 0
     title = ''
@@ -202,7 +204,7 @@ class ServerMsgProcessors:
             # no existing blog entry so create one
             blog_table.insert(
                 row={'blog': blog, 'station': station, 'frequency': freq,
-                     'snr': self.snr, 'capabilities': 'LEG', 'post_id': post_id,
+                     'snr': self.snr, 'latest_post_id': post_id,
                      'latest_post_date': post_date, 'last_seen_date': time.time(),
                      'is_selected': 0}
             )
@@ -281,7 +283,7 @@ class ServerMsgProcessors:
                 row = {
                     'qso_date': self.qso_date, 'blog': self.blog, 'station': self.station,
                     'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset,
-                    'cmd': self.cmd, 'rsp': self.rsp,
+                    'cmd': self.cmd,
                     'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title, 'body': '',
                     'is_selected': 0
                 }
@@ -296,7 +298,7 @@ class ServerMsgProcessors:
                 row = {
                     'qso_date': self.qso_date, 'blog': self.blog, 'station': self.station,
                     'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset,
-                    'cmd': self.cmd, 'rsp': self.rsp,
+                    'cmd': self.cmd,
                     'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title,
                     'body': db_values[0]['body'], 'is_selected': db_values[0]['is_selected']
                 }
@@ -341,7 +343,6 @@ class ServerMsgProcessors:
                     'frequency': status.radio_frequency,
                     'offset': status.offset,
                     'cmd': 'G',
-                    'rsp': '',
                     'post_id': self.post_id,
                     'post_date': 0.0,
                     'title': f"** {msg_fields[5][:20]}",
@@ -440,14 +441,15 @@ class ServerMsgProcessors:
 
 class BeProcessor:
 
-    post_fields = ['qso_date', 'blog', 'station', 'directed_to', 'frequency',
-                  'offset', 'cmd', 'rsp', 'post_id', 'post_date', 'title', 'body']
+    post_fields = [
+        'qso_date', 'blog', 'station', 'directed_to', 'frequency',
+        'offset', 'cmd', 'post_id', 'post_date', 'title', 'body'
+    ]
 
     f2b_q = None
     b2f_q = None
     comms_tx_q = None
     comms_rx_q = None
-    status = Status()
 
     def __init__(self, f2b_q: queue.Queue, b2f_q: queue.Queue, comms_tx_q: queue.Queue, comms_rx_q: queue.Queue):
         self.f2b_q = f2b_q
@@ -484,7 +486,7 @@ class BeProcessor:
 
     # when we call this function, the post_id_list must contain post_ids in numerical order
     def get_post_from_server(self, req: GuiMessage):
-        self.status.reload_status()  # we'll need status data a bit later
+        status = Status()  # we'll need status data a bit later
 
         # form a request to get the posts in the svr_request_list
         payload = f"G{req.post_id}~"
@@ -493,7 +495,7 @@ class BeProcessor:
 
         mblog_api_req.set_ts(time.time())
         mblog_api_req.set_direction('tx')
-        mblog_api_req.set_source(self.status.callsign)
+        mblog_api_req.set_source(status.callsign)
         mblog_api_req.set_destination(req.blog)
         mblog_api_req.set_snr(0)
         mblog_api_req.set_blog(req.blog)
@@ -515,9 +517,9 @@ class BeProcessor:
         range_end = post_id_list[len(post_id_list) - 1]
 
         # form a sql WHERE clause based on command
-        where_clause  = f"blog='{blog}'"
+        where_clause = f"blog='{blog}'"
         where_clause += f" AND post_id>={range_start} and post_id<={range_end}"
-        where_clause +=  " AND title<>'' and post_date>0"
+        where_clause += " AND title<>'' and post_date>0"
 
         post_table = DbTable('post')
         db_values = post_table.select(
@@ -526,8 +528,6 @@ class BeProcessor:
             order_by='post_id, body, title', desc=True,
             hdr_list=self.post_fields
         )
-
-        self.status.reload_status()  # we'll need status data a bit later
 
         found_post_id = False
         for requested_post_id in post_id_list:
@@ -550,13 +550,15 @@ class BeProcessor:
                 posts_needed += str(post)
 
             # form a request to get the posts in the svr_request_list
+            status = Status()
+
             payload = f"E{posts_needed}~"
             logmsg(3, 'comms: send: ' + str(payload))
             mblog_api_req = CommsMessage()
 
             mblog_api_req.set_ts(time.time())
             mblog_api_req.set_direction('tx')
-            mblog_api_req.set_source(self.status.callsign)
+            mblog_api_req.set_source(status.callsign)
             mblog_api_req.set_destination(station)
             mblog_api_req.set_snr(0)
             mblog_api_req.set_blog(blog)
@@ -569,6 +571,7 @@ class BeProcessor:
         return
 
     def process_list_cmd(self, req: GuiMessage):
+        settings = Settings()
 
         post_ids = []
 
@@ -600,13 +603,15 @@ class BeProcessor:
             self.get_list_via_cache(req, post_ids)
         elif req.get_cmd() == 'D':
             # get the listing info from the server
+            status = Status()
+
             payload = f"E{req.get_post_id()}~"
             logmsg(3, 'comms: send: ' + str(payload))
             mblog_api_req = CommsMessage()
 
             mblog_api_req.set_ts(time.time())
             mblog_api_req.set_direction('tx')
-            mblog_api_req.set_source(self.status.callsign)
+            mblog_api_req.set_source(status.callsign)
             mblog_api_req.set_destination(req.get_station())
             mblog_api_req.set_snr(0)
             mblog_api_req.set_blog(req.get_blog())
@@ -623,7 +628,8 @@ class BeProcessor:
     def process_extended_cmd(self, req: GuiMessage):
         self.process_list_cmd(req)
 
-    def process_fetch_cmd(self, req: GuiMessage) -> None:
+    @staticmethod
+    def process_fetch_cmd(req: GuiMessage) -> None:
         blog = req.get_blog()
         post_id = req.get_post_id()
 
@@ -639,7 +645,8 @@ class BeProcessor:
         )
 
         # ToDo: we know the current post from the post table entry with is_selected set - we don't need another record
-        self.status.set_current_post(post_id)
+        status = Status()
+        status.set_current_post(post_id)
 
         return
 
@@ -656,13 +663,15 @@ class BeProcessor:
         return
 
     def process_query_cmd(self, req: GuiMessage):
-        payload = f"Q"
+        status = Status()
+
+        payload = f"{req.get_cmd()}"
         logmsg(3, 'comms: send: ' + str(payload))
         mblog_api_req = CommsMessage()
 
         mblog_api_req.set_ts(time.time())
         mblog_api_req.set_direction('tx')
-        mblog_api_req.set_source(self.status.callsign)
+        mblog_api_req.set_source(status.callsign)
         mblog_api_req.set_destination('@MB')
         mblog_api_req.set_snr(0)
         mblog_api_req.set_blog('@MB')
@@ -674,13 +683,15 @@ class BeProcessor:
         return
 
     def process_info_cmd(self, req: GuiMessage):
+        status = Status()
+
         payload = f"INFO?"
         logmsg(3, 'comms: send: ' + str(payload))
         mblog_api_req = CommsMessage()
 
         mblog_api_req.set_ts(time.time())
         mblog_api_req.set_direction('tx')
-        mblog_api_req.set_source(self.status.callsign)
+        mblog_api_req.set_source(status.callsign)
         mblog_api_req.set_destination(req.get_blog())
         mblog_api_req.set_snr(0)
         mblog_api_req.set_blog(req.get_blog())
@@ -692,13 +703,15 @@ class BeProcessor:
         return
 
     def process_weather_cmd(self, req: GuiMessage):
+        status = Status()
+
         payload = f"WX~"
         logmsg(3, 'comms: send: ' + str(payload))
         mblog_api_req = CommsMessage()
 
         mblog_api_req.set_ts(time.time())
         mblog_api_req.set_direction('tx')
-        mblog_api_req.set_source(self.status.callsign)
+        mblog_api_req.set_source(status.callsign)
         mblog_api_req.set_destination(req.get_station())
         mblog_api_req.set_snr(0)
         mblog_api_req.set_blog(req.get_blog())

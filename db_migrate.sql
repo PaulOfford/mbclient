@@ -1,5 +1,6 @@
 ALTER TABLE blogs ADD COLUMN info text;
 ALTER TABLE blogs RENAME TO blog;
+ALTER TABLE blog DROP COLUMN capabilities;
 DELETE FROM qso WHERE type='cmd' OR type='progress' OR type='post';
 DELETE FROM qso WHERE rowid NOT IN (select FIRST_VALUE(rowid) OVER (PARTITION BY blog, post_id ORDER BY blog, post_id, post_date DESC) FROM qso);
 DELETE FROM qso WHERE hex(title) LIKE '%E280%';

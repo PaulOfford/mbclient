@@ -1,4 +1,5 @@
 import time
+from datetime import datetime as dt
 from db_table import DbTable
 
 
@@ -19,7 +20,6 @@ class Status:
     user_frequency = 0
     offset = 0
     is_scanning = False
-    req_outstanding = False
     callsign = ""
     selected_blog = ""
     selected_station = ""
@@ -27,6 +27,12 @@ class Status:
 
     def __init__(self):
         self.reload_status()
+
+    def get_epoch_fractional(self):
+        result = 0.0
+        result = dt.now().timestamp()
+
+        return result
 
     def reload_status(self):
         status_table = DbTable('status')
@@ -51,7 +57,7 @@ class Status:
 
     def update_last_checked(self):
         status_table = DbTable('status')
-        status_table.update(value_dictionary={'last_checked': time.time()})
+        status_table.update(value_dictionary={'last_checked': dt.now().timestamp()})
         self.reload_status()
 
     def set_selected_blog(self, blog: str, station: str):
@@ -62,27 +68,27 @@ class Status:
 
     def set_hdr_updated(self):
         status_table = DbTable('status')
-        status_table.update(value_dictionary={'hdr_updated': time.time()})
+        status_table.update(value_dictionary={'hdr_updated': dt.now().timestamp()})
         self.reload_status()
 
     def set_blog_updated(self):
         status_table = DbTable('status')
-        status_table.update(value_dictionary={'blog_updated': time.time()})
+        status_table.update(value_dictionary={'blog_updated': dt.now().timestamp()})
         self.reload_status()
 
     def set_post_list_updated(self):
         status_table = DbTable('status')
-        status_table.update(value_dictionary={'post_list_updated': time.time()})
+        status_table.update(value_dictionary={'post_list_updated': dt.now().timestamp()})
         self.reload_status()
 
     def set_post_updated(self):
         status_table = DbTable('status')
-        status_table.update(value_dictionary={'post_updated': time.time()})
+        status_table.update(value_dictionary={'post_updated': dt.now().timestamp()})
         self.reload_status()
 
     def set_progress_updated(self):
         status_table = DbTable('status')
-        status_table.update(value_dictionary={'progress_updated': time.time()})
+        status_table.update(value_dictionary={'progress_updated': dt.now().timestamp()})
         self.reload_status()
 
     def set_current_blog(self, blog: str, station: str, frequency: int):
