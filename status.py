@@ -1,4 +1,3 @@
-import time
 from datetime import datetime as dt
 from db_table import DbTable
 
@@ -27,12 +26,6 @@ class Status:
 
     def __init__(self):
         self.reload_status()
-
-    def get_epoch_fractional(self):
-        result = 0.0
-        result = dt.now().timestamp()
-
-        return result
 
     def reload_status(self):
         status_table = DbTable('status')

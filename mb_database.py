@@ -30,14 +30,14 @@ class MbDatabase:
         logmsg(1, f"mb_database: Working with database {self.db_file}")
 
     def determine_version(self):
-        v1_columns = [('settings',), ('status',), ('qso',), ('blogs',), ]
-        v2_columns = [('settings',), ('status',), ('post',), ('blog',), ('progress',)]
+        v1_columns = [('blogs',), ('qso',), ('settings',), ('status',)]
+        v2_columns = [('blog',), ('post',), ('progress',), ('settings',), ('status',)]
 
         if os.path.exists(self.db_file):
             db = sqlite3.connect(self.db_file)
             cursor = db.cursor()
             with db:
-                sql_cmd = "SELECT name FROM sqlite_master WHERE type='table'"
+                sql_cmd = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
                 cursor.execute(sql_cmd)
                 rows = cursor.fetchall()
 

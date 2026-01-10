@@ -130,6 +130,8 @@ class ServerMsgProcessors:
     title = ''
     body = ''
 
+    rsp = ''
+
     # we use __init__ to preload some metadata we will need to create a qso entry
     def __init__(self, js8_msg: CommsMessage, b2f_q: queue.Queue):
         self.b2f_q = b2f_q
@@ -825,6 +827,15 @@ class BeProcessor:
         msg_prefix = "BeProcessor:preprocess: "
 
         if command == 'X':
+            # we have to give the comms interface a kick to get its thread to shutdown
+            comms_sig = CommsMessage()
+            comms_sig.set_ts(time.time())
+            comms_sig.set_direction('tx')
+            comms_sig.set_typ('control')
+            comms_sig.set_target('set')
+            comms_sig.set_obj('exit')
+            self.comms_tx_q.put(comms_sig)
+
             logmsg(1, f"{msg_prefix}{command}")
             add_progress(command)
             exit(0)

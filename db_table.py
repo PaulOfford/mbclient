@@ -158,7 +158,7 @@ class DbTable:
                 query += ", "
 
             try:
-                value_int = int(value)  # this tests for int and float values
+                int(value)  # this tests for int and float values
                 query += f"{key}={value}"
             except ValueError:
                 query += f"{key}='{value}'"
