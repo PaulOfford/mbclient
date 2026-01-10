@@ -127,6 +127,7 @@ class ScrollableFrame(ttk.Frame):
 
 class GuiHeader:
 
+    use_gmt = True
     gui_fonts = None
     freq_text = None
     offset_text = None
@@ -139,8 +140,10 @@ class GuiHeader:
     clock_label = None
 
     def __init__(self, header_frame):
+        settings = Settings()
 
-        self.gui_fonts = MbFonts()
+        self.use_gmt = settings.use_gmt
+        self.gui_fonts = MbFonts(settings.font_size)
         self.freq_text = tk.StringVar()
         self.offset_text = tk.StringVar()
         self.callsign_text = tk.StringVar()
@@ -223,7 +226,7 @@ class GuiHeader:
         self.reload_header()
 
     def clock_tick(self, curtime=''):  # used for the header clock
-        if Settings().use_gmt:
+        if self.use_gmt:
             newtime = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
         else:
             newtime = time.strftime('%Y-%m-%d %H:%M:%S')
@@ -276,7 +279,6 @@ class GuiHeader:
 
     def reload_header(self):
         self.set_frequency()
-        junk = self.freq_text.get()
         self.set_offset()
         self.set_callsign()
 
@@ -318,7 +320,7 @@ class GuiTable:
         return value
 
     def __init__(self, frame, column_defs, max_rows: int, select_method, hdr_click_method):
-        self.gui_fonts = MbFonts()
+        self.gui_fonts = MbFonts(Settings().font_size)
         self.table_headers = column_defs
         self.select_cb = select_method
         self.hdr_click_cb = hdr_click_method
@@ -531,7 +533,7 @@ class GuiBlogInfo:
     progress_cols = ['qso_date', 'blog', 'station', 'frequency', 'offset', 'message']
 
     def __init__(self, frame: tk.Frame):
-        self.gui_fonts = MbFonts()
+        self.gui_fonts = MbFonts(Settings().font_size)
 
         blog_info_box_hdr = tk.Label(
             frame,
@@ -704,7 +706,7 @@ class GuiPostContent:
     post_cols = ['qso_date', 'post_id', 'post_date', 'title', 'body', 'is_selected']
 
     def __init__(self, frame: tk.Frame, f2b_q: Queue):
-        self.gui_fonts = MbFonts()
+        self.gui_fonts = MbFonts(Settings().font_size)
         self.f2b_q = f2b_q
 
         post_content_hdr = tk.Label(
@@ -810,7 +812,7 @@ class GuiProgress:
         self.progress_box.unbind_all('<MouseWheel>')
 
     def __init__(self, frame: tk.Frame):
-        self.gui_fonts = MbFonts()
+        self.gui_fonts = MbFonts(Settings().font_size)
 
         progress_box_hdr = tk.Label(
             frame,

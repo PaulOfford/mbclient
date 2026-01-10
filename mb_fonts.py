@@ -14,7 +14,7 @@ class MbFonts:
     font_main_bold = None
     font_console = None
 
-    def __init__(self):
+    def __init__(self, base_font_size):
         base_font_size = Settings().font_size
         self.font_btn = font.Font(family='Ariel', size=(int(base_font_size*1.125)), weight='normal')
         self.font_btn_bold = font.Font(family='Ariel', size=(int(base_font_size*1.125)), weight='bold')
