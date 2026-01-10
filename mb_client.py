@@ -1,6 +1,7 @@
 import time
 import threading
 import shutil
+import tkinter as tk
 from queue import Queue
 
 from logging import logmsg
@@ -18,6 +19,8 @@ class MbClient:
     be_t = None  # thread anchor
     comms_t = None  # thread anchor
 
+    main = None
+
     def __init__(self):
         # start backend thread
         backend = Backend(self.f2b_q, self.b2f_q, self.comms_tx_q, self.comms_rx_q)
@@ -27,7 +30,6 @@ class MbClient:
         comms = Js8CallDriver(self.comms_tx_q, self.comms_rx_q)
         self.comms_t = threading.Thread(target=comms.run_comms)
         self.comms_t.start()
-
 
     def start_gui(self):
         self.main = GuiMain(f2b_q=self.f2b_q, b2f_q=self.b2f_q)

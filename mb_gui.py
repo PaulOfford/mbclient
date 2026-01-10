@@ -1,5 +1,6 @@
 import time
 import tkinter as tk
+import tkinter.font as font
 from tkinter import ttk
 import locale
 import functools as ft
@@ -10,8 +11,10 @@ from logging import logmsg
 from status import Status
 from settings import Settings
 from db_table import DbTable
-from message_q import GuiMessage, CommsMessage
+from message_q import GuiMessage
 from mb_fonts import MbFonts
+
+root = tk.Tk()
 
 
 def settings_window():
@@ -136,6 +139,7 @@ class GuiHeader:
     clock_label = None
 
     def __init__(self, header_frame):
+
         self.gui_fonts = MbFonts()
         self.freq_text = tk.StringVar()
         self.offset_text = tk.StringVar()
@@ -855,7 +859,6 @@ class GuiProgress:
 
 
 class GuiMain:
-    root = None  # points to the tkinter top object
 
     f2b_q = None
     b2f_q = None
@@ -870,15 +873,13 @@ class GuiMain:
         self.f2b_q = f2b_q
         self.b2f_q = b2f_q
 
-        self.root = tk.Tk()  # root is our one and only global variable
-
         window_title = "Microblog Client " + __version__
-        self.root.title(window_title)
-        self.root.geometry(Settings().startup_dimensions)
+        root.title(window_title)
+        root.geometry(Settings().startup_dimensions)
 
         # set up the menu bar
-        top_menu = tk.Menu(self.root, tearoff=False)
-        self.root.config(menu=top_menu)
+        top_menu = tk.Menu(root, tearoff=False)
+        root.config(menu=top_menu)
 
         file_menu = tk.Menu(top_menu, tearoff=False)
         top_menu.add_cascade(label='File', menu=file_menu)
@@ -901,9 +902,9 @@ class GuiMain:
         band_menu.add_command(label='2m:     144.178 000 MHz', command=ft.partial(self.set_frequency, 144178000))
 
         # we need to ensure closing the window stops the backend
-        self.root.protocol("WM_DELETE_WINDOW", self.client_shutdown)
+        root.protocol("WM_DELETE_WINDOW", self.client_shutdown)
 
-        frame_container = tk.Frame(self.root)
+        frame_container = tk.Frame(root)
         frame_container.pack(fill='both', expand=1, side='top', anchor='n')
 
         frame_hdr = tk.Frame(frame_container, background="black", height=100, pady=10)
@@ -961,13 +962,12 @@ class GuiMain:
         self.reload_post_content()
         self.reload_progress_box()
 
-        self.root.after(200, self.process_updates)
+        root.after(200, self.process_updates)
 
         if self.stop:
             return
 
-        self.root.mainloop()
-
+        root.mainloop()
 
     def status_check(self):
         # we have had a message from the backend -> check for updated sections
@@ -998,7 +998,7 @@ class GuiMain:
         be_sig.set_op('exit')
         self.f2b_q.put(be_sig)
 
-        self.root.destroy()
+        root.destroy()
 
         self.stop = True
 
@@ -1011,6 +1011,7 @@ class GuiMain:
         logmsg(3, f"fe: {req}")
 
         pass
+
     def process_updates(self):
 
         try:
@@ -1024,8 +1025,7 @@ class GuiMain:
         if self.stop:
             return
 
-        self.root.after(200, self.process_updates)
-
+        root.after(200, self.process_updates)
 
     def reload_blog_list(self):
         self.blog_list.reload_blog_list()
