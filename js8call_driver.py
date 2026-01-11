@@ -5,11 +5,11 @@
 # of it.  The author(s) accept no responsibility for violation of any radio or amateur radio regulations
 # resulting from the use of the program code.
 from socket import socket, AF_INET, SOCK_STREAM
-
 import queue
-import message_q
-from logging import *
-from message_q import *
+
+from status import Status
+from logging import logmsg, current_log_level
+from message_q import CommsMessage
 from client_mocking import js8call_mock_listen
 
 import json
@@ -137,7 +137,7 @@ class Js8CallDriver:
         self.js8call_api.send('RIG.SET_FREQ', **kwargs)
         pass
 
-    def process_comms_tx(self, message: message_q.CommsMessage):
+    def process_comms_tx(self, message: CommsMessage):
         # msg = {'ts': 0.0, 'req_ts': 0.0, 'direction': '', 'source': "", 'destination': "", 'frequency': 0,
         #        'snr': 0, 'typ': "", 'target': '', 'obj': "", 'payload': "", 'rc': 0}
 
@@ -157,7 +157,7 @@ class Js8CallDriver:
     def process_tx_q(self):
         try:
             comms_tx: CommsMessage = self.comms_tx_q.get(block=False)  # if no msg waiting, this will throw an exception
-            logging.logmsg(3, f"js8drv: debug: {comms_tx.payload}")
+            logmsg(3, f"js8drv: debug: {comms_tx.payload}")
             self.process_comms_tx(comms_tx)
             self.comms_tx_q.task_done()
         except queue.Empty:

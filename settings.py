@@ -3,6 +3,8 @@ from db_table import *
 
 
 class Settings:
+    db_file = None
+
     settings_cols = ['ts', 'name', 'val', 'typ']
     startup_width = None
     startup_height = None
@@ -73,6 +75,3 @@ class Settings:
             self.set_setting('use_gmt', 1)
         else:
             self.set_setting('use_gmt', 0)
-
-# ToDo: pivot this table to contain one row per setting; each row a key/value pair
-settings = Settings()

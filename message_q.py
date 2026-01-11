@@ -1,5 +1,4 @@
-from status import *
-
+import time
 
 class GuiMessage:
 
