@@ -13,17 +13,17 @@
             <li><a href="#intro">Introduction</a></li>
             <li><a href="#post_file">Microblog Post File</a></li>
             <li><a href="#function">MbClient Functionality</a></li>
-            <li><a href="#interface">Interface Layout</a></li>
-            <li><a href="#commands">Commands</a></li>
+            <li><a href="#interface">Getting Started</a></li>
             <li><a href="#settings">Settings</a></li>
-            <li><a href="#tips">Tips and Tricks</a></li>
+            <li><a href="#tips">Tips, Tricks and FAQs</a></li>
+            <li><a href="#installation">Installing and Running MbClient</a></li>
         </ul>
         <h2 id="intro">Introduction</h2>
         <p>Blogging is a popular way to share information with Internet users by posting short articles in an
             <i>ad hoc</i> manner.  In an emergency situation, blogging could provide a way to disseminate critical
             information if it weren't for the fact that Internet access is often unavailable is such situations.</p>
         <p>The use of radio for emergency communications is well understood and, of course, is always available.
-            JS8 is a radio data mode that works in a wide range of conditions.  With all the above in mind, let's
+            JS8 is a radio data mode that works in weak signal conditions.  With all the above in mind, let's
             move onto the concept of microblogging.</p>
         <p><img src="images/MbloggingOverview.jpg" width="640" /></p>
         <p>A microblog is a blog that contains small concise posts that are delivered to amateur radio operators
@@ -104,31 +104,32 @@
         <p>The MbClient app has the following capabilities:</p>
         <ul>
             <li><b>Blog List</b> - maintain a list of available blogs by monitoring @MB Announcement messages*</li>
-            <li><b>Post List</b> - show a list the posts of a blog providing Post ID, Post Date and Post Title</li>
-            <li><b>Post Content</b> - show the contents of a post from the server and display it</li>
+            <li><b>Post List</b> - show a list of the posts of a blog providing Post ID, Post Date and Post Title</li>
+            <li><b>Post Content</b> - show the contents of a post</li>
             <li><b>Caching</b> - save any retrieved listings or posts in a database for instant display in the
                 future</li>
             <li><b>Promiscuous Caching</b> - save listings and posts sent to other users for instant display by you
                 in the future</li>
         </ul>
         <p style="font-size: 80%">* @MB Announcement - Each microblog server periodically sends to the JS8 group @MB
-            an announcement message containing the blog name, latest Post ID and latest Post Date</p>
-        <h2 id="interface">Using MbClient</h2>
+            an announcement message containing the blog name, the latest Post ID and the latest Post Date</p>
+
+        <h2 id="interface">Getting Started</h2>
         <p><img src="images/InterfaceLayout.jpg" width="640" /></p>
         <p>Before we look at how you get MbClient to do something (perform an action), let's look at
             the layout of the display. The window has five areas:</p>
         <ul>
-            <li><b>Header</b> - this area displays the rig frequency setting, the JS8Call offset, the client call sign,
+            <li><b>Header</b> - displays the rig frequency setting, the JS8Call offset, your call sign,
                 the GMT (UTC) date and time, and a Scan button</li>
-            <li><b>Blog List</b> - this area lists the blogs that have been seen and should be available to you
+            <li><b>Blog List</b> - lists the blogs that have been seen and should be available to you
                 - the currently selected blog is highlighted in blue</li>
-            <li><b>Blog Info</b> - this area shows information about the selected blog if it's available in
+            <li><b>Blog Info</b> - shows information about the selected blog if it's available in
                 the cache</li>
-            <li><b>Post List</b> - this area lists all the posts we have in the cache for the selected blog
+            <li><b>Post List</b> - lists all the posts we have in the cache for the selected blog
                 - the currently selected post is highlighted in blue</li>
-            <li><b>Post Content</b> - this area displays the content of the selected post, if it's available in
+            <li><b>Post Content</b> - displays the content of the selected post, if it's available in
                 the cache</li>
-            <li><b>Progress Info</b> - this area shows the flow of commands and responses in real time, so
+            <li><b>Progress Info</b> - shows the flow of commands and responses in real time, so
                 you know something is happening when you perform an action</li>
         </ul>
         <p>Navigating around the display is very simple:</p>
@@ -177,9 +178,109 @@
             The log messages will also obey this setting.
             Default - Checked</p>
         <p>A change the settings will only take effect after restarting the MbClient.</p>
-        <h2 id="tips">Tips and Tricks</h2>
-        <h3>To be completed</h3>
-        <p>To be completed.</p>
+
+        <h2 id="tips">Tips, Tricks and FAQs</h2>
+        <h3>Incomplete Post Listing</h3>
+        <p><img src="images/incomplete_listing.jpg" width="640" /></p>
+        <p>Maybe a post in the Post Listing ends with elipses (periods) and appears incomplete (see post 62 above).
+            In this case you will need to refresh the list entry.  To do this, right-click on the list entry
+            and choose <em>Refresh listing</em>.</p>
+        <h3>Incomplete Post Content</h3>
+        <p>Maybe the content of a post ends with elipses (periods) and appears incomplete.
+            In this case you will need to refresh the post content.  To do this, right-click on the post list entry
+            and choose <em>Refresh content</em>.</p>
+        <h3>I only have a receiver</h3>
+        <p>You can still use the MbClient if you only have a receiver, or don't have an Amateur Radio license to
+            allow you to transmit.  This is what you need to do:</p>
+        <ul>
+            <li>Install JS8 on your computer</li>
+            <li>Connect the speaker output from your radio to the line in on your computer</li>
+            <li>In JS8Call settings -
+                <ul>
+                    <li>Under the Radio tab, choose Rig: None<br/>
+                        (assuming JS8Call is unable to control your radio)</li>
+                    <li>Under the Audio tab, choose Input: your computer's line input</li>
+                    <li>Click OK</li>
+                </ul>
+            </li>
+            <li>Choose a frequency in JS8Call</li>
+            <li>Manually set the radio to the same frequency<br/>
+                (again, assuming JS8Call is unable to control your radio)</li>
+            <li>Install MbClient</li>
+            <li>Start MbClient</li>
+            <li>Leave running for a long period to pick-up information requested by others</li>
+        </ul>
+        <p>Because MbClient runs in a promiscuous mode, it will use any microblog information to populate
+            its cache.  As your radio receives microblog messages, you should start to see entries in
+            the Blog List and Post List.</p>
+        <h3>I only see five new posts</h3>
+        <p><img src="images/get_recent.jpg" width="640" /></p>
+        <p>Imagine you have a blog that shows the latest Post ID is 67.  You have no post details for this
+            blog and so you use <em>Get recent</em> to get all the missing blogs.  To your surprise the
+            Post List only shows posts 63 to 67.  Why did I only get details for five posts?</p>
+        <p>The number of posts received when you use <em>Get recent</em> or <em>Get more</em> is
+            controlled by the MbClient setting <em>Max Listing</em>, which defaults to 5.  You can
+            increase this number but there are a few points to bear in mind:</p>
+        <ol>
+            <li>Getting any information from the server takes some time and if you increase the
+                <em>Max Listing</em> setting, it will take even longer.</li>
+            <li>The more time your station spends on the server, the less chance others have to access it.</li>
+            <li>The longer the transmission time, the more likely the response will be corrupt.</li>
+        </ol>
+        <p>It's better if you get five entries and then use <em>Get more posts</em> to populate the list further.</p>
+        <h3>I thought I could access a microblog server without MbClient</h3>
+        <p>You can access a microblog server just using JS8Call.  Simply direct your messages to the station running
+            the server and send commands to the server.</p>
+        <p><img src="images/GetDisplayed.jpg" width="640" /></p>
+        <p>Here are some useful commands:</p>
+        <ul>
+            <li>M.E - lists the five latest posts - see picture above</li>
+            <li>G <i>n</i> - gets the contents of post number <i>n</i>, e.g. M.G 67 - see picture above</li>
+            <li>M.E > <i>n</i> - list the five posts that came after post <i>n</i>, e.g. M.E > 57
+             - see picture below</li>
+        </ul>
+        <p><img src="images/ListingDisplayed.jpg" width="640" /></p>
+
+        <h2 id="installation">Installing and Running MbClient</h2>
+        <h3>Prerequisites</h3>
+        <ol>
+            <li>A transceiver that can tune to JS8Call frequencies, or a radio that can tune to these frequencies
+                if you plan to operate in listen only mode.</li>
+            <li>A Windows 10, Windows 11, Apple Mac or Linux computer</li>
+            <li>JS8Call 2.2 or later</li>
+            <li>Python 3 - see https://www.python.org/downloads/</li>
+            <li>Sqlite 3 - see https://sqlite.org/download.html</li>
+        </ol>
+        <h3>Download</h3>
+        <p>You can download the MbClient from a GitHub repository:</p>
+        <ul>
+            <li>In your web browser, go to https://github.com/PaulOfford/mbclient</li>
+            <li>Click on the greed Code button and choose Download Zip</li>
+            <li>Extract the zip file to a folder of your choosing</li>
+            <li>Check the database path specified in db_root.py and change if appropriate</li>
+        </ul>
+        <p>In the previous version of MbClient, you were required to run a database setup script (db_setup.py).
+            This is no longer needed.  The first time you run this version of MbClient it will create the database.
+            If it finds an old version of the database, MbClient will create a backup and then
+            perform a one-time conversion to a new database layout.  The conversion retains the list of blogs
+            the previous version saw, the list of posts for each blog and the content of the posts.</p>
+        <p>The default location for the database is %AppData%\MbClient and is set by the db_path variable
+            in db_root.py.
+            This location is appropriate for Windows and is aligned with the current standard way of
+            storing data for personal applications.  I recommend that you don't change it.  The
+            path will need to be changed for MacOS and Linux as the %AppData% environment variable is
+            invalid for those operating systems.</p>
+        <p>If you want MbClient to convert an earlier version database, once you have set the database
+            location (db_path) in db_root.py, you should move the old database file to that location.
+            The old database file must be called mblog.db and so rename it if needed.</p>
+        <h3>Running MbClient</h3>
+        <p>To use MbClient, do the following:</p>
+        <ol>
+            <li>Start JS8Call</li>
+            <li>Start MbClient by opening a Command Box (Windows) or Terminal (Linux), navigating to the folder
+                containing the MbClient code and entering the command <pre>python3 mb_client.py</pre></li>
+        </ol>
+        <p>You may want to add a .bat or shell script file to your desktop to start MbClient.</p>
     </div>
 </body>
 </html>
