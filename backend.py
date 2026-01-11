@@ -208,7 +208,7 @@ class ServerMsgProcessors:
                 row={'blog': blog, 'station': station, 'frequency': freq,
                      'snr': self.snr, 'latest_post_id': post_id,
                      'latest_post_date': post_date, 'last_seen_date': time.time(),
-                     'is_selected': 0}
+                     'is_selected': 0, 'info': ''}
             )
         self.signal_reload('blog')
 
