@@ -192,8 +192,33 @@ class Js8CallDriver:
                     value = message.get('value', '')
                     params = message.get('params', {})
 
+                    rx_data = CommsMessage()
+                    rx_data.set_ts(float(params.get('_ID')) / 1000)
+                    rx_data.set_direction('rx')
+                    rx_data.set_typ('signal')
+                    rx_data.set_target('frontend')
+                    rx_data.set_obj('GuiHeader')
+                    rx_data.set_payload('flash_rx')
+                    self.comms_rx_q.put(rx_data)
+
                     if not typ:
                         continue
+
+                    elif typ == 'RIG.PTT':
+                        if value == 'on':
+                            payload = 'ptt_on'
+                        else:
+                            payload = 'ptt_off'
+
+                        logmsg(3, payload)
+                        rx_data = CommsMessage()
+                        rx_data.set_ts(float(params.get('_ID')) / 1000)
+                        rx_data.set_direction('rx')
+                        rx_data.set_typ('signal')
+                        rx_data.set_target('frontend')
+                        rx_data.set_obj('GuiHeader')
+                        rx_data.set_payload(payload)
+                        self.comms_rx_q.put(rx_data)
 
                     elif typ == 'STATION.CALLSIGN':
                         logmsg(3, 'comms: rsp: ' + value)
