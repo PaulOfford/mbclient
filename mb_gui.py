@@ -12,6 +12,7 @@ from settings import Settings
 from db_table import DbTable
 from message_q import GuiMessage
 from mb_fonts import MbFonts
+from backend import add_progress
 
 root = tk.Tk()
 
@@ -136,9 +137,12 @@ class GuiHeader:
     scan_btn = None
     clock_label = None
 
+    tx_indicator = None
+    rx_indicator = None
+
     js8_freqs = [1.842, 3.578, 7.078, 10.130, 14.078, 18.104, 21.078, 24.922, 27.245, 28.078, 50.318]
 
-    scan_duration = 120
+    scan_duration: float = 120.0
     scan_timeout: float = 0.0
 
     def __init__(self, header_frame, f2b_q: Queue):
@@ -218,13 +222,26 @@ class GuiHeader:
         # Blank Cell
         frame_cell_6 = tk.Frame(frame_hdr_right, bg='black')
         frame_cell_6.pack(expand=True, fill='both')
-        hdr_blank = tk.Label(
+
+        self.tx_indicator = tk.Button(
             frame_cell_6,
-            text='',
-            bg='black', fg='white',
-            font=self.gui_fonts.font_hdr
+            text='Tx',
+            font=self.gui_fonts.font_btn_bold,
+            bg='#22ff23', height=1, width=4,
+            relief='flat',
+            command=self.run_scan
         )
-        hdr_blank.pack()
+        self.tx_indicator.pack(side=tk.LEFT)
+
+        self.rx_indicator = tk.Button(
+            frame_cell_6,
+            text='Rx',
+            font=self.gui_fonts.font_btn_bold,
+            bg='#22ff23', height=1, width=4,
+            relief='flat',
+            command=self.run_scan
+        )
+        self.rx_indicator.pack(side=tk.RIGHT)
 
         self.reload_header()
 
@@ -237,6 +254,10 @@ class GuiHeader:
         if newtime != curtime:
             curtime = newtime
             self.clock_label.config(text=curtime)
+
+        if self.scan_timeout > 0 and time.time() > self.scan_timeout:
+            self.reset_scan()
+
         self.clock_label.after(200, self.clock_tick, curtime)
 
     def run_scan(self):
@@ -251,17 +272,16 @@ class GuiHeader:
             req.set_op('latest')
             req.set_ts()
             self.f2b_q.put(req)
-            logmsg(3, f"fe: {req}")
+            logmsg(3, f"mb_gui: {req}")
 
             self.scan_btn.configure(bg='#ff2222')
             self.scan_timeout = time.time() + self.scan_duration
             logmsg(1, f"mb_gui: Scan started")
 
     def reset_scan(self) -> None:
-        if self.scan_timeout > 0 and time.time() > self.scan_timeout:
-            self.scan_btn.configure(bg='#22ff23')
-            self.scan_timeout = 0
-            logmsg(1, f"mb_gui: End of scan period")
+        self.scan_btn.configure(bg='#22ff23')
+        self.scan_timeout = 0
+        logmsg(1, f"mb_gui: End of scan period")
 
 
     def set_frequency(self):
@@ -296,6 +316,18 @@ class GuiHeader:
         )
 
         self.callsign_text.set(db_values[0]['callsign'])
+
+    def flash_tx_start(self):
+        self.tx_indicator.configure(bg='#ff2222')
+
+    def flash_tx_stop(self):
+        self.tx_indicator.configure(bg='#22ff23')
+
+    def flash_rx_start(self):
+        self.rx_indicator.configure(bg='#ff2222')
+
+    def flash_rx_stop(self):
+        self.rx_indicator.configure(bg='#22ff23')
 
     def reload_header(self):
         self.set_frequency()
@@ -1038,17 +1070,29 @@ class GuiMain:
 
         try:
             msg: GuiMessage = self.b2f_q.get(block=False)  # if no msg waiting, this will throw an exception
-            logmsg(3, f"frontend: {msg.cmd} {msg.param}")
 
-            self.status_check()
+            if msg.get_op() == 'flash_rx_start':
+                self.header.flash_rx_start()
+
+            elif msg.get_op() == 'flash_rx_stop':
+                self.header.flash_rx_stop()
+
+            elif msg.get_op() == 'ptt_on':
+                self.header.flash_tx_start()
+
+            elif msg.get_op() == 'ptt_off':
+                self.header.flash_tx_stop()
+
+            else:
+                logmsg(3, f"frontend: {msg.cmd} {msg.param}")
+                self.status_check()
+
             self.b2f_q.task_done()
         except Empty:
             pass
 
         if self.stop:
             return
-
-        self.header.reset_scan()
 
         root.after(200, self.process_updates)
 

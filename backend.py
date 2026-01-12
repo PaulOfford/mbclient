@@ -153,6 +153,8 @@ class ServerMsgProcessors:
             status.set_post_list_updated()
         elif ui_area == 'post_content':
             status.set_post_updated()
+        elif ui_area == 'progress':
+            status.set_progress_updated()
 
         notify_msg = GuiMessage()
 
@@ -954,7 +956,23 @@ class BeProcessor:
         self.set_hdr_callsign(comms_msg.get_payload())
 
     def process_comms_rx(self, comms_msg: CommsMessage):
-        if comms_msg.get_typ() == 'mb_rsp':
+        if comms_msg.get_target() == 'frontend':
+            notify_msg = GuiMessage()
+
+            notify_msg.set_ts()
+            notify_msg.set_req_ts(0)
+            notify_msg.set_cmd('Notify')
+            notify_msg.set_blog('')
+            notify_msg.set_station('')
+            notify_msg.set_frequency(0)
+            notify_msg.set_post_id(0)
+            notify_msg.set_post_date(0)
+            notify_msg.set_op(comms_msg.get_payload())
+            notify_msg.set_param('')
+            notify_msg.set_rc(0)
+            self.b2f_q.put(notify_msg)
+
+        elif comms_msg.get_typ() == 'mb_rsp':
             self.process_mb_rsp(comms_msg)
         elif comms_msg.get_typ() == 'mb_notify':
             self.process_mb_notify(comms_msg)
