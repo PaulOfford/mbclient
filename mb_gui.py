@@ -1,6 +1,5 @@
 import time
 import tkinter as tk
-import tkinter.font as font
 from tkinter import ttk
 import locale
 import functools as ft
@@ -127,20 +126,24 @@ class ScrollableFrame(ttk.Frame):
 
 class GuiHeader:
 
-    use_gmt = True
+    use_gmt: bool = True
+    f2b_q: Queue = None
     gui_fonts = None
     freq_text = None
     offset_text = None
     callsign_text = None
 
-    js8_freqs = [1.842, 3.578, 7.078, 10.130, 14.078, 18.104, 21.078, 24.922, 27.245, 28.078, 50.318]
-
-    is_scanning = False
     scan_btn = None
     clock_label = None
 
-    def __init__(self, header_frame):
+    js8_freqs = [1.842, 3.578, 7.078, 10.130, 14.078, 18.104, 21.078, 24.922, 27.245, 28.078, 50.318]
+
+    scan_duration = 120
+    scan_timeout: float = 0.0
+
+    def __init__(self, header_frame, f2b_q: Queue):
         settings = Settings()
+        self.f2b_q = f2b_q
 
         self.use_gmt = settings.use_gmt
         self.gui_fonts = MbFonts(settings.font_size)
@@ -208,7 +211,7 @@ class GuiHeader:
             font=self.gui_fonts.font_btn_bold,
             bg='#22ff23', height=1, width=18,
             relief='flat',
-            command=self.toggle_scan
+            command=self.run_scan
         )
         self.scan_btn.pack()
 
@@ -236,13 +239,30 @@ class GuiHeader:
             self.clock_label.config(text=curtime)
         self.clock_label.after(200, self.clock_tick, curtime)
 
-    def toggle_scan(self):
-        if self.is_scanning:
-            self.is_scanning = False
-            self.scan_btn.configure(bg='#22ff23')
-        else:
-            self.is_scanning = True
+    def run_scan(self):
+        if self.scan_timeout == 0:  # only do this if we are not in a scan period
+            status = Status()
+
+            req = GuiMessage()
+            req.set_cmd('Q')
+            req.set_blog('@MB')
+            req.set_station('@MB')
+            req.set_frequency(status.radio_frequency)
+            req.set_op('latest')
+            req.set_ts()
+            self.f2b_q.put(req)
+            logmsg(3, f"fe: {req}")
+
             self.scan_btn.configure(bg='#ff2222')
+            self.scan_timeout = time.time() + self.scan_duration
+            logmsg(1, f"mb_gui: Scan started")
+
+    def reset_scan(self) -> None:
+        if self.scan_timeout > 0 and time.time() > self.scan_timeout:
+            self.scan_btn.configure(bg='#22ff23')
+            self.scan_timeout = 0
+            logmsg(1, f"mb_gui: End of scan period")
+
 
     def set_frequency(self):
         field = ['radio_frequency']
@@ -911,7 +931,7 @@ class GuiMain:
 
         frame_hdr = tk.Frame(frame_container, background="black", height=100, pady=10)
         frame_hdr.pack(fill='x', side='top', anchor='n')
-        self.header = GuiHeader(header_frame=frame_hdr)  # populate the header
+        self.header = GuiHeader(header_frame=frame_hdr, f2b_q=self.f2b_q)  # populate the header
 
         frame_main = tk.Frame(frame_container, pady=4)
         frame_main.pack(fill=tk.BOTH, expand=1, side='top', anchor='n', padx=4)
@@ -1019,6 +1039,7 @@ class GuiMain:
         try:
             msg: GuiMessage = self.b2f_q.get(block=False)  # if no msg waiting, this will throw an exception
             logmsg(3, f"frontend: {msg.cmd} {msg.param}")
+
             self.status_check()
             self.b2f_q.task_done()
         except Empty:
@@ -1026,6 +1047,8 @@ class GuiMain:
 
         if self.stop:
             return
+
+        self.header.reset_scan()
 
         root.after(200, self.process_updates)
 
