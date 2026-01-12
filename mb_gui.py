@@ -12,6 +12,7 @@ from settings import Settings
 from db_table import DbTable
 from message_q import GuiMessage
 from mb_fonts import MbFonts
+from backend import add_progress
 
 root = tk.Tk()
 
@@ -143,9 +144,6 @@ class GuiHeader:
 
     scan_duration: float = 120.0
     scan_timeout: float = 0.0
-    flash_duration: float = 0.5
-    rx_ind_timeout: float = 0.0
-    tx_ind_timeout: float = 0.0
 
     def __init__(self, header_frame, f2b_q: Queue):
         settings = Settings()
@@ -257,9 +255,6 @@ class GuiHeader:
             curtime = newtime
             self.clock_label.config(text=curtime)
 
-        if self.rx_ind_timeout > 0 and time.time() > self.rx_ind_timeout:
-            self.flash_rx_stop()
-
         if self.scan_timeout > 0 and time.time() > self.scan_timeout:
             self.reset_scan()
 
@@ -277,7 +272,7 @@ class GuiHeader:
             req.set_op('latest')
             req.set_ts()
             self.f2b_q.put(req)
-            logmsg(3, f"fe: {req}")
+            logmsg(3, f"mb_gui: {req}")
 
             self.scan_btn.configure(bg='#ff2222')
             self.scan_timeout = time.time() + self.scan_duration
@@ -324,19 +319,15 @@ class GuiHeader:
 
     def flash_tx_start(self):
         self.tx_indicator.configure(bg='#ff2222')
-        self.tx_ind_timeout = time.time() + self.flash_duration
 
     def flash_tx_stop(self):
         self.tx_indicator.configure(bg='#22ff23')
-        self.tx_ind_timeout = 0
 
     def flash_rx_start(self):
         self.rx_indicator.configure(bg='#ff2222')
-        self.rx_ind_timeout = time.time() + self.flash_duration
 
     def flash_rx_stop(self):
         self.rx_indicator.configure(bg='#22ff23')
-        self.rx_ind_timeout = 0
 
     def reload_header(self):
         self.set_frequency()
@@ -1079,8 +1070,12 @@ class GuiMain:
 
         try:
             msg: GuiMessage = self.b2f_q.get(block=False)  # if no msg waiting, this will throw an exception
-            if msg.get_op() == 'flash_rx':
+
+            if msg.get_op() == 'flash_rx_start':
                 self.header.flash_rx_start()
+
+            elif msg.get_op() == 'flash_rx_stop':
+                self.header.flash_rx_stop()
 
             elif msg.get_op() == 'ptt_on':
                 self.header.flash_tx_start()

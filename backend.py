@@ -153,6 +153,8 @@ class ServerMsgProcessors:
             status.set_post_list_updated()
         elif ui_area == 'post_content':
             status.set_post_updated()
+        elif ui_area == 'progress':
+            status.set_progress_updated()
 
         notify_msg = GuiMessage()
 
