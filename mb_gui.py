@@ -1,4 +1,6 @@
+import os
 import time
+import webbrowser
 import tkinter as tk
 from tkinter import ttk
 import locale
@@ -12,7 +14,6 @@ from settings import Settings
 from db_table import DbTable
 from message_q import GuiMessage
 from mb_fonts import MbFonts
-from backend import add_progress
 
 root = tk.Tk()
 
@@ -255,7 +256,7 @@ class GuiHeader:
             curtime = newtime
             self.clock_label.config(text=curtime)
 
-        if self.scan_timeout > 0 and time.time() > self.scan_timeout:
+        if 0 < self.scan_timeout < time.time():
             self.reset_scan()
 
         self.clock_label.after(200, self.clock_tick, curtime)
@@ -282,7 +283,6 @@ class GuiHeader:
         self.scan_btn.configure(bg='#22ff23')
         self.scan_timeout = 0
         logmsg(1, f"mb_gui: End of scan period")
-
 
     def set_frequency(self):
         field = ['radio_frequency']
@@ -494,7 +494,7 @@ class GuiBlogList(GuiTable):
 
     db_values = None  # data returned from the blog table query
     blog_list_pop_up = None  # pop up widget
-    clicked_row = None  # holds the db_values row number that has been right clicked
+    clicked_row = None  # holds the db_values row number that has been right-clicked
 
     def __init__(self, frame, f2b_q: Queue):
         # ToDo: this frame needs horizontal and vertical scroll bars
@@ -651,7 +651,7 @@ class GuiPostListBox(GuiTable):
 
     db_values = None  # data returned from the blog table query
     post_list_pop_up = None
-    clicked_row = None  # holds the db_values row number that has been right clicked
+    clicked_row = None  # holds the db_values row number that has been right-clicked
 
     def __init__(self, frame: tk.Frame, f2b_q: Queue):
         settings = Settings()
@@ -920,6 +920,9 @@ class GuiMain:
     last_check_for_updates = 0
     header = None
     main = None
+    file_path = os.path.dirname(os.path.realpath(__file__)).replace('\\', '//')
+    user_guide_url = file_path + "//docs//UserGuide.html"
+    internals_url = file_path + "//docs//Internals.html"
 
     stop = False  # used to flag the termination of this thread
 
@@ -954,6 +957,11 @@ class GuiMain:
         band_menu.add_command(label='10m:    28.078 000 MHz', command=ft.partial(self.set_frequency, 28078000))
         band_menu.add_command(label='6m:     50.318 000 MHz', command=ft.partial(self.set_frequency, 50318000))
         band_menu.add_command(label='2m:     144.178 000 MHz', command=ft.partial(self.set_frequency, 144178000))
+
+        help_menu = tk.Menu(top_menu, tearoff=False)
+        top_menu.add_cascade(label='Help', menu=help_menu)
+        help_menu.add_command(label='User Guide', command=lambda: webbrowser.open(self.user_guide_url))
+        help_menu.add_command(label='Internals', command=lambda: webbrowser.open(self.internals_url))
 
         # we need to ensure closing the window stops the backend
         root.protocol("WM_DELETE_WINDOW", self.client_shutdown)
