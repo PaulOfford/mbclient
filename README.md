@@ -32,11 +32,14 @@ MbClient only uses modules included in the Python Standard Library, and so we do
 ## Install and Run
 The full installation instructions are in the User Guide, which is part of the MbClient zip package:
 
-* Download the MbClient zip file
-* Extract it to a location of your choice
+* Browse to https://github.com/PaulOfford/mbclient
+* Click on the green Code button
+* Choose __Download ZIP__
+* Once the zip file download completes, extract it to a location of your choice
 * Using File Explorer in Windows, or the equivalent in other operating systems, navigate to the folder where you extracted the zip to and then to the `docs` folder
 * Double-click on UserGuide.html
 * Go to the Installing and Running MbClient in the guide
+* Follow the instructions there
 
 ## User Guide
 Once MbClient is installed, you can view the User Guide at any time like this:
