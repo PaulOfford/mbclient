@@ -1,41 +1,35 @@
-import queue
+import os
+import time
+import webbrowser
 import tkinter as tk
-import tkinter.font as font
+from tkinter import ttk
 import locale
 import functools as ft
-import re
+from queue import Empty, Queue
 
 from _version import __version__
-from settings import *
-from message_q import *
+from logging import logmsg
+from status import Status
+from settings import Settings
+from db_table import DbTable
+from message_q import GuiMessage
+from mb_fonts import MbFonts
 
 root = tk.Tk()
-window_title = "Microblog Client " + __version__
-root.title(window_title)
-root.geometry(settings.startup_dimensions)
-
-font_btn = font.Font(family='Ariel', size=(int(settings.font_size*1.125)), weight='normal')
-font_btn_bold = font.Font(family='Ariel', size=(int(settings.font_size*1.125)), weight='bold')
-font_hdr = font.Font(family='Ariel', size=(int(settings.font_size*1.75)), weight='normal')
-font_freq = font.Font(family='Seven Segment', size=(int(settings.font_size*3)), weight='normal')
-font_main = font.Font(family='Ariel', size=settings.font_size, weight='normal')
-font_main_ul = font.Font(family='Ariel', size=settings.font_size, weight='normal', underline=True)
-font_main_hdr = font.Font(family='Ariel', size=(int(settings.font_size*1.25)), weight='normal')
-font_main_bold = font.Font(family='Ariel', size=settings.font_size, weight='bold')
 
 
 def settings_window():
     sw = tk.Tk()
     sw.title("Settings")
     sw.geometry("400x320")
+    settings = Settings()
 
     label_list = [
         ('startup_width', 'Window Startup Width:', 'entry', tk.IntVar(sw)),
         ('startup_height', 'Window Startup Height:', 'entry', tk.IntVar(sw)),
         ('font_size', 'Font Size:', 'entry', tk.IntVar(sw)),
-        ('max_latest', 'Max Latest:', 'entry', tk.IntVar(sw)),
-        ('max_qsos', 'Max QSOs:', 'entry', tk.IntVar(sw)),
         ('max_blogs', 'Max Blogs:', 'entry', tk.IntVar(sw)),
+        ('max_posts', 'Max Posts:', 'entry', tk.IntVar(sw)),
         ('max_listing', 'Max Listing:', 'entry', tk.IntVar(sw)),
         ('use_gmt', 'Use GMT for Clock and Log:', 'checkbox', tk.IntVar(sw)),
     ]
@@ -95,18 +89,72 @@ def settings_window():
     ).grid(row=len(label_list)+2, column=1)
 
 
+class ScrollableFrame(ttk.Frame):
+    canvas = None
+    scrollable_frame = None
+
+    def on_mousewheel(self, event):
+        self.canvas.yview_scroll(int(-1*(event.delta/120)), 'units')
+
+    def focus_in(self, event):
+        self.canvas.bind_all('<MouseWheel>', self.on_mousewheel)
+
+    def focus_out(self, event):
+        self.canvas.unbind_all('<MouseWheel>')
+
+    def __init__(self, container, *args, **kwargs):
+        super().__init__(container, *args, **kwargs)
+        self.canvas = tk.Canvas(self)
+        scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.canvas.bind('<Enter>', self.focus_in)
+        self.canvas.bind('<Leave>', self.focus_out)
+
+        self.scrollable_frame = ttk.Frame(self.canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
+            )
+        )
+
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+
+        self.canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+
 class GuiHeader:
 
-    js8_freqs = [1.842, 3.578, 7.078, 10.130, 14.078, 18.104, 21.078, 24.922, 27.245, 28.078, 50.318]
+    use_gmt: bool = True
+    f2b_q: Queue = None
+    gui_fonts = None
+    freq_text = None
+    offset_text = None
+    callsign_text = None
 
-    is_scanning = False
-    freq_text = tk.StringVar()
-    offset_text = tk.StringVar()
-    callsign_text = tk.StringVar()
     scan_btn = None
     clock_label = None
 
-    def __init__(self, header_frame):
+    tx_indicator = None
+    rx_indicator = None
+
+    js8_freqs = [1.842, 3.578, 7.078, 10.130, 14.078, 18.104, 21.078, 24.922, 27.245, 28.078, 50.318]
+
+    scan_duration: float = 120.0
+    scan_timeout: float = 0.0
+
+    def __init__(self, header_frame, f2b_q: Queue):
+        settings = Settings()
+        self.f2b_q = f2b_q
+
+        self.use_gmt = settings.use_gmt
+        self.gui_fonts = MbFonts(settings.font_size)
+        self.freq_text = tk.StringVar()
+        self.offset_text = tk.StringVar()
+        self.callsign_text = tk.StringVar()
 
         frame_hdr_left = tk.Frame(header_frame, bg='black')
         frame_hdr_left.pack(expand=True, fill='y', side='left')
@@ -122,7 +170,7 @@ class GuiHeader:
             frame_cell_1,
             textvariable=self.freq_text,
             bg='black', fg='white',
-            font=font_freq,
+            font=self.gui_fonts.font_freq,
             justify='center',
         )
         hdr_freq.pack()
@@ -133,7 +181,7 @@ class GuiHeader:
             frame_cell_4,
             textvariable=self.offset_text,
             bg='black', fg='white',
-            font=font_hdr,
+            font=self.gui_fonts.font_hdr,
             justify='center',
         )
         hdr_offset.pack()
@@ -145,7 +193,7 @@ class GuiHeader:
             frame_cell_2,
             textvariable=self.callsign_text,
             bg='black', fg='white',
-            font=font_hdr
+            font=self.gui_fonts.font_hdr
         )
         hdr_callsign.pack()
 
@@ -155,7 +203,7 @@ class GuiHeader:
         self.clock_label = tk.Label(
             frame_cell_5,
             bg='black', fg='white',
-            font=font_hdr,
+            font=self.gui_fonts.font_hdr,
         )
         self.clock_label.pack()
 
@@ -165,28 +213,41 @@ class GuiHeader:
         self.scan_btn = tk.Button(
             frame_cell_3,
             text='Scan',
-            font=font_btn_bold,
+            font=self.gui_fonts.font_btn_bold,
             bg='#22ff23', height=1, width=18,
             relief='flat',
-            command=self.toggle_scan
+            command=self.run_scan
         )
         self.scan_btn.pack()
 
         # Blank Cell
         frame_cell_6 = tk.Frame(frame_hdr_right, bg='black')
         frame_cell_6.pack(expand=True, fill='both')
-        hdr_blank = tk.Label(
+
+        self.tx_indicator = tk.Button(
             frame_cell_6,
-            text='',
-            bg='black', fg='white',
-            font=font_hdr
+            text='Tx',
+            font=self.gui_fonts.font_btn_bold,
+            bg='#22ff23', height=1, width=4,
+            relief='flat',
+            command=self.run_scan
         )
-        hdr_blank.pack()
+        self.tx_indicator.pack(side=tk.LEFT)
+
+        self.rx_indicator = tk.Button(
+            frame_cell_6,
+            text='Rx',
+            font=self.gui_fonts.font_btn_bold,
+            bg='#22ff23', height=1, width=4,
+            relief='flat',
+            command=self.run_scan
+        )
+        self.rx_indicator.pack(side=tk.RIGHT)
 
         self.reload_header()
 
     def clock_tick(self, curtime=''):  # used for the header clock
-        if settings.use_gmt:
+        if self.use_gmt:
             newtime = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
         else:
             newtime = time.strftime('%Y-%m-%d %H:%M:%S')
@@ -194,15 +255,34 @@ class GuiHeader:
         if newtime != curtime:
             curtime = newtime
             self.clock_label.config(text=curtime)
+
+        if 0 < self.scan_timeout < time.time():
+            self.reset_scan()
+
         self.clock_label.after(200, self.clock_tick, curtime)
 
-    def toggle_scan(self):
-        if self.is_scanning:
-            self.is_scanning = False
-            self.scan_btn.configure(bg='#22ff23')
-        else:
-            self.is_scanning = True
+    def run_scan(self):
+        if self.scan_timeout == 0:  # only do this if we are not in a scan period
+            status = Status()
+
+            req = GuiMessage()
+            req.set_cmd('Q')
+            req.set_blog('@MB')
+            req.set_station('@MB')
+            req.set_frequency(status.radio_frequency)
+            req.set_op('latest')
+            req.set_ts()
+            self.f2b_q.put(req)
+            logmsg(3, f"mb_gui: {req}")
+
             self.scan_btn.configure(bg='#ff2222')
+            self.scan_timeout = time.time() + self.scan_duration
+            logmsg(1, f"mb_gui: Scan started")
+
+    def reset_scan(self) -> None:
+        self.scan_btn.configure(bg='#22ff23')
+        self.scan_timeout = 0
+        logmsg(1, f"mb_gui: End of scan period")
 
     def set_frequency(self):
         field = ['radio_frequency']
@@ -237,49 +317,476 @@ class GuiHeader:
 
         self.callsign_text.set(db_values[0]['callsign'])
 
+    def flash_tx_start(self):
+        self.tx_indicator.configure(bg='#ff2222')
+
+    def flash_tx_stop(self):
+        self.tx_indicator.configure(bg='#22ff23')
+
+    def flash_rx_start(self):
+        self.rx_indicator.configure(bg='#ff2222')
+
+    def flash_rx_stop(self):
+        self.rx_indicator.configure(bg='#22ff23')
+
     def reload_header(self):
         self.set_frequency()
         self.set_offset()
         self.set_callsign()
 
 
-class GuiLatestPosts:
+class GuiTable:
 
-    f2b_q = None
-    latest_box = None
-    latest_cols = ['post_id', 'qso_date', 'blog', 'station', 'frequency', 'title']
+    gui_fonts = None
+    table_data = None  # this is a list of entries, each of which is a dictionary
+    table_headers = None
+    select_cb = None
 
-    def __init__(self, frame: tk.Frame, f2b_q: queue.Queue):
+    def get_cell_string(self, col: int, db_data) -> str:
+        if self.table_headers[col]['type'] == 'Int':
+            number = int(int(db_data) / int(self.table_headers[col]['divisor']))
+            value = locale.format_string("%d", number, grouping=True) + self.table_headers[col]['suffix']
 
+        elif self.table_headers[col]['type'] == 'Float':
+            number = float(float(db_data) / float(self.table_headers[col]['divisor']))
+            value = locale.format_string("%0.3f", number, grouping=True) + self.table_headers[col]['suffix']
+
+        elif self.table_headers[col]['type'] == 'Date':
+            if int(db_data) > 0:
+                value = time.strftime(
+                    "%Y-%m-%d", time.gmtime(db_data)
+                ) + self.table_headers[col]['suffix']
+            else:
+                value = 'unknown'
+
+        elif self.table_headers[col]['type'] == 'DateTime':
+            if int(db_data) > 0:
+                value = time.strftime(
+                    "%Y-%m-%d %H:%M", time.gmtime(db_data)
+                ) + self.table_headers[col]['suffix']
+            else:
+                value = 'unknown'
+        else:
+            value = db_data + self.table_headers[col]['suffix']
+
+        return value
+
+    def __init__(self, frame, column_defs, max_rows: int, select_method, hdr_click_method):
+        self.gui_fonts = MbFonts(Settings().font_size)
+        self.table_headers = column_defs
+        self.select_cb = select_method
+        self.hdr_click_cb = hdr_click_method
+
+        # we need a header frame and a body frame
+        frame_hdr = tk.Frame(frame, pady=4, bg='white')
+        frame_body = ScrollableFrame(frame)
+
+        # construct the table
+        self.table_data = [[{} for _, _ in enumerate(self.table_headers)] for _ in range(max_rows + 1)]
+
+        # initialise the table
+        for row, _ in enumerate(self.table_data):
+            for col, row_data in enumerate(self.table_data[row]):
+                row_data['db_col'] = self.table_headers[col]['db_col']
+                row_data['tv'] = None
+                row_data['widget'] = tk.Text()
+                row_data['selected'] = tk.FALSE
+
+        # set the columns to equal weight
+        frame_hdr.grid(columnspan=len(self.table_headers))
+        for i, _ in enumerate(self.table_headers):
+            frame.columnconfigure(i, weight=1)
+
+        # set the headers
+        for col, headers in enumerate(self.table_headers):
+            if headers['label']:
+                headers['widget'] = tk.Text(
+                    frame_hdr,
+                    bg='white',
+                    font=self.gui_fonts.font_main_bold,
+                    relief=tk.FLAT,
+                    width=self.table_headers[col]['width'],
+                    height=1,
+                    padx=10
+                )
+                headers['widget'].grid(row=0, column=col)
+                headers['widget'].tag_configure('tag_all', justify=self.table_headers[col]['justify'])
+                headers['widget'].insert('1.0', self.table_headers[col]['label'])
+                headers['widget'].tag_add('tag_all', '1.0', tk.END)
+                headers['widget'].tag_bind(
+                    'tag_all', '<Button-1>', ft.partial(self.hdr_click_cb, col)
+                )
+
+                headers['widget'].configure(state=tk.DISABLED)
+
+        # add the blog list Text widgets to the grid
+        for row, _ in enumerate(self.table_data):
+            for col, blog in enumerate(self.table_data[row]):
+                if self.table_headers[col]['label']:
+                    blog['widget'] = tk.Text(
+                        frame_body.scrollable_frame,
+                        bg='white',
+                        font=self.gui_fonts.font_main,
+                        relief=tk.FLAT,
+                        width=self.table_headers[col]['width'],
+                        height=1,
+                        padx=10
+                    )
+                    blog['widget'].grid(column=col, row=(row + 1))  # need to row+1 to allow for header
+
+        frame_hdr.pack(fill=tk.BOTH, expand=0, side='top', anchor='n', padx=4)
+        frame_body.pack(fill=tk.BOTH, expand=1, side='top', anchor='n', padx=4)
+
+    def reload_table(self, db_values):
+        # clear all entries
+        for row, _ in enumerate(self.table_data):
+            for col, row_data in enumerate(self.table_data[row]):
+                row_data['widget'].configure(state=tk.NORMAL)
+                row_data['widget'].configure(bg='#ffffff')
+                row_data['widget'].delete(1.0, tk.END)
+
+        fields = []
+        for field in self.table_headers:
+            fields.append(field['db_col'])
+
+        for row, db_row in enumerate(db_values):
+            for col, col_name in enumerate(list(db_row)):
+                if col_name == 'is_selected':  # this marks the end of the list, and we don't add it to the grid
+                    break
+
+                value = self.get_cell_string(col, db_row[col_name])
+                cell = self.table_data[row][col]
+                cell['widget'].tag_configure('tag_all', justify=self.table_headers[col]['justify'])
+                cell['widget'].insert('1.0', value)
+                cell['widget'].tag_add('tag_all', '1.0', tk.END)
+                cell['widget'].tag_bind(
+                    'tag_all', '<Button-1>', ft.partial(self.select_cb, row)
+                )
+                cell['widget'].tag_bind(
+                    'tag_all', '<Button-3>', ft.partial(self.popup_cb, row)
+                )
+                if db_row['is_selected']:  # check the selected flag
+                    cell['widget'].configure(bg='#6699FF', fg='#ffffff')
+                else:  # check the selected flag
+                    cell['widget'].configure(bg='#ffffff', fg='#000000')
+                cell['widget'].configure(state=tk.DISABLED)
+
+        return
+
+
+class GuiBlogList(GuiTable):
+    blog_list_headers = [
+        {'db_col': 'blog', 'type': 'Text', 'suffix': '', 'width': 10,
+         'label': 'Blog', 'widget': tk.Button(), 'justify': 'left'},
+        {'db_col': 'station', 'type': 'Text', 'suffix': '', 'width': 0,
+         'label': '', 'widget': tk.Button(), 'justify': 'left'},
+        {'db_col': 'frequency', 'type': 'Float', 'divisor': 1000000, 'suffix': '', 'width': 8,
+         'label': 'Freq\nMHz', 'widget': tk.Button(), 'justify': 'center'},
+        {'db_col': 'latest_post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 6,
+         'label': 'Latest', 'widget': tk.Button(), 'justify': 'center'},
+        {'db_col': 'latest_post_date', 'type': 'Date', 'suffix': '', 'width': 10,
+         'label': 'Date', 'widget': tk.Button(), 'justify': 'center'},
+        {'db_col': 'last_seen_date', 'type': 'DateTime', 'suffix': '', 'width': 15,
+         'label': 'Last Seen', 'widget': tk.Button(), 'justify': 'center'},
+        {'db_col': 'is_selected', 'db_type': 'Int', 'divisor': 1, 'suffix': '', 'width': 0,
+         'label': None, 'widget': tk.Button(), 'justify': 'center'},
+    ]
+
+    db_values = None  # data returned from the blog table query
+    blog_list_pop_up = None  # pop up widget
+    clicked_row = None  # holds the db_values row number that has been right-clicked
+
+    def __init__(self, frame, f2b_q: Queue):
+        # ToDo: this frame needs horizontal and vertical scroll bars
         self.f2b_q = f2b_q
+        super().__init__(
+            frame, self.blog_list_headers, Settings().max_blogs, self.cb_row_select, self.cb_hdr_click
+        )
 
-        latest_list_hdr = tk.Label(
+        # set up the pop up menu
+        self.blog_list_pop_up = tk.Menu(frame, tearoff=False)
+        self.blog_list_pop_up.add_command(label='Get recent', command=self.list_recent)
+        self.blog_list_pop_up.add_command(label='Refresh', command=self.check_for_latest)
+        self.blog_list_pop_up.add_command(label='Get info', command=self.get_blog_info)
+
+    # list_recent causes MbClient to update the Post List with the five most recent posts
+    def list_recent(self):
+        req = GuiMessage()
+        req.set_cmd('E')
+        req.set_blog(self.db_values[self.clicked_row]['blog'])
+        req.set_station(self.db_values[self.clicked_row]['station'])
+        req.set_frequency(self.db_values[self.clicked_row]['frequency'])
+        req.set_op('recent')
+        req.set_ts()
+        self.f2b_q.put(req)
+        logmsg(3, f"fe: {req}")
+
+    # check_for_latest causes MbClient to request an @MB announcement
+    def check_for_latest(self):
+        req = GuiMessage()
+        req.set_cmd('Q')
+        req.set_blog(self.db_values[self.clicked_row]['blog'])
+        req.set_station(self.db_values[self.clicked_row]['station'])
+        req.set_frequency(self.db_values[self.clicked_row]['frequency'])
+        req.set_op('latest')
+        req.set_ts()
+        self.f2b_q.put(req)
+        logmsg(3, f"fe: {req}")
+
+    def get_blog_info(self):
+        req = GuiMessage()
+        req.set_cmd('I')
+        req.set_blog(self.db_values[self.clicked_row]['blog'])
+        req.set_station(self.db_values[self.clicked_row]['station'])
+        req.set_frequency(self.db_values[self.clicked_row]['frequency'])
+        req.set_op('latest')
+        req.set_ts()
+        self.f2b_q.put(req)
+        logmsg(3, f"fe: {req}")
+
+    def reload_blog_list(self):
+        blog_table = DbTable('blog')
+
+        fields = []
+        for field in self.blog_list_headers:
+            fields.append(field['db_col'])
+
+        self.db_values = blog_table.select(
+            order_by='last_seen_date', desc=True, limit=Settings().max_blogs, hdr_list=fields
+        )
+
+        self.reload_table(self.db_values)
+
+        return
+
+    # noinspection PyGlobalUndefined
+    def cb_row_select(self, row, event):
+        req = GuiMessage()
+        req.set_cmd('S')
+        req.set_blog(self.db_values[row]['blog'])
+        req.set_station(self.db_values[row]['blog'])
+        req.set_frequency(self.db_values[row]['frequency'])
+        req.set_ts()
+        self.f2b_q.put(req)
+        logmsg(3, f"fe: {req}")
+
+    def popup_cb(self, row, event):
+        self.clicked_row = row
+        self.blog_list_pop_up.tk_popup(event.x_root, event.y_root)
+
+    def cb_hdr_click(self, col, event):
+        pass
+
+
+class GuiBlogInfo:
+    gui_fonts = None
+    blog_info_box = []
+
+    progress_cols = ['qso_date', 'blog', 'station', 'frequency', 'offset', 'message']
+
+    def __init__(self, frame: tk.Frame):
+        self.gui_fonts = MbFonts(Settings().font_size)
+
+        blog_info_box_hdr = tk.Label(
             frame,
-            text="Latest Posts",
-            bg='white',
-            font=font_main_ul,
+            text="Blog Information",
+            bg='black', fg='white',
+            font=self.gui_fonts.font_main_bold,
             justify=tk.LEFT,
             anchor=tk.W,
             padx=10, pady=12
         )
-        latest_list_hdr.pack(anchor='ne', fill=tk.X)
+        blog_info_box_hdr.pack(anchor='ne', fill=tk.X)
 
-        self.latest_box = tk.Text(
+        v = tk.Scrollbar(frame, orient='vertical')
+        v.pack(side=tk.RIGHT, fill='y')
+        self.blog_info_box = tk.Text(
+            frame, width=480,
+            wrap=tk.WORD, padx=10, pady=10,
+            font=self.gui_fonts.font_main, bg='white', yscrollcommand=v.set,
+            spacing1=1.1, spacing2=1.1
+        )
+        v.config(command=self.blog_info_box.yview)
+        self.blog_info_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
+
+    def reload_blog_info_box(self):
+        status = Status()
+        info_string = ""
+
+        blog_table = DbTable('blog')
+        db_values = blog_table.select(
+            where=f"blog='{status.selected_blog}' AND frequency={status.radio_frequency} AND info IS NOT NULL",
+            limit=1,
+            hdr_list=['info']
+        )
+
+        self.blog_info_box.configure(state=tk.NORMAL)
+        self.blog_info_box.delete(1.0, 'end')
+
+        if len(db_values) > 0:
+            info_string = db_values[0]['info']
+
+        self.blog_info_box.insert(tk.END, info_string)
+        self.blog_info_box.see(tk.END)
+
+        self.blog_info_box.configure(state=tk.DISABLED)
+
+        return
+
+
+class GuiPostListBox(GuiTable):
+
+    post_list_headers = [
+        {'db_col': 'blog', 'type': 'Text', 'suffix': '', 'width': 0,
+         'label': '', 'widget': tk.Button(), 'justify': 'left'},
+        {'db_col': 'post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 6,
+         'label': 'ID', 'widget': tk.Button(), 'justify': 'center'},
+        {'db_col': 'post_date', 'type': 'Date', 'suffix': '', 'width': 10,
+         'label': 'Date', 'widget': tk.Button(), 'justify': 'center'},
+        {'db_col': 'title', 'type': 'Text', 'suffix': '', 'width': 128,
+         'label': 'Subject', 'widget': tk.Button(), 'justify': 'left'},
+        {'db_col': 'is_selected', 'db_type': 'Int', 'divisor': 1, 'suffix': '', 'width': 0,
+         'label': None, 'widget': tk.Button(), 'justify': 'center'},
+    ]
+
+    db_values = None  # data returned from the blog table query
+    post_list_pop_up = None
+    clicked_row = None  # holds the db_values row number that has been right-clicked
+
+    def __init__(self, frame: tk.Frame, f2b_q: Queue):
+        settings = Settings()
+
+        # ToDo: this frame needs horizontal and vertical scroll bars
+        self.f2b_q = f2b_q
+
+        super().__init__(
+            frame, self.post_list_headers, settings.max_posts, self.cb_row_select, self.cb_hdr_click
+        )
+        # set up the pop up menu
+        self.post_list_pop_up = tk.Menu(frame, tearoff=False)
+        self.post_list_pop_up.add_command(label='Get more posts', command=self.get_more)
+        self.post_list_pop_up.add_command(label='Refresh listing', command=self.refresh_listing)
+        self.post_list_pop_up.add_command(label='Refresh content', command=self.refresh_content)
+
+    def reload_post_list(self):
+        status = Status()
+        # settings = Settings()
+
+        post_table = DbTable('post')
+
+        fields = []
+        for field in self.post_list_headers:
+            fields.append(field['db_col'])
+
+        self.db_values = post_table.select(
+            where=f"blog='{status.selected_blog}'",
+            order_by='post_id', desc=True,
+            limit=Settings().max_posts,
+            hdr_list=fields
+        )
+
+        self.reload_table(self.db_values)
+
+        return
+
+    def popup_cb(self, row, event):
+        self.clicked_row = row
+        self.post_list_pop_up.tk_popup(event.x_root, event.y_root)
+
+    def cb_row_select(self, row, event):
+        status = Status()
+
+        req = GuiMessage()
+        req.set_cmd('F')
+        req.set_blog(status.selected_blog)
+        req.set_post_id(self.db_values[row]['post_id'])
+        req.set_ts()
+        self.f2b_q.put(req)
+        logmsg(3, f"fe: {req}")
+
+    def get_more(self):
+        status = Status()
+
+        req = GuiMessage()
+        req.set_cmd('E')  # we need get listing data
+        req.set_blog(self.db_values[self.clicked_row]['blog'])
+        req.set_post_id(self.db_values[self.clicked_row]['post_id'])
+        req.set_station(status.selected_station)
+        req.set_frequency(status.radio_frequency)
+        req.set_op('more')
+        req.set_ts()
+        self.f2b_q.put(req)
+        logmsg(3, f"fe: {req}")
+
+    def refresh_listing(self):
+        status = Status()
+
+        req = GuiMessage()
+        req.set_cmd('D')  # we need get listing data but not use the cache
+        req.set_blog(self.db_values[self.clicked_row]['blog'])
+        req.set_post_id(self.db_values[self.clicked_row]['post_id'])
+        req.set_station(status.selected_station)
+        req.set_frequency(status.radio_frequency)
+        req.set_op('eq')
+        req.set_ts()
+        self.f2b_q.put(req)
+        logmsg(3, f"fe: {req}")
+
+    def refresh_content(self):
+        status = Status()
+
+        req = GuiMessage()
+        req.set_cmd('G')
+        req.set_blog(self.db_values[self.clicked_row]['blog'])
+        req.set_post_id(self.db_values[self.clicked_row]['post_id'])
+        req.set_station(status.selected_station)
+        req.set_frequency(status.radio_frequency)
+        req.set_op('eq')
+        req.set_ts()
+        self.f2b_q.put(req)
+        logmsg(3, f"fe: {req}")
+
+    def cb_hdr_click(self, col, event):
+        pass
+
+
+class GuiPostContent:
+
+    gui_fonts = None
+    f2b_q = None
+    post_box = None
+    post_cols = ['qso_date', 'post_id', 'post_date', 'title', 'body', 'is_selected']
+
+    def __init__(self, frame: tk.Frame, f2b_q: Queue):
+        self.gui_fonts = MbFonts(Settings().font_size)
+        self.f2b_q = f2b_q
+
+        post_content_hdr = tk.Label(
+            frame,
+            text="Post",
+            bg='black', fg='white',
+            font=self.gui_fonts.font_main_bold,
+            justify=tk.LEFT,
+            anchor=tk.W,
+            padx=10, pady=12
+        )
+        post_content_hdr.pack(anchor='ne', fill=tk.X)
+
+        self.post_box = tk.Text(
             frame, width=300, wrap=tk.WORD, padx=10, pady=5,
-            font=font_main, bg='#ffffff',
+            font=self.gui_fonts.font_main, bg='#ffffff',
             spacing1=1.1, spacing2=1.1,
             borderwidth=0
         )
-        self.latest_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
+        self.post_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
 
-        self.reload_latest()
+        self.reload_post_content()
 
-    def get_post(self, blog: str, station: str, frequency: int, post_id: int, event):
+    def get_post(self, blog: str, frequency: int, post_id: int):
 
         req = GuiMessage()
 
         req.set_blog(blog)
-        req.set_station(station)
         req.set_frequency(frequency)
         req.set_cli_input(f'G {post_id}')
         req.set_cmd('G')
@@ -288,475 +795,324 @@ class GuiLatestPosts:
         req.set_post_date(0)
         req.set_ts()
         self.f2b_q.put(req)
-        logging.logmsg(3, f"fe: {req}")
+        logmsg(3, f"fe: {req}")
 
-    def reload_latest(self):
-
+    def get_post_cb(self, event):
         status = Status()
+        self.get_post(status.selected_blog, status.radio_frequency, status.selected_post)
 
-        qso_table = DbTable('qso')
-        db_values = qso_table.select(
-            where=f"directed_to!='{status.callsign}' AND title IS NOT ''",
-            group_by='post_id',
-            order_by='qso_date',
-            desc=True,
-            limit=settings.max_latest,
-            hdr_list=self.latest_cols
+    def reload_post_content(self):
+        status = Status()
+        post_string = f"{status.selected_post}"
+
+        post_table = DbTable('post')
+        db_values = post_table.select_latest(
+            where=f"blog='{status.selected_blog}' AND post_id={status.selected_post}",
+            order_by='post_id',
+            limit=1,
+            hdr_list=self.post_cols
         )
 
-        self.latest_box.configure(state=tk.NORMAL)
-        self.latest_box.delete(1.0, 'end')
+        self.post_box.configure(state=tk.NORMAL)
+        self.post_box.delete(1.0, 'end')
 
-        for i, r in enumerate(db_values):
-            latest_string = ''
+        if len(db_values) > 0:
+            for i, r in enumerate(db_values):
+                if r['post_date'] > 0:
+                    p_date = time.strftime("%Y-%m-%d", time.gmtime(r['post_date']))
+                    post_string += f" {p_date}"
 
-            q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
+                if len(r['title']):
+                    post_string += f" {r['title']}"
 
-            latest_string += f"{q_date} - {r['blog']}"
-            latest_string += f" - {r['title']}"
-            latest_string += f"\n"
+                if len(r['body']):
+                    post_string += f"\n\n{r['body']}\n"
+                else:
+                    # we need to ask the operator if we should get the post from the server
+                    post_string += f"\n\nWe don't have the content for this post in the cache. "
+                    post_string += f"Click here to get it from the server."
 
-            tag_name = 'tag_latest_row_' + str(i)
+                self.post_box.insert(tk.END, post_string)
 
-            self.latest_box.tag_configure(tag_name, justify='left')
-            self.latest_box.insert(tk.END, latest_string)
-            self.latest_box.see(tk.END)
-            coords_start = f'{i+1}.0'
-            coords_end = f'{i+1}.{len(latest_string)}'
-            self.latest_box.tag_add(tag_name, coords_start, coords_end)
-            self.latest_box.tag_bind(
-                tag_name, '<Button-1>',
-                ft.partial(self.get_post, r['blog'], r['station'], r['frequency'], r['post_id'])
-            )
+                # we need to add a hotlink to allow the operator to get the missing content
+                self.post_box.tag_add('get_post_link', '1.0', tk.END)
+                self.post_box.tag_bind(
+                    'get_post_link', '<Button-1>',
+                    ft.partial(self.get_post_cb)
+                )
 
-        self.latest_box.configure(state=tk.DISABLED)
+                self.post_box.see(tk.END)
+
+        self.post_box.configure(state=tk.DISABLED)
+
         return
 
 
-class GuiQsoBox:
+class GuiProgress:
+    gui_fonts = None
+    progress_box = []
 
-    qso_box = []
+    progress_cols = ['qso_date', 'blog', 'station', 'frequency', 'offset', 'message']
 
-    prev_is_listing = False
+    def on_mousewheel(self, event):
+        self.progress_box.yview_scroll(int(-1*(event.delta/120)), 'units')
 
-    qso_cols = ['qso_date', 'type', 'blog', 'station', 'cmd', 'rsp', 'post_id', 'post_date', 'title',
-                'body']
+    def focus_in(self, event):
+        self.progress_box.bind_all('<MouseWheel>', self.on_mousewheel)
+
+    def focus_out(self, event):
+        self.progress_box.unbind_all('<MouseWheel>')
 
     def __init__(self, frame: tk.Frame):
+        self.gui_fonts = MbFonts(Settings().font_size)
+
+        progress_box_hdr = tk.Label(
+            frame,
+            text="Progress",
+            bg='black', fg='white',
+            font=self.gui_fonts.font_main_bold,
+            justify=tk.LEFT,
+            anchor=tk.W,
+            padx=10, pady=12
+        )
+        progress_box_hdr.pack(anchor='ne', fill=tk.X)
 
         v = tk.Scrollbar(frame, orient='vertical')
         v.pack(side=tk.RIGHT, fill='y')
-        self.qso_box = tk.Text(frame, width=480, wrap=tk.WORD, padx=10, pady=10,
-                               font=font_main, bg='#ffeaa7', yscrollcommand=v.set,
-                               spacing1=1.1, spacing2=1.1)
-        v.config(command=self.qso_box.yview)
-        self.qso_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
+        self.progress_box = tk.Text(frame, width=300, wrap=tk.WORD, padx=10, pady=10,
+                                    font=self.gui_fonts.font_console, bg='white', yscrollcommand=v.set,
+                                    spacing1=1.1, spacing2=1.1)
+        v.config(command=self.progress_box.yview)
+        self.progress_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
+        self.progress_box.bind('<Enter>', self.focus_in)
+        self.progress_box.bind('<Leave>', self.focus_out)
 
-    def reload_qso_box(self):
+    def reload_progress_box(self):
 
-        status = Status()
-
-        qso_table = DbTable('qso')
-        db_values = qso_table.select_latest(
-            where=f"directed_to='{status.callsign}'", order_by='qso_date',
-            limit=settings.max_qsos, hdr_list=self.qso_cols
+        progress_table = DbTable('progress')
+        db_values = progress_table.select(
+            order_by='qso_date',
+            hdr_list=self.progress_cols
         )
 
-        self.qso_box.configure(state=tk.NORMAL)
-        self.qso_box.delete(1.0, 'end')
+        self.progress_box.configure(state=tk.NORMAL)
+        self.progress_box.delete(1.0, 'end')
 
         for i, r in enumerate(db_values):
-            if r['type'] == 'post':
-                # it's a post entry
-                qso_string = ''
+            progress_string = ''
 
-                q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
-                if r['post_date'] > 0:
-                    p_date = time.strftime("%Y-%m-%d", time.gmtime(r['post_date']))
-                else:
-                    p_date = None
+            q_date = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(r['qso_date']))
 
-                qso_string += f"\n{q_date} {r['blog']} +{r['cmd']}"
-                if p_date:
-                    qso_string += f" {p_date}"
-                if len(r['title']):
-                    qso_string += f" {r['title']}"
-                qso_string += f"\n\n{r['body']}\n"
+            progress_string += f"\n{q_date} {r['blog']} {r['message']}"
 
-                self.qso_box.insert(tk.END, qso_string)
-                self.qso_box.see(tk.END)
-                self.prev_is_listing = False
+            self.progress_box.insert(tk.END, progress_string)
+            self.progress_box.see(tk.END)
 
-            elif r['type'] == 'listing':
-                # it's a listing
-                qso_string = ''
-                if not self.prev_is_listing:
-                    qso_string = "\n----------------------------------------------\n"
-                q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
-                if r['post_date'] > 0:
-                    p_date = time.strftime("%Y-%m-%d", time.gmtime(r['post_date']))
-                else:
-                    p_date = None
-
-                qso_string += f"{q_date} {r['blog']} #{r['post_id']}"
-                if p_date:
-                    qso_string += f" {p_date}"
-
-                qso_string += f" {r['title']}\n"
-
-                self.qso_box.insert(tk.END, qso_string)
-                self.qso_box.see(tk.END)
-                self.prev_is_listing = True
-
-            elif r['type'] == 'cmd':
-                # it's an echoed command
-                qso_string = ''
-                q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
-                qso_string += f"\n{q_date} {r['blog']} {r['cmd']} {r['rsp']}\n"
-                self.qso_box.insert(tk.END, qso_string)
-                self.qso_box.see(tk.END)
-                self.prev_is_listing = True
-
-            elif r['type'] == 'progress':
-                # it's an echoed command
-                qso_string = ''
-                q_date = time.strftime("%H:%M", time.gmtime(r['qso_date']))
-                qso_string += f"{q_date} {r['blog']} {r['cmd']} {r['rsp']}\n"
-                self.qso_box.insert(tk.END, qso_string)
-                self.qso_box.see(tk.END)
-                self.prev_is_listing = True
-
-        self.qso_box.configure(state=tk.DISABLED)
+        self.progress_box.configure(state=tk.DISABLED)
         return
-
-
-class GuiCli:
-
-    cli_hdr_text = tk.StringVar()
-    cli_text = None
-
-    input_is_valid = False
-
-    def __init__(self, frame, f2b_q: queue.Queue):
-
-        self.f2b_q = f2b_q
-
-        cli_hdr = tk.Label(frame,
-                           textvariable=self.cli_hdr_text,
-                           bg='#000000',
-                           fg='#ffffff',
-                           font=font_main,
-                           justify=tk.LEFT,
-                           anchor=tk.W,
-                           padx=4,
-                           pady=3,
-                           )
-        cli_hdr.pack(fill=tk.X, anchor=tk.W, padx=4, pady=4)
-        self.cli_hdr_text.set("Directed to:")
-
-        self.cli_text = tk.Entry(
-            frame,
-            font=font_main,
-            width=50,
-        )
-        self.cli_text.bind('<Key>', self.go_cli)
-        self.cli_text.pack(fill=tk.X, padx=4, pady=4)
-        self.reload_cli()
-
-    def reload_cli(self):
-        status = Status()
-        self.cli_hdr_text.set(f"Directed to: {status.selected_blog}")
-        self.cli_text.focus_set()
-
-    def clear_cli_input(self):
-        self.cli_text.delete(0, tk.END)
-
-    def set_error(self):
-        self.cli_text.config({"background": "Pink"})
-
-    def go_cli(self, event):
-
-        req = GuiMessage()
-
-        command_informat = [
-            {'exp': '^L *(\\d+)$', 'cmd': 'L', 'op': 'eq', 'by': 'id'},
-            {'exp': '^L *> *(\\d+)$', 'cmd': 'L', 'op': 'gt', 'by': 'id'},
-            {'exp': '^L *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'L', 'op': 'eq', 'by': 'date'},
-            {'exp': '^L *> *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'L', 'op': 'gt', 'by': 'date'},
-            {'exp': '^L$', 'cmd': 'L', 'op': 'tail', 'by': None},
-
-            {'exp': '^E *(\\d+)$', 'cmd': 'E', 'op': 'eq', 'by': 'id'},
-            {'exp': '^E *> *(\\d+)$', 'cmd': 'E', 'op': 'gt', 'by': 'id'},
-            {'exp': '^E *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'E', 'op': 'eq', 'by': 'date'},
-            {'exp': '^E *> *(\\d{4}-\\d{2}-\\d{2})$', 'cmd': 'E', 'op': 'gt', 'by': 'date'},
-            {'exp': '^E$', 'cmd': 'E', 'op': 'tail', 'by': None},
-
-            {'exp': '^G *(\\d+)$', 'cmd': 'G', 'op': 'eq', 'by': 'id'},
-            {'exp': '^R *(\\d+)$', 'cmd': 'R', 'op': 'eq', 'by': 'id'},
-
-            {'exp': '^Q *$', 'cmd': 'Q', 'op': None, 'by': None},
-
-            {'exp': '^WX *$', 'cmd': 'WX', 'op': None, 'by': None},
-        ]
-
-        entry = None
-        result = None
-
-        self.cli_text.config({"background": "White"})
-
-        # check keystroke, if it's an Enter process else return
-        if event.char == '\r' and event.keysym == "Return":
-            self.input_is_valid = False
-            # get the text from the cli box
-            # shift to upper text and strip whitespace from start and end
-            input_text = self.cli_text.get().upper().strip()
-            # parse input using regex
-            for entry in command_informat:
-                # try to match the request
-                result = re.findall(entry['exp'], input_text)
-
-                if len(result) > 0:
-                    self.input_is_valid = True
-                    break
-                else:
-                    continue
-
-            if self.input_is_valid:
-                status = Status()
-                # send message to backend
-                req.set_blog(status.selected_blog)
-                req.set_station(status.selected_station)
-                req.set_cli_input(input_text)
-                req.set_cmd(entry['cmd'])
-                req.set_op(entry['op'])
-
-                if entry['by'] == 'id':
-                    req.set_post_id(int(result[0]))
-                elif entry['by'] == 'date':
-                    if len(result[0]) > 0:
-                        epoch_dt = int(time.mktime(time.strptime(result[0], "%Y-%m-%d")))
-                    else:
-                        epoch_dt = 0
-                    req.set_post_date(epoch_dt)
-                # else must be a tail
-
-                req.set_ts()
-                self.f2b_q.put(req)
-                logging.logmsg(3, f"fe: {req}")
-                # clear the text box
-                self.clear_cli_input()
-            else:
-                # turn cli box red if input is no good
-                self.set_error()
-
-        return
-
-
-class GuiBlogList:
-
-    blog_list = None  # this is a list of blog entries, each of which is a dictionary
-    blog_list_headers = [
-        {'db_col': 'station', 'type': 'Text', 'suffix': '', 'width': 8,
-         'text': 'Blog', 'widget': tk.Button()},
-        {'db_col': 'frequency', 'type': 'Float', 'divisor': 1000000, 'suffix': ' MHz', 'width': 12,
-         'text': 'Freq', 'widget': tk.Button()},
-        {'db_col': 'latest_post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 8,
-         'text': 'Latest\nPost ID', 'widget': tk.Button()},
-        {'db_col': 'latest_post_date', 'type': 'Date', 'suffix': '', 'width': 12,
-         'text': 'Latest\nPost Date', 'widget': tk.Button()},
-        {'db_col': 'last_seen_date', 'type': 'DateTime', 'suffix': '', 'width': 16,
-         'text': 'Last Seen', 'widget': tk.Button()},
-        {'db_col': 'snr', 'type': 'Int', 'divisor': 1, 'suffix': ' dB', 'width': 8,
-         'text': 'SNR', 'widget': tk.Button()},
-        {'db_col': 'capabilities', 'type': 'Text', 'suffix': '', 'width': 8,
-         'text': 'Cap.', 'widget': tk.Button()},
-        {'db_col': 'is_selected', 'db_type': 'Int', 'divisor': 1, 'suffix': '', 'width': 0,
-         'text': None, 'widget': tk.Button()},
-    ]
-
-    def __init__(self, frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
-
-        self.f2b_q = f2b_q
-        self.b2f_q = b2f_q
-
-        # construct the blog list grid
-        self.blog_list = [[{} for _, _ in enumerate(self.blog_list_headers)] for _ in range(settings.max_blogs)]
-
-        # initialise the blog list grid
-        for row, _ in enumerate(self.blog_list):
-            for col, blog in enumerate(self.blog_list[row]):
-                blog['db_col'] = self.blog_list_headers[col]['db_col']
-                blog['tv'] = None
-                blog['widget'] = tk.Text()
-                blog['selected'] = tk.FALSE
-
-        # set the blog list columns to equal weight
-        frame.grid(columnspan=len(self.blog_list_headers))
-        for i, _ in enumerate(self.blog_list_headers):
-            frame.columnconfigure(i, weight=1)
-
-        # set the blog list headers
-        for col, blog_hdr in enumerate(self.blog_list_headers):
-            if blog_hdr['text']:
-                blog_hdr['widget'] = tk.Button(
-                    frame,
-                    text=self.blog_list_headers[col]['text'],
-                    relief='flat',
-                    bg='white',
-                    font=font_main_ul,
-                    justify=tk.CENTER,
-                    anchor=tk.W
-                )
-                blog_hdr['widget'].grid(row=0, column=col)
-
-        # add the blog list Text widgets to the grid
-        for row, _ in enumerate(self.blog_list):
-            for col, blog in enumerate(self.blog_list[row]):
-                if self.blog_list_headers[col]['text']:
-                    blog['widget'] = tk.Text(
-                        frame,
-                        bg='white',
-                        font=font_main,
-                        relief=tk.FLAT,
-                        width=self.blog_list_headers[col]['width'],
-                        height=1,
-                        padx=10
-                    )
-                    blog['widget'].grid(column=col, row=(row + 1))  # need to row+1 to allow for header
-
-    def reload_blog_list(self):
-        # clear all entries
-        for row, _ in enumerate(self.blog_list):
-            for col, blog in enumerate(self.blog_list[row]):
-                blog['widget'].configure(state=tk.NORMAL)
-                blog['widget'].delete(1.0, tk.END)
-
-        blogs_table = DbTable('blogs')
-
-        fields = []
-        for field in self.blog_list_headers:
-            fields.append(field['db_col'])
-
-        db_values = blogs_table.select(order_by='last_seen_date', desc=True, limit=30,
-                                       hdr_list=fields)
-
-        for row, db_row in enumerate(db_values):
-            for col, col_name in enumerate(list(db_row)):
-                if col_name == 'is_selected':  # this marks the end of the list, and we don't add it to the grid
-                    break
-
-                if self.blog_list_headers[col]['type'] == 'Int':
-                    number = int(int(db_row[col_name])/int(self.blog_list_headers[col]['divisor']))
-                    value = locale.format_string("%d", number, grouping=True) + self.blog_list_headers[col]['suffix']
-
-                elif self.blog_list_headers[col]['type'] == 'Float':
-                    number = float(float(db_row[col_name])/float(self.blog_list_headers[col]['divisor']))
-                    value = locale.format_string("%0.3f", number, grouping=True) + self.blog_list_headers[col]['suffix']
-
-                elif self.blog_list_headers[col]['type'] == 'Date':
-                    if int(db_row[col_name]) > 0:
-                        value = time.strftime(
-                            "%Y-%m-%d", time.gmtime(db_row[col_name])
-                        ) + self.blog_list_headers[col]['suffix']
-                    else:
-                        value = 'unknown'
-
-                elif self.blog_list_headers[col]['type'] == 'DateTime':
-                    if int(db_row[col_name]) > 0:
-                        value = time.strftime(
-                            "%Y-%m-%d %H:%M", time.gmtime(db_row[col_name])
-                        ) + self.blog_list_headers[col]['suffix']
-                    else:
-                        value = 'unknown'
-                else:
-                    value = db_row[col_name] + self.blog_list_headers[col]['suffix']
-
-                blog_cell = self.blog_list[row][col]
-                blog_cell['widget'].tag_configure('tag_all', justify='center')
-                blog_cell['widget'].insert('1.0', value)
-                blog_cell['widget'].tag_add('tag_all', '1.0', tk.END)
-                blog_cell['widget'].tag_bind('tag_all', '<Button-1>',
-                                             ft.partial(self.select_blog, row))
-                if db_row['is_selected']:  # check the selected flag
-                    blog_cell['widget'].configure(bg='#3498db')
-                else:  # check the selected flag
-                    blog_cell['widget'].configure(bg='#ffffff')
-                blog_cell['widget'].configure(state=tk.DISABLED)
-
-        return
-
-    def get_value_by_row_db_col(self, row: int, db_col: str):
-        for i, col in enumerate(self.blog_list_headers):
-            if col['db_col'] == db_col:
-                return self.blog_list[row][i]['widget'].get(1.0, tk.END).replace('\n', '')
-
-        return None
-
-    # noinspection PyGlobalUndefined
-    def select_blog(self, row, event):
-        req = GuiMessage()
-        req.set_cmd('S')
-        station = self.get_value_by_row_db_col(row, 'station')
-        freq = self.get_value_by_row_db_col(row, 'frequency')
-        req.set_cli_input(f'@ {station} on {freq} is now the selected blog')
-        req.set_blog(station)
-        req.set_station(station)
-        freq_string = self.get_value_by_row_db_col(row, 'frequency')
-        # annoyingly, we must convert a string in the form 14,078 MHz back into an integer
-        freq_string = re.findall(r"([0-9]*)[.,]?([0-9]+) MHz", freq_string)
-        freq = (int(freq_string[0][0]) * 1000000) + (int(freq_string[0][1]) * 1000)
-        req.set_frequency(freq)
-        req.set_ts()
-        self.f2b_q.put(req)
-        logging.logmsg(3, f"fe: {req}")
 
 
 class GuiMain:
 
-    def __init__(self, frame, f2b_q: queue.Queue, b2f_q: queue.Queue):
-        pane_main = tk.PanedWindow(frame, bg='#606060')
+    f2b_q = None
+    b2f_q = None
+
+    last_check_for_updates = 0
+    header = None
+    main = None
+    file_path = os.path.dirname(os.path.realpath(__file__)).replace('\\', '//')
+    user_guide_url = file_path + "//docs//UserGuide.html"
+    internals_url = file_path + "//docs//Internals.html"
+
+    stop = False  # used to flag the termination of this thread
+
+    def __init__(self, f2b_q: Queue, b2f_q: Queue):
+        self.f2b_q = f2b_q
+        self.b2f_q = b2f_q
+
+        window_title = "Microblog Client " + __version__
+        root.title(window_title)
+        root.geometry(Settings().startup_dimensions)
+
+        # set up the menu bar
+        top_menu = tk.Menu(root, tearoff=False)
+        root.config(menu=top_menu)
+
+        file_menu = tk.Menu(top_menu, tearoff=False)
+        top_menu.add_cascade(label='File', menu=file_menu)
+        file_menu.add_command(label='Settings    F2', command=lambda: settings_window())
+        file_menu.add_separator()
+        file_menu.add_command(label='Exit', command=self.client_shutdown)
+
+        band_menu = tk.Menu(top_menu, tearoff=False)
+        top_menu.add_cascade(label='Band', menu=band_menu)
+        band_menu.add_command(label='160m:   1.842 000 MHz', command=ft.partial(self.set_frequency, 1842000))
+        band_menu.add_command(label='80m:    3.578 000 MHz', command=ft.partial(self.set_frequency, 3578000))
+        band_menu.add_command(label='40m:    7.708 000 MHz', command=ft.partial(self.set_frequency, 7078000))
+        band_menu.add_command(label='30m:    10.130 000 MHz', command=ft.partial(self.set_frequency, 10130000))
+        band_menu.add_command(label='20m:    14.078 000 MHz', command=ft.partial(self.set_frequency, 14078000))
+        band_menu.add_command(label='17m:    18.104 000 MHz', command=ft.partial(self.set_frequency, 18104000))
+        band_menu.add_command(label='15m:    21.078 000 MHz', command=ft.partial(self.set_frequency, 21078000))
+        band_menu.add_command(label='12m:    24.922 000 MHz', command=ft.partial(self.set_frequency, 24922000))
+        band_menu.add_command(label='10m:    28.078 000 MHz', command=ft.partial(self.set_frequency, 28078000))
+        band_menu.add_command(label='6m:     50.318 000 MHz', command=ft.partial(self.set_frequency, 50318000))
+        band_menu.add_command(label='2m:     144.178 000 MHz', command=ft.partial(self.set_frequency, 144178000))
+
+        help_menu = tk.Menu(top_menu, tearoff=False)
+        top_menu.add_cascade(label='Help', menu=help_menu)
+        help_menu.add_command(label='User Guide', command=lambda: webbrowser.open(self.user_guide_url))
+        help_menu.add_command(label='Internals', command=lambda: webbrowser.open(self.internals_url))
+
+        # we need to ensure closing the window stops the backend
+        root.protocol("WM_DELETE_WINDOW", self.client_shutdown)
+
+        frame_container = tk.Frame(root)
+        frame_container.pack(fill='both', expand=1, side='top', anchor='n')
+
+        frame_hdr = tk.Frame(frame_container, background="black", height=100, pady=10)
+        frame_hdr.pack(fill='x', side='top', anchor='n')
+        self.header = GuiHeader(header_frame=frame_hdr, f2b_q=self.f2b_q)  # populate the header
+
+        frame_main = tk.Frame(frame_container, pady=4)
+        frame_main.pack(fill=tk.BOTH, expand=1, side='top', anchor='n', padx=4)
+
+        self.header.clock_tick()
+
+        pane_main = tk.PanedWindow(frame_main, bg='white')
         pane_main.pack(fill='both', expand=1, side='top')
 
         frame_left = tk.Frame(pane_main, bg='white')
-        pane_main.add(frame_left, width=300)
+        pane_main.add(frame_left, width=480)
 
         frame_mid = tk.Frame(pane_main, bg='white')
-        pane_main.add(frame_mid, width=480)
+        pane_main.add(frame_mid, width=560)
 
         frame_right = tk.Frame(pane_main, bg='white')
-        pane_main.add(frame_right, width=300)
+        pane_main.add(frame_right, width=160)
 
-        # Latest Posts area
-        frame_latest_list = tk.Frame(frame_left, bg='white')
-        frame_latest_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
-
-        self.latest_posts = GuiLatestPosts(frame_latest_list, f2b_q)
-
-        # QSO Area follows - middle of main
-        frame_qso = tk.Frame(frame_mid)
-        frame_qso.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
-
-        self.qso_box = GuiQsoBox(frame_qso)
-
-        frame_cli = tk.Frame(frame_mid)
-        frame_cli.pack(side=tk.BOTTOM, padx=4)
-
-        self.cli = GuiCli(frame_mid, f2b_q)
-
-        # Blog list area - right of main
-        frame_blog_list = tk.Frame(frame_right, bg='white', padx=4, pady=4)
+        # Blog list area - left of main
+        frame_blog_list = tk.Frame(frame_left, bg='white', padx=4, pady=4)
         frame_blog_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        self.blog_list = GuiBlogList(frame_blog_list, f2b_q, b2f_q)
+        self.blog_list = GuiBlogList(frame_blog_list, f2b_q)
 
-    def reload_latest(self):
-        self.latest_posts.reload_latest()
+        # Blog Information area
+        frame_blog_info = tk.Frame(frame_left, bg='white', padx=4, pady=4)
+        frame_blog_info.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=1)
 
-    def reload_qso_box(self):
-        self.qso_box.reload_qso_box()
+        self.blog_info = GuiBlogInfo(frame_blog_info)
 
-    def reload_cli(self):
-        self.cli.reload_cli()
+        # Post List Area follows - middle of main
+        frame_post_list = tk.Frame(frame_mid, bg='white', padx=4, pady=4)
+        frame_post_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+        self.post_list = GuiPostListBox(frame_post_list, f2b_q)
+
+        # Latest Posts area
+        frame_post_content = tk.Frame(frame_right, bg='white')
+        frame_post_content.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+        self.post_content = GuiPostContent(frame_post_content, f2b_q)
+
+        # Latest Progress area
+        frame_progress = tk.Frame(frame_right, bg='white')
+        frame_progress.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=1)
+
+        self.progress = GuiProgress(frame_progress)
+        self.reload_blog_list()
+        self.reload_post_list_box()
+        self.reload_post_content()
+        self.reload_progress_box()
+
+        root.after(200, self.process_updates)
+
+        if self.stop:
+            return
+
+        root.mainloop()
+
+    def status_check(self):
+        # we have had a message from the backend -> check for updated sections
+        status = Status()
+
+        if status.hdr_updated > status.last_checked:
+            self.header.reload_header()
+
+        if status.blog_updated > status.last_checked:
+            self.reload_blog_list()
+            logmsg(4, "reload_blog_list()")
+
+        if status.post_list_updated > status.last_checked:
+            self.reload_post_list_box()
+
+        if status.post_updated > status.last_checked:
+            self.reload_post_content()
+
+        if status.progress_updated > status.last_checked:
+            self.reload_progress_box()
+
+        status.update_last_checked()
+
+    def client_shutdown(self):
+        be_sig = GuiMessage()
+        be_sig.set_cmd('X')
+        be_sig.set_cli_input('MB Client Shutdown')
+        be_sig.set_op('exit')
+        self.f2b_q.put(be_sig)
+
+        root.destroy()
+
+        self.stop = True
+
+    def set_frequency(self, freq):
+        req = GuiMessage()
+        req.set_cmd('S')
+        req.set_frequency(freq)
+        req.set_ts()
+        self.f2b_q.put(req)
+        logmsg(3, f"fe: {req}")
+
+        pass
+
+    def process_updates(self):
+
+        try:
+            msg: GuiMessage = self.b2f_q.get(block=False)  # if no msg waiting, this will throw an exception
+
+            if msg.get_op() == 'flash_rx_start':
+                self.header.flash_rx_start()
+
+            elif msg.get_op() == 'flash_rx_stop':
+                self.header.flash_rx_stop()
+
+            elif msg.get_op() == 'ptt_on':
+                self.header.flash_tx_start()
+
+            elif msg.get_op() == 'ptt_off':
+                self.header.flash_tx_stop()
+
+            else:
+                logmsg(3, f"frontend: {msg.cmd} {msg.param}")
+                self.status_check()
+
+            self.b2f_q.task_done()
+        except Empty:
+            pass
+
+        if self.stop:
+            return
+
+        root.after(200, self.process_updates)
 
     def reload_blog_list(self):
         self.blog_list.reload_blog_list()
+        self.blog_info.reload_blog_info_box()
+
+    def reload_post_list_box(self):
+        self.post_list.reload_post_list()
+
+    def reload_post_content(self):
+        self.post_content.reload_post_content()
+
+    def reload_progress_box(self):
+        self.progress.reload_progress_box()

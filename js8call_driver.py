@@ -5,11 +5,11 @@
 # of it.  The author(s) accept no responsibility for violation of any radio or amateur radio regulations
 # resulting from the use of the program code.
 from socket import socket, AF_INET, SOCK_STREAM
-
 import queue
-import message_q
-from logging import *
-from message_q import *
+
+from status import Status
+from logging import logmsg, current_log_level
+from message_q import CommsMessage
 from client_mocking import js8call_mock_listen
 
 import json
@@ -124,6 +124,9 @@ class Js8CallDriver:
     comms_tx_q = None
     comms_rx_q = None
 
+    rx_ind_timeout: float = 0.0
+    flash_duration = 0.5
+
     def __init__(self, comms_tx_q: queue.Queue, comms_rx_q: queue.Queue):
         self.status = Status()
         self.comms_tx_q = comms_tx_q
@@ -137,9 +140,9 @@ class Js8CallDriver:
         self.js8call_api.send('RIG.SET_FREQ', **kwargs)
         pass
 
-    def process_comms_tx(self, message: message_q.CommsMessage):
-        # msg = {'ts': 0.0, 'req_ts': 0.0, 'direction': '', 'source': "", 'destination': "", 'frequency': 0,
-        #        'snr': 0, 'typ': "", 'target': '', 'obj': "", 'payload': "", 'rc': 0}
+    def process_comms_tx(self, message: CommsMessage):
+        # message = {'ts': 0.0, 'req_ts': 0.0, 'direction': '', 'source': "", 'destination': "", 'frequency': 0,
+        #            'snr': 0, 'typ': "", 'target': '', 'obj': "", 'payload': "", 'rc': 0}
 
         if message.get_typ() == 'control':
             if message.get_target() == 'set':
@@ -157,13 +160,23 @@ class Js8CallDriver:
     def process_tx_q(self):
         try:
             comms_tx: CommsMessage = self.comms_tx_q.get(block=False)  # if no msg waiting, this will throw an exception
-            logging.logmsg(3, f"js8drv: debug: {comms_tx.payload}")
+            logmsg(3, f"js8drv: debug: {comms_tx.payload}")
             self.process_comms_tx(comms_tx)
             self.comms_tx_q.task_done()
         except queue.Empty:
             pass
 
-        pass
+        return
+
+    def signal_frontend(self, ts: float, target_object: str, payload: str):
+        rx_data = CommsMessage()
+        rx_data.set_ts(ts)
+        rx_data.set_direction('rx')
+        rx_data.set_typ('signal')
+        rx_data.set_target('frontend')
+        rx_data.set_obj(target_object)
+        rx_data.set_payload(payload)
+        self.comms_rx_q.put(rx_data)
 
     def run_comms(self):
 
@@ -186,17 +199,32 @@ class Js8CallDriver:
                     # process messages from Js8Call
                     messages = self.js8call_api.listen()
 
+                if self.rx_ind_timeout > 0 and time.time() > self.rx_ind_timeout:
+                    self.signal_frontend(float(params.get('_ID')) / 1000, 'rx_indicator', 'flash_rx_stop')
+
                 for message in messages:
                     logmsg(1, 'js8drv: recv: ' + str(message))
                     typ = message.get('type', '')
                     value = message.get('value', '')
                     params = message.get('params', {})
 
+                    self.signal_frontend(float(params.get('_ID')) / 1000, 'rx_indicator', 'flash_rx_start')
+                    self.rx_ind_timeout = time.time() + self.flash_duration
+
                     if not typ:
                         continue
 
+                    elif typ == 'RIG.PTT':
+                        if value == 'on':
+                            payload = 'ptt_on'
+                        else:
+                            payload = 'ptt_off'
+
+                        logmsg(3, f"js8call_driver: Received {payload}")
+                        self.signal_frontend(float(params.get('_ID')) / 1000, 'tx_indicator', payload)
+
                     elif typ == 'STATION.CALLSIGN':
-                        logmsg(3, 'comms: rsp: ' + value)
+                        logmsg(3, f"js8call_driver: Received {value}")
 
                         rx_status_callsign = CommsMessage()
                         rx_status_callsign.set_ts(float(params.get('_ID'))/1000)
@@ -208,7 +236,7 @@ class Js8CallDriver:
                         self.comms_rx_q.put(rx_status_callsign)
 
                     elif typ == 'RIG.FREQ':
-                        logmsg(3, 'comms: rsp: RIG.FREQ' + value)
+                        logmsg(3, f"js8call_driver: Received {value}")
 
                         # send message to backend re frequency
                         rx_status_radio_frequency = CommsMessage()
@@ -237,7 +265,7 @@ class Js8CallDriver:
                         logmsg(3, 'js8drv: q_put: REG_FREQ - offset: ' + str(params['OFFSET']))
 
                     elif typ == 'STATION.STATUS':
-                        logmsg(3, 'js8drv: in: STATION.STATUS' + value)
+                        logmsg(3, f"js8call_driver: STATION.STATUS is {value}")
 
                         # send message to backend re frequency
                         rx_status_radio_frequency = CommsMessage()

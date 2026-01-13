@@ -1,7 +1,35 @@
+import os
+import re
 import sqlite3
 
-import logging
-from db_root import *
+from logging import logmsg
+from db_root import db_path
+
+
+def get_db_file_spec():
+    path = os.path.normpath(db_path)
+    result = path.split(os.sep)
+    resolved_path = ''
+
+    # does the path start with an env variable
+    env = re.findall(r"^%([.\w-]+)%$", result[0])
+    if len(env) > 0:
+        result[0] = os.getenv(env[0])
+
+        if result[0] is None:
+            logmsg(1, "Invalid environmental variable in db_root.py")
+            exit(99)
+        elif not os.path.isdir(result[0]):
+            logmsg(1, "Environmental variable in db_root.py points to a non-existent path")
+            exit(99)
+
+    # reconstruct the total path
+    for element in result:
+        resolved_path += element + os.sep
+
+    os.makedirs(resolved_path, 777, True)
+
+    return resolved_path + "mblog.db"
 
 
 class DbTable:
@@ -13,12 +41,12 @@ class DbTable:
     def __init__(self, table):
         self.table = table
 
-        db = sqlite3.connect(db_file)
+        db = sqlite3.connect(get_db_file_spec())
         db.row_factory = sqlite3.Row
         c = db.cursor()
         query = f"SELECT * FROM {table} LIMIT 1"
         c.execute(query)
-        logging.logmsg(3, query)
+        logmsg(3, query)
         row = c.fetchone()
         if row:
             self.col_names = row.keys()
@@ -32,7 +60,7 @@ class DbTable:
     # The hdr_list must contain a key db_col with a value of the name of a database column.
     def select(self, where=None, group_by=None, order_by=None, desc=False, limit=0, hdr_list=None):
 
-        db = sqlite3.connect(db_file)
+        db = sqlite3.connect(get_db_file_spec())
         c = db.cursor()
 
         select_cols = ''
@@ -53,7 +81,7 @@ class DbTable:
         if limit > 0:
             query += f" LIMIT {limit}"
 
-        logging.logmsg(3, query)
+        logmsg(3, query)
 
         c.execute(query)
         list_of_tuples = c.fetchall()
@@ -74,7 +102,7 @@ class DbTable:
     # The hdr_list must contain a key db_col with a value of the name of a database column.
     def select_latest(self, where=None, group_by=None, order_by=None, limit=0, hdr_list=None):
 
-        db = sqlite3.connect(db_file)
+        db = sqlite3.connect(get_db_file_spec())
         c = db.cursor()
 
         select_cols = ''
@@ -95,11 +123,12 @@ class DbTable:
         if order_by:
             query += f" ORDER BY {order_by}"
 
+        # ToDo: should the following line be under the "if order_by:" check i.e. indented
         query += " DESC"
         query += f" LIMIT {limit}"
         query += f") ORDER BY {order_by} ASC"
 
-        logging.logmsg(3, query)
+        logmsg(3, query)
 
         c.execute(query)
         list_of_tuples = c.fetchall()
@@ -116,7 +145,7 @@ class DbTable:
         return result
 
     def update(self, where=None, value_dictionary=None):
-        db = sqlite3.connect(db_file)
+        db = sqlite3.connect(get_db_file_spec())
         db.row_factory = sqlite3.Row
         c = db.cursor()
 
@@ -129,7 +158,7 @@ class DbTable:
                 query += ", "
 
             try:
-                value_int = int(value)
+                int(value)  # this tests for int and float values
                 query += f"{key}={value}"
             except ValueError:
                 query += f"{key}='{value}'"
@@ -137,7 +166,7 @@ class DbTable:
         if where:
             query += f" WHERE {where}"
 
-        logging.logmsg(2, query)
+        logmsg(2, query)
 
         with db:
             c.execute(query)
@@ -145,7 +174,7 @@ class DbTable:
         db.close()
 
     def insert(self, row: dict):
-        db = sqlite3.connect(db_file)
+        db = sqlite3.connect(get_db_file_spec())
         db.row_factory = sqlite3.Row
         c = db.cursor()
 
@@ -162,7 +191,7 @@ class DbTable:
                 values += f"{row[column]}"
 
         query = f"INSERT INTO {self.table} VALUES ({values})"
-        logging.logmsg(2, query)
+        logmsg(2, query)
 
         with db:
             c.execute(query)
@@ -171,14 +200,14 @@ class DbTable:
 
     def delete(self, where=None):
 
-        db = sqlite3.connect(db_file)
+        db = sqlite3.connect(get_db_file_spec())
         c = db.cursor()
 
         query = f"DELETE FROM {self.table}"
         if where:
             query += f" WHERE {where}"
 
-        logging.logmsg(2, query)
+        logmsg(2, query)
 
         with db:
             c.execute(query)

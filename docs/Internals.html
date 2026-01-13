@@ -106,16 +106,14 @@
             FIFO Queues; comms_tx_q for backend to comms messaging, and comms_rx_q for comms to backend.</p>
         <h2>Database</h2>
         <h3>Overview</h3>
-        <p>We use a SQLite database at the core of the application.  The database has four tables:</p>
+        <p>We use a SQLite database at the core of the application.  The database contains the following
+            tables:</p>
         <ul>
-            <li>qso - the table used to contain listings, blogs and progress messages
-            <ul><li>used to populate the QSO and New Posts boxes</li></ul>
-            </li>
-            <li>blogs - a table that contains details of blogs identified
-            <ul><li>used to populate the Blog List box</li></ul>
-            </li>
-            <li>settings - holds settings defined using the Settings window (File -> Settings)</li>
-            <li>status - holds context information, such as current selected blog, and a range of timestamps
+            <li>blog - details of blogs identified</li>
+            <li>post - listing and content for posts</li>
+            <li>progress - details of requests and responses flowing within MbClient and to servers</li>
+            <li>settings - settings defined using the Settings window (File -> Settings)</li>
+            <li>status - context information, such as current selected blog, and a range of timestamps
                 used to indicate data change</li>
         </ul>
         <p>As far as the application code is concerned, all database access is made using the DbTable class
@@ -125,15 +123,16 @@
         <p>The location of the database is defined in the file db_root.py.  This file needs to be edited to
             suit each user's preference.  Having the user edit a file like this is not ideal; it would be
             good to add an appropriate startup window.</p>
-        <p>The database is created by the script db_setup.py.  This script also populates the database with
-            sample data and default settings.  The sample data will eventually age out of the QSO and Blog List.
-            If desired, we can supress the sample data by commenting out the code that inserts it into the database,
-            or by using the SQLite command line tool and delete the entries in the qso and blogs tables.</p>
-        <p>
-            <code>sqlite> DELETE FROM blogs;</code><br/>
-            <code>sqlite> DELETE FROM qso;</code>
-        </p>
-
+        <p>The database is created the first time the application starts using functions in the MbDatabase class.
+            The startup code in mb_client.py does the following:</p>
+        <ol>
+            <li>Check if a database exists and if not create one.</li>
+            <li>If a database exists, check the version.  If it's a version 1 database, create a backup and
+                convert it to version 2.  If it's a version 2 database, do nothing.</li>
+            <li>Once we have a version 2 database, start the application.</li>
+        </ol>
+        <p>The database backup will be named <code>mblog.db.yyyymmdd_hhmmss</code>
+            e.g. <code>mblog.db.20260111_094032.</code></p>
     </div>
 </body>
 </html>
