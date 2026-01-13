@@ -11,7 +11,8 @@
         <h2>Contents</h2>
         <ul>
             <li><a href="#intro">Introduction</a></li>
-            <li><a href="#post_file">Microblog Post File</a></li>
+            <li><a href="#offgrid">Off Grid Operation</a></li>
+            <li><a href="#postfile">Microblog Post File</a></li>
             <li><a href="#function">MbClient Functionality</a></li>
             <li><a href="#interface">Getting Started</a></li>
             <li><a href="#settings">Settings</a></li>
@@ -33,7 +34,12 @@
         <p>A microblog server is hosted on an amateur radio operator's computer and uses the JS8Call application
             to provide the JS8 transport mechanism.  A microblog client sends requests to the mbserver which
             responds with the requested information.</p>
-        <h2 id="post_file">Microblog Post File</h2>
+
+        <h2 id="offgrid">Off Grid Operation</h2>
+        <p>Although you will need Internet access to install MbClient, once that's done the application can operate
+            completely off grid.  The User Guide is part of the installation package and so is always available.</p>
+
+        <h2 id="postfile">Microblog Post File</h2>
         <p>A microblog post is stored as a simple text file in the server computer.  The content of the text file
             will look something like this:</p>
         <p style="background-color: black; color: white; padding: 8px;">
@@ -120,7 +126,10 @@
             the layout of the display. The window has five areas:</p>
         <ul>
             <li><b>Header</b> - displays the rig frequency setting, the JS8Call offset, your call sign,
-                the GMT (UTC) date and time, and a Scan button</li>
+                the GMT (UTC) date and time, a Scan button and transmit/receive indicators</li>
+            <li><b>Tx</b> - changes to red when JS8Call is transmitting an MbClient request to
+                the server</li>
+            <li><b>Rx</b> - changes to red when JS8Call has received a data frame</li>
             <li><b>Blog List</b> - lists the blogs that have been seen and should be available to you
                 - the currently selected blog is highlighted in blue</li>
             <li><b>Blog Info</b> - shows information about the selected blog if it's available in
@@ -152,7 +161,11 @@
         </ul>
         <p>* - The wording of the prompt is, "We don't have the content for this post in the cache.
             Click here to get it from the server."</p>
-
+        <p>The Tx and Rx indicators show JS8Call and radio activity.  They give the operator a level
+            of feedback so that we can see something is happening without having to switch to the
+            JS8Call window.  The Tx indicator is switched on when JS8Call is transmitting (activated
+            Push-to-Talk).  The Rx indicator flashes on for 0.5 seconds when JS8Call receives any
+            dataframe, whether it is destined for our station or not.</p>
 
         <h2 id="settings">Settings</h2>
         <p>As an operator, we can change several parameters through the <i>File -> Settings</i> menu.</p>
@@ -246,16 +259,32 @@
         <ol>
             <li>A transceiver that can tune to JS8Call frequencies, or a radio that can tune to these frequencies
                 if you plan to operate in listen only mode.</li>
-            <li>A Windows 10, Windows 11, Apple Mac or Linux computer</li>
-            <li>JS8Call 2.2 or later</li>
-            <li>Python 3 - see https://www.python.org/downloads/</li>
-            <li>Sqlite 3 - see https://sqlite.org/download.html</li>
+            <li>A Windows 10, Windows 11, macOS or Linux computer</li>
+            <li>JS8Call 2.2 or later - see
+                <a href="https://js8call.com/" target="_blank">https://js8call.com/</a></li>
+            <li>Python 3</li>
         </ol>
+        <p>Python 3 is part of the macOS installation (Big Sur and later).  Python 3 is also included in most modern
+            Linux distributions by default.  You can confirm this by opening a terminal and entering
+            <code>python -V</code>, note the option is a capital V.</p>
+        <p><img src="images/microsoft_store_python.jpg" width="640" /></p>
+        <p>Python isn't preinstalled on Windows.  Open a Command Prompt and use <code>python -V</code> to check
+            if it has been installed on your PC.  If it's not installed, install it from the Microsoft Store.
+            On Windows 11, simply enter the command <code>python</code> at a Command Prompt.  If Python isn't installed
+            a window will open at the right place in the Microsoft Store.</p>
+        <p>If all else fails, see see
+            <a href="https://www.python.org/downloads/" target="_blank">https://www.python.org/downloads/</a></p>
+        <p>MbClient only uses modules included in the Python Standard Library, and so we don't need to install
+            additional modules.</p>
+        <p>If you are a more advanced Python user and typically run an application in
+            a dedicated virtual environment, you can do this for MbClient, although it would only be necessary
+            if, say, your global environment is Python 2.</p>
+
         <h3>Download</h3>
         <p>You can download the MbClient from a GitHub repository:</p>
         <ul>
             <li>In your web browser, go to https://github.com/PaulOfford/mbclient</li>
-            <li>Click on the greed Code button and choose Download Zip</li>
+            <li>Click on the green Code button and choose Download Zip</li>
             <li>Extract the zip file to a folder of your choosing</li>
             <li>Check the database path specified in db_root.py and change if appropriate</li>
         </ul>
@@ -268,7 +297,7 @@
             in db_root.py.
             This location is appropriate for Windows and is aligned with the current standard way of
             storing data for personal applications.  I recommend that you don't change it.  The
-            path will need to be changed for MacOS and Linux as the %AppData% environment variable is
+            path will need to be changed for macOS and Linux as the %AppData% environment variable is
             invalid for those operating systems.</p>
         <p>If you want MbClient to convert an earlier version database, once you have set the database
             location (db_path) in db_root.py, you should move the old database file to that location.
