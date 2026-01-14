@@ -189,7 +189,7 @@ class CommsMessage:
     def set_obj(self, obj: str):
         self.obj = obj
 
-    def set_payload(self, payload: [str, int]):
+    def set_payload(self, payload: str):
         self.payload = payload
 
     def set_rc(self, rc: int):

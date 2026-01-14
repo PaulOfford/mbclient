@@ -7,8 +7,10 @@ import locale
 import functools as ft
 from queue import Empty, Queue
 
+import logging
+logger = logging.getLogger(__name__)
+
 from _version import __version__
-from logging import logmsg
 from status import Status
 from settings import Settings
 from db_table import DbTable
@@ -273,16 +275,16 @@ class GuiHeader:
             req.set_op('latest')
             req.set_ts()
             self.f2b_q.put(req)
-            logmsg(3, f"mb_gui: {req}")
+            logger.debug(req)
 
             self.scan_btn.configure(bg='#ff2222')
             self.scan_timeout = time.time() + self.scan_duration
-            logmsg(1, f"mb_gui: Scan started")
+            logger.info("Scan started")
 
     def reset_scan(self) -> None:
         self.scan_btn.configure(bg='#22ff23')
         self.scan_timeout = 0
-        logmsg(1, f"mb_gui: End of scan period")
+        logger.info("End of scan period")
 
     def set_frequency(self):
         field = ['radio_frequency']
@@ -519,7 +521,7 @@ class GuiBlogList(GuiTable):
         req.set_op('recent')
         req.set_ts()
         self.f2b_q.put(req)
-        logmsg(3, f"fe: {req}")
+        logger.debug(req)
 
     # check_for_latest causes MbClient to request an @MB announcement
     def check_for_latest(self):
@@ -531,7 +533,7 @@ class GuiBlogList(GuiTable):
         req.set_op('latest')
         req.set_ts()
         self.f2b_q.put(req)
-        logmsg(3, f"fe: {req}")
+        logger.debug(req)
 
     def get_blog_info(self):
         req = GuiMessage()
@@ -542,7 +544,7 @@ class GuiBlogList(GuiTable):
         req.set_op('latest')
         req.set_ts()
         self.f2b_q.put(req)
-        logmsg(3, f"fe: {req}")
+        logger.debug(req)
 
     def reload_blog_list(self):
         blog_table = DbTable('blog')
@@ -568,7 +570,7 @@ class GuiBlogList(GuiTable):
         req.set_frequency(self.db_values[row]['frequency'])
         req.set_ts()
         self.f2b_q.put(req)
-        logmsg(3, f"fe: {req}")
+        logger.debug(req)
 
     def popup_cb(self, row, event):
         self.clicked_row = row
@@ -702,7 +704,7 @@ class GuiPostListBox(GuiTable):
         req.set_post_id(self.db_values[row]['post_id'])
         req.set_ts()
         self.f2b_q.put(req)
-        logmsg(3, f"fe: {req}")
+        logger.debug(req)
 
     def get_more(self):
         status = Status()
@@ -716,7 +718,7 @@ class GuiPostListBox(GuiTable):
         req.set_op('more')
         req.set_ts()
         self.f2b_q.put(req)
-        logmsg(3, f"fe: {req}")
+        logger.debug(req)
 
     def refresh_listing(self):
         status = Status()
@@ -730,7 +732,7 @@ class GuiPostListBox(GuiTable):
         req.set_op('eq')
         req.set_ts()
         self.f2b_q.put(req)
-        logmsg(3, f"fe: {req}")
+        logger.debug(req)
 
     def refresh_content(self):
         status = Status()
@@ -744,7 +746,7 @@ class GuiPostListBox(GuiTable):
         req.set_op('eq')
         req.set_ts()
         self.f2b_q.put(req)
-        logmsg(3, f"fe: {req}")
+        logger.debug(req)
 
     def cb_hdr_click(self, col, event):
         pass
@@ -795,7 +797,7 @@ class GuiPostContent:
         req.set_post_date(0)
         req.set_ts()
         self.f2b_q.put(req)
-        logmsg(3, f"fe: {req}")
+        logger.debug(req)
 
     def get_post_cb(self, event):
         status = Status()
@@ -1040,7 +1042,7 @@ class GuiMain:
 
         if status.blog_updated > status.last_checked:
             self.reload_blog_list()
-            logmsg(4, "reload_blog_list()")
+            logger.debug("reload_blog_list()")
 
         if status.post_list_updated > status.last_checked:
             self.reload_post_list_box()
@@ -1070,7 +1072,7 @@ class GuiMain:
         req.set_frequency(freq)
         req.set_ts()
         self.f2b_q.put(req)
-        logmsg(3, f"fe: {req}")
+        logger.debug(req)
 
         pass
 
@@ -1092,7 +1094,7 @@ class GuiMain:
                 self.header.flash_tx_stop()
 
             else:
-                logmsg(3, f"frontend: {msg.cmd} {msg.param}")
+                logger.debug(f"{msg.cmd} {msg.param}")
                 self.status_check()
 
             self.b2f_q.task_done()

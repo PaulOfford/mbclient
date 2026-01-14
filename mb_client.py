@@ -1,21 +1,27 @@
 import time
 import threading
 import shutil
-import tkinter as tk
 from queue import Queue
 
-from logging import logmsg
+from logging_config import setup_logging
+import logging
+setup_logging(logging.INFO)   # DEBUG or INFO
+
+logger = logging.getLogger(__name__)
+
 from mb_database import MbDatabase
 from mb_gui import GuiMain
 from backend import Backend
 from js8call_driver import Js8CallDriver
 
+MAX_QUEUE_SIZE = 20
+
 
 class MbClient:
-    f2b_q = Queue(maxsize=20)  # queue for messages from the frontend to the backend
-    b2f_q = Queue(maxsize=20)  # queue for messages to the frontend from the backend
-    comms_tx_q = Queue(maxsize=20)  # queue for messages from the backend to the comms driver
-    comms_rx_q = Queue(maxsize=20)  # queue for messages to the backend from the comms driver
+    f2b_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages from the frontend to the backend
+    b2f_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages to the frontend from the backend
+    comms_tx_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages from the backend to the comms driver
+    comms_rx_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages to the backend from the comms driver
     be_t = None  # thread anchor
     comms_t = None  # thread anchor
 
@@ -43,7 +49,7 @@ if __name__ == "__main__":
 
     db_version = new_db.determine_version()
 
-    logmsg(1, f"mb_client: Database version: {db_version}")
+    logger.info(f"mb_client: Database version: {db_version}")
 
     if db_version == 0:
         new_db.create()
@@ -54,10 +60,10 @@ if __name__ == "__main__":
         # backup the version 1 database
         backup_file = new_db.db_file + time.strftime(".%Y%m%d_%H%M%S", time.gmtime())
         shutil.copy2(new_db.db_file, f"{backup_file}")
-        logmsg(1, f"mb_client: Created database backup {backup_file}")
+        logger.info(f"mb_client: Created database backup {backup_file}")
 
         new_db.migrate_from_v1()
-        logmsg(1, "mb_client: Database conversion complete")
+        logger.info("mb_client: Database conversion complete")
 
     elif db_version == 2:
         pass  # nothing to do
@@ -65,7 +71,8 @@ if __name__ == "__main__":
     else:
         raise Exception(f"Unable to determine the version of the database {new_db.db_file}")
 
-    logmsg(1, "mb_client: Database is ready to go")
+    logger.info("mb_client: Database is ready to go")
+
 
     c = MbClient()
     c.start_gui()
