@@ -393,15 +393,15 @@ class ServerMsgProcessors:
              'proc': 'process_announcement'},  # new style announcement
             {'exp': r"^([A-Z,0-9/]+): +(@MB) +([A-Z,0-9/]+) +(\d+) +(\d{4}-\d{2}-\d{2})",
              'proc': 'process_announcement'},  # old style announcement
-            {'exp': "^(\\S+): +(\\S+) +([+-])(L)([\\d,]*)~\n*([\\S\\s]+)", 'proc': 'process_listing'},
-            {'exp': "^(\\S+): +(\\S+) +([+-])(L)([\\dABC]*)~\n*([\\S\\s]+)", 'proc': 'process_listing'},
-            {'exp': "^(\\S+): +(\\S+) +([+-])([LM][EG])([\\dABC]*)~\n*([\\S\\s]+)", 'proc': 'process_listing'},
-            {'exp': "^(\\S+): +(\\S+) +([+-])(E)([\\d,]*)~\n*([\\S\\s]+)", 'proc': 'process_extended'},
-            {'exp': "^(\\S+): +(\\S+) +([+-])(E)([\\dABC]*)~\n*([\\S\\s]+)", 'proc': 'process_extended'},
-            {'exp': "^(\\S+): +(\\S+) +([+-])([EF][EG])([\\dABC]*)~\n*([\\S\\s]+)", 'proc': 'process_extended'},
-            {'exp': "^(\\S+): +(\\S+) +([+-])(G)(\\d+)~\n*([\\S\\s]+)", 'proc': 'process_post'},
-            {'exp': "^(\\S+): +(\\S+) +([+-])(WX)~\n*([\\S\\s]+)", 'proc': 'process_weather'},
-            {'exp': "^(\\S+): +(\\S+) +(INFO) +([\\S\\s]+)", 'proc': 'process_info'},
+            {'exp': r"^(\S+): +(\S+) +([+-])(L)([\d,]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
+            {'exp': r"^(\S+): +(\S+) +([+-])(L)([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
+            {'exp': r"^(\S+): +(\S+) +([+-])([LM][EG])([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
+            {'exp': r"^(\S+): +(\S+) +([+-])(E)([\d,]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
+            {'exp': r"^(\S+): +(\S+) +([+-])(E)([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
+            {'exp': r"^(\S+): +(\S+) +([+-])([EF][EG])([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
+            {'exp': r"^(\S+): +(\S+) +([+-])(G)(\d+)~\n*([\S\s]+)", 'proc': 'process_post'},
+            {'exp': r"^(\S+): +(\S+) +([+-])(WX)~\n*([\S\s]+)", 'proc': 'process_weather'},
+            {'exp': r"^(\S+): +(\S+) +(INFO) +([\S\s]+)", 'proc': 'process_info'},
         ]
         for entry in rsp_patterns:
             # try to match the request
