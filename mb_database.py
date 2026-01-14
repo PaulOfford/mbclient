@@ -29,7 +29,7 @@ class MbDatabase:
     
     def __init__(self):
         self.db_file = get_db_file_spec()
-        logging.info(f"mb_database: Working with database {self.db_file}")
+        logger.info(f"mb_database: Working with database {self.db_file}")
 
     def determine_version(self):
         v1_columns = [('blogs',), ('qso',), ('settings',), ('status',)]
@@ -61,7 +61,7 @@ class MbDatabase:
         db = sqlite3.connect(self.db_file)
         cursor = db.cursor()
 
-        logging.info("mb_database: Creating the progress table")
+        logger.info("mb_database: Creating the progress table")
         cursor.execute("""CREATE TABLE progress (
             qso_date integer,
             blog text,
@@ -71,10 +71,10 @@ class MbDatabase:
             message text
         )""")
 
-        logging.info("mb_database: Creating the status table")
+        logger.info("mb_database: Creating the status table")
         cursor.execute("""CREATE TABLE settings (ts float, name text, val text, typ text)""")
 
-        logging.info("mb_database: Loading default settings")
+        logger.info("mb_database: Loading default settings")
         with db:
             cursor.execute(
                 "INSERT INTO settings VALUES (:ts, :name, :val, :typ)",
@@ -105,7 +105,7 @@ class MbDatabase:
                 {'ts': time.time(), 'name': 'max_listing', 'val': '5', 'typ': 'integer'}
             )
 
-        logging.info("mb_database: Creating the status table")
+        logger.info("mb_database: Creating the status table")
         cursor.execute("""CREATE TABLE status (
             last_checked float,
             hdr_updated float,
@@ -123,7 +123,7 @@ class MbDatabase:
             selected_post integer
         )""")
 
-        logging.info("mb_database: Loading default status values")
+        logger.info("mb_database: Loading default status values")
         with db:
             cursor.execute(
                 "INSERT INTO status VALUES ("
@@ -149,7 +149,7 @@ class MbDatabase:
                 }
             )
 
-        logging.info("mb_database: Creating post table")
+        logger.info("mb_database: Creating post table")
         cursor.execute("""CREATE TABLE post (
             qso_date integer,
             blog text,
@@ -165,7 +165,7 @@ class MbDatabase:
             is_selected integer
         )""")
 
-        logging.info("mb_database: Creating blog table")
+        logger.info("mb_database: Creating blog table")
         cursor.execute("""CREATE TABLE blog (
             blog text,
             station text,
@@ -184,7 +184,7 @@ class MbDatabase:
              'last_seen_date': "2026-01-05 17:15:00", 'info': "Sample server", 'is_selected': 1},
         ]
 
-        logging.info("mb_database: Loading list of demo blogs")
+        logger.info("mb_database: Loading list of demo blogs")
         for i, b in enumerate(blog_list):
             with db:
                 cursor.execute(
@@ -220,7 +220,7 @@ class MbDatabase:
             },
         ]
 
-        logging.info("mb_database: Loading welcome info into the post table")
+        logger.info("mb_database: Loading welcome info into the post table")
         for i, q in enumerate(welcome):
             with db:
                 cursor.execute(
@@ -242,7 +242,7 @@ class MbDatabase:
                     }
                 )
 
-        logging.info("mb_database: Closing the database connection")
+        logger.info("mb_database: Closing the database connection")
         db.close()
 
     def migrate_from_v1(self):
@@ -253,40 +253,40 @@ class MbDatabase:
         with db:
             # we need to set one of the posts as selected
             sql_cmd = "SELECT blog, post_id, body FROM qso WHERE type='post'"
-            logging.info(f"mb_database: {sql_cmd}")
+            logger.info(f"mb_database: {sql_cmd}")
             cursor.execute(sql_cmd)
             rows = cursor.fetchall()
 
             for row in rows:
                 body = row[2].replace("'", "''")
                 sql_cmd = f"UPDATE qso SET body = '{body}' WHERE blog='{row[0]}' AND post_id={row[1]}"
-                logging.info(f"mb_database: {sql_cmd}")
+                logger.info(f"mb_database: {sql_cmd}")
                 cursor.execute(sql_cmd)
 
         # execute the SQL commands in db_migrate.sql
         f = open("./db_migrate.sql", "r")
         for sql_cmd in f.readlines():
-            logging.info(f"mb_database: {sql_cmd[0:-2]}")
+            logger.info(f"mb_database: {sql_cmd[0:-2]}")
             with db:
                 cursor.execute(sql_cmd)
 
         with db:
             # we need to set one of the posts as selected
             sql_cmd = "SELECT post_id FROM post ORDER BY post_id DESC LIMIT 1"
-            logging.info(f"mb_database: {sql_cmd}")
+            logger.info(f"mb_database: {sql_cmd}")
             cursor.execute(sql_cmd)
             last_post = cursor.fetchone()
 
             sql_cmd = f"UPDATE status SET selected_post={last_post[0]}"
-            logging.info(f"mb_database: {sql_cmd}")
+            logger.info(f"mb_database: {sql_cmd}")
             cursor.execute(sql_cmd)
 
             sql_cmd = f"UPDATE post SET is_selected=1 WHERE post_id={last_post[0]}"
-            logging.info(f"mb_database: {sql_cmd}")
+            logger.info(f"mb_database: {sql_cmd}")
             cursor.execute(sql_cmd)
 
             sql_cmd = f"UPDATE status SET progress_updated = 0"
-            logging.info(f"mb_database: {sql_cmd}")
+            logger.info(f"mb_database: {sql_cmd}")
             cursor.execute(sql_cmd)
 
         return

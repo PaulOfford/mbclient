@@ -3,7 +3,10 @@ import threading
 import shutil
 from queue import Queue
 
+from logging_config import setup_logging
 import logging
+setup_logging(logging.DEBUG)   # or INFO
+
 logger = logging.getLogger(__name__)
 
 from mb_database import MbDatabase
@@ -69,6 +72,7 @@ if __name__ == "__main__":
         raise Exception(f"Unable to determine the version of the database {new_db.db_file}")
 
     logger.info("mb_client: Database is ready to go")
+
 
     c = MbClient()
     c.start_gui()

@@ -19,10 +19,10 @@ def get_db_file_spec():
         result[0] = os.getenv(env[0])
 
         if result[0] is None:
-            logging.info("Invalid environmental variable in db_root.py")
+            logger.info("Invalid environmental variable in db_root.py")
             exit(99)
         elif not os.path.isdir(result[0]):
-            logging.info("Environmental variable in db_root.py points to a non-existent path")
+            logger.info("Environmental variable in db_root.py points to a non-existent path")
             exit(99)
 
     # reconstruct the total path
@@ -48,7 +48,7 @@ class DbTable:
         c = db.cursor()
         query = f"SELECT * FROM {table} LIMIT 1"
         c.execute(query)
-        logging.debug(query)
+        logger.debug(query)
         row = c.fetchone()
         if row:
             self.col_names = row.keys()
@@ -83,7 +83,7 @@ class DbTable:
         if limit > 0:
             query += f" LIMIT {limit}"
 
-        logging.debug(query)
+        logger.debug(query)
 
         c.execute(query)
         list_of_tuples = c.fetchall()
@@ -130,7 +130,7 @@ class DbTable:
         query += f" LIMIT {limit}"
         query += f") ORDER BY {order_by} ASC"
 
-        logging.debug(query)
+        logger.debug(query)
 
         c.execute(query)
         list_of_tuples = c.fetchall()
@@ -168,7 +168,7 @@ class DbTable:
         if where:
             query += f" WHERE {where}"
 
-        logging.debug(query)
+        logger.debug(query)
 
         with db:
             c.execute(query)
@@ -193,7 +193,7 @@ class DbTable:
                 values += f"{row[column]}"
 
         query = f"INSERT INTO {self.table} VALUES ({values})"
-        logging.debug(query)
+        logger.debug(query)
 
         with db:
             c.execute(query)
@@ -209,7 +209,7 @@ class DbTable:
         if where:
             query += f" WHERE {where}"
 
-        logging.debug(query)
+        logger.debug(query)
 
         with db:
             c.execute(query)

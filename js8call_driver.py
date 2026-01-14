@@ -33,22 +33,22 @@ class Js8CallApi:
         self.sock = socket(AF_INET, SOCK_STREAM)
 
     def connect(self):
-        logging.info('js8drv: info: Connecting to JS8Call at ' + ':'.join(map(str, js8call_addr)))
+        logger.info('js8drv: info: Connecting to JS8Call at ' + ':'.join(map(str, js8call_addr)))
         try:
             api = self.sock.connect(js8call_addr)
             self.connected = True
-            logging.info('js8drv: info: Connected to JS8Call')
+            logger.info('js8drv: info: Connected to JS8Call')
             return api
 
         except ConnectionRefusedError:
-            logging.info('js8drv: err: Connection to JS8Call has been refused.')
-            logging.info('js8drv: info: Check that:')
-            logging.info('js8drv: info: * JS8Call is running')
-            logging.info('js8drv: info: * JS8Call settings check boxes Enable TCP Server API and'
+            logger.info('js8drv: err: Connection to JS8Call has been refused.')
+            logger.info('js8drv: info: Check that:')
+            logger.info('js8drv: info: * JS8Call is running')
+            logger.info('js8drv: info: * JS8Call settings check boxes Enable TCP Server API and'
                       'Accept TCP Requests are checked')
-            logging.info('js8drv: info: * The API server port number in JS8Call matches the setting in this script'
+            logger.info('js8drv: info: * The API server port number in JS8Call matches the setting in this script'
                       ' - default is 2442')
-            logging.info('js8drv: info: * There are no firewall rules preventing the connection')
+            logger.info('js8drv: info: * There are no firewall rules preventing the connection')
             exit(1)
 
     def listen(self):
@@ -59,7 +59,7 @@ class Js8CallApi:
         ready = select.select([self.sock], [], [], 0.5)
         if ready[0]:
             content = self.sock.recv(65500)
-            logging.debug('js8drv: recv: ' + str(content))
+            logger.debug('js8drv: recv: ' + str(content))
 
             if content:
                 # remove the terminator
@@ -76,7 +76,7 @@ class Js8CallApi:
                     pass
             else:
                 self.connected = False
-                logging.info('js8drv: ctrl: Connection to JS8Call has closed')
+                logger.info('js8drv: ctrl: Connection to JS8Call has closed')
                 # ToDo: signal connection loss to backend, which should then add a QSO box entry
 
         return messages  # we return a list of messages, typically with a length of one
@@ -95,10 +95,10 @@ class Js8CallApi:
         message = self.to_message(*args, **kwargs)
 
         message = message.replace('\n\n', '\n \n')  # this seems to help with the JS8Call message window format
-        logging.debug('js8drv: send: ' + message)
+        logger.debug('js8drv: send: ' + message)
 
         if len(args) > 1 and debug:
-            logging.debug('js8drv: info: MB message not sent as we are in debug mode')
+            logger.debug('js8drv: info: MB message not sent as we are in debug mode')
             # this avoids hamlib errors in JS8Call if the radio isn't connected
         else:
             self.sock.send((message + '\n').encode())   # newline suffix is required
@@ -127,7 +127,7 @@ class Js8CallDriver:
         self.js8call_api.connect()
 
     def set_radio_frequency(self, freq: int):
-        logging.debug('js8drv: call: RIG.SET_FREQ')
+        logger.debug('js8drv: call: RIG.SET_FREQ')
         kwargs = {'params': {'DIAL': freq}}
         self.js8call_api.send('RIG.SET_FREQ', **kwargs)
         pass
@@ -147,12 +147,12 @@ class Js8CallDriver:
             self.js8call_api.send('TX.SEND_MESSAGE', req_msg)
             pass
         else:
-            logging.info(f"js8drv: err: Invalid message received from backend, typ = {message.get_typ()}")
+            logger.info(f"js8drv: err: Invalid message received from backend, typ = {message.get_typ()}")
 
     def process_tx_q(self):
         try:
             comms_tx: CommsMessage = self.comms_tx_q.get(block=False)  # if no msg waiting, this will throw an exception
-            logging.debug(f"js8drv: debug: {comms_tx.payload}")
+            logger.debug(f"js8drv: debug: {comms_tx.payload}")
             self.process_comms_tx(comms_tx)
             self.comms_tx_q.task_done()
         except queue.Empty:
@@ -173,10 +173,10 @@ class Js8CallDriver:
     def run_comms(self):
 
         if self.js8call_api.connected:
-            logging.debug('js8drv: call: STATION.GET_CALLSIGN')
+            logger.debug('js8drv: call: STATION.GET_CALLSIGN')
             self.js8call_api.send('STATION.GET_CALLSIGN', '')
 
-            logging.debug('js8drv: call: RIG.GET_FREQ')
+            logger.debug('js8drv: call: RIG.GET_FREQ')
             self.js8call_api.send('RIG.GET_FREQ', '')
 
         try:
@@ -195,7 +195,7 @@ class Js8CallDriver:
                     self.signal_frontend(time.time(), 'rx_indicator', 'flash_rx_stop')
 
                 for message in messages:
-                    logging.info('js8drv: recv: ' + str(message))
+                    logger.info('js8drv: recv: ' + str(message))
                     typ = message.get('type', '')
                     value = message.get('value', '')
                     params = message.get('params', {})
@@ -212,11 +212,11 @@ class Js8CallDriver:
                         else:
                             payload = 'ptt_off'
 
-                        logging.debug(f"js8call_driver: Received {payload}")
+                        logger.debug(f"js8call_driver: Received {payload}")
                         self.signal_frontend(float(params.get('_ID')) / 1000, 'tx_indicator', payload)
 
                     elif typ == 'STATION.CALLSIGN':
-                        logging.debug(f"js8call_driver: Received {value}")
+                        logger.debug(f"js8call_driver: Received {value}")
 
                         rx_status_callsign = CommsMessage()
                         rx_status_callsign.set_ts(float(params.get('_ID'))/1000)
@@ -228,7 +228,7 @@ class Js8CallDriver:
                         self.comms_rx_q.put(rx_status_callsign)
 
                     elif typ == 'RIG.FREQ':
-                        logging.debug(f"js8call_driver: Received {value}")
+                        logger.debug(f"js8call_driver: Received {value}")
 
                         # send message to backend re frequency
                         rx_status_radio_frequency = CommsMessage()
@@ -241,7 +241,7 @@ class Js8CallDriver:
                         rx_status_radio_frequency.set_offset(int(params['OFFSET']))
                         rx_status_radio_frequency.set_payload(str(params['DIAL']))
                         self.comms_rx_q.put(rx_status_radio_frequency)
-                        logging.debug('js8drv: q_put: REG_FREQ - radio_frequency: ' + str(params['DIAL']))
+                        logger.debug('js8drv: q_put: REG_FREQ - radio_frequency: ' + str(params['DIAL']))
 
                         # send message to backend re offset
                         rx_status_offset = CommsMessage()
@@ -254,10 +254,10 @@ class Js8CallDriver:
                         rx_status_offset.set_offset(int(params['OFFSET']))
                         rx_status_offset.set_payload(str(params['OFFSET']))
                         self.comms_rx_q.put(rx_status_offset)
-                        logging.debug('js8drv: q_put: REG_FREQ - offset: ' + str(params['OFFSET']))
+                        logger.debug('js8drv: q_put: REG_FREQ - offset: ' + str(params['OFFSET']))
 
                     elif typ == 'STATION.STATUS':
-                        logging.debug(f"js8call_driver: STATION.STATUS is {value}")
+                        logger.debug(f"js8call_driver: STATION.STATUS is {value}")
 
                         # send message to backend re frequency
                         rx_status_radio_frequency = CommsMessage()
@@ -270,7 +270,7 @@ class Js8CallDriver:
                         rx_status_radio_frequency.set_offset(int(params['OFFSET']))
                         rx_status_radio_frequency.set_payload(str(params['DIAL']))
                         self.comms_rx_q.put(rx_status_radio_frequency)
-                        logging.debug('js8drv: q_put: STATION.STATUS - radio_frequency: ' + str(params['DIAL']))
+                        logger.debug('js8drv: q_put: STATION.STATUS - radio_frequency: ' + str(params['DIAL']))
 
                         # send message to backend re offset
                         rx_status_offset = CommsMessage()
@@ -283,10 +283,10 @@ class Js8CallDriver:
                         rx_status_offset.set_offset(int(params['OFFSET']))
                         rx_status_offset.set_payload(str(params['OFFSET']))
                         self.comms_rx_q.put(rx_status_offset)
-                        logging.debug('js8drv: q_put: STATION.STATUS - offset: ' + str(params['OFFSET']))
+                        logger.debug('js8drv: q_put: STATION.STATUS - offset: ' + str(params['OFFSET']))
 
                     elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us, including @MB
-                        logging.debug('comms: recv: ' + str(message))
+                        logger.debug('comms: recv: ' + str(message))
                         rx_mb_msg = CommsMessage()
 
                         rx_mb_msg.set_ts(float(params['UTC'])/1000)

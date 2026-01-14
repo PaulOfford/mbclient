@@ -389,9 +389,9 @@ class ServerMsgProcessors:
 
     def parse_rx_message(self, mb_rsp_string: str):
         rsp_patterns = [
-            {'exp': "^([A-Z,0-9\/]+): +(@MB) +(\\d+) +(\\d{2})(\\d{2})(\\d{2})",
+            {'exp': r"^([A-Z,0-9/]+): +(@MB) +(\d+) +(\d{2})(\d{2})(\d{2})",
              'proc': 'process_announcement'},  # new style announcement
-            {'exp': "^([A-Z,0-9\/]+): +(@MB) +([A-Z,0-9\/]+) +(\\d+) +(\\d{4}-\\d{2}-\\d{2})",
+            {'exp': r"^([A-Z,0-9/]+): +(@MB) +([A-Z,0-9/]+) +(\d+) +(\d{4}-\d{2}-\d{2})",
              'proc': 'process_announcement'},  # old style announcement
             {'exp': "^(\\S+): +(\\S+) +([+-])(L)([\\d,]*)~\n*([\\S\\s]+)", 'proc': 'process_listing'},
             {'exp': "^(\\S+): +(\\S+) +([+-])(L)([\\dABC]*)~\n*([\\S\\s]+)", 'proc': 'process_listing'},
