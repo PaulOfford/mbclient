@@ -1,5 +1,6 @@
 import time
 
+
 class GuiMessage:
 
     # Valid cmd and other values
