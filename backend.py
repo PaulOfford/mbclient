@@ -2,7 +2,9 @@ import time
 import queue
 import re
 
-from my_logging import logmsg
+import logging
+logger = logging.getLogger(__name__)
+
 from status import Status
 from settings import Settings
 from message_q import CommsMessage, GuiMessage
@@ -415,7 +417,7 @@ class ServerMsgProcessors:
                 # process if the result was positive
                 if result[2] == '+':
                     self.cmd = f"{result[2]}{result[3]}{result[4]}~"
-                    logmsg(1, self.cmd)
+                    logger.info(self.cmd)
                     add_progress(self.cmd)
                     getattr(ServerMsgProcessors, entry['proc'])(self, result)
 
@@ -423,22 +425,22 @@ class ServerMsgProcessors:
                     getattr(ServerMsgProcessors, entry['proc'])(self, result)
                     try:
                         progress_msg = f"{result[1]} {result[2]} {result[3]}{result[4]}{result[5]}"
-                    except:
+                    except ValueError:
                         progress_msg = f"{result[1]} {result[2]} {result[3]}"
-                    logmsg(1, progress_msg)
+                    logger.info(progress_msg)
                     add_progress(progress_msg)
 
                 elif result[2] == 'INFO':
                     getattr(ServerMsgProcessors, entry['proc'])(self, result)
                     progress_msg = f"{result[1]} {result[2]} {result[3]}"
-                    logmsg(1, progress_msg)
+                    logger.info(progress_msg)
                     add_progress(progress_msg)
 
                 else:
                     self.mb_status.reload_status()
                     if result[1] == self.mb_status.callsign:  # we only need to show an error if this rsp was for us
                         error_msg = f"{result[2]}{result[3]}{result[4]}~"
-                        logmsg(1, error_msg)
+                        logger.info(error_msg)
                         add_progress(error_msg)
                 break
 
@@ -494,7 +496,7 @@ class BeProcessor:
 
         # form a request to get the posts in the svr_request_list
         payload = f"G{req.post_id}~"
-        logmsg(3, 'comms: send: ' + str(payload))
+        logger.debug('comms: send: ' + str(payload))
         mblog_api_req = CommsMessage()
 
         mblog_api_req.set_ts(time.time())
@@ -557,7 +559,7 @@ class BeProcessor:
             status = Status()
 
             payload = f"E{posts_needed}~"
-            logmsg(3, 'comms: send: ' + str(payload))
+            logger.debug('comms: send: ' + str(payload))
             mblog_api_req = CommsMessage()
 
             mblog_api_req.set_ts(time.time())
@@ -610,7 +612,7 @@ class BeProcessor:
             status = Status()
 
             payload = f"E{req.get_post_id()}~"
-            logmsg(3, 'comms: send: ' + str(payload))
+            logger.debug('comms: send: ' + str(payload))
             mblog_api_req = CommsMessage()
 
             mblog_api_req.set_ts(time.time())
@@ -670,7 +672,7 @@ class BeProcessor:
         status = Status()
 
         payload = f"{req.get_cmd()}"
-        logmsg(3, 'comms: send: ' + str(payload))
+        logger.debug('comms: send: ' + str(payload))
         mblog_api_req = CommsMessage()
 
         mblog_api_req.set_ts(time.time())
@@ -690,7 +692,7 @@ class BeProcessor:
         status = Status()
 
         payload = f"INFO?"
-        logmsg(3, 'comms: send: ' + str(payload))
+        logger.debug('comms: send: ' + str(payload))
         mblog_api_req = CommsMessage()
 
         mblog_api_req.set_ts(time.time())
@@ -710,7 +712,7 @@ class BeProcessor:
         status = Status()
 
         payload = f"WX~"
-        logmsg(3, 'comms: send: ' + str(payload))
+        logger.debug('comms: send: ' + str(payload))
         mblog_api_req = CommsMessage()
 
         mblog_api_req.set_ts(time.time())
@@ -829,7 +831,7 @@ class BeProcessor:
         msg_prefix = "BeProcessor:preprocess: "
 
         if command == 'X':
-            # we have to give the comms interface a kick to get its thread to shutdown
+            # we have to give the comms interface a kick to get its thread to shut down
             comms_sig = CommsMessage()
             comms_sig.set_ts(time.time())
             comms_sig.set_direction('tx')
@@ -838,35 +840,35 @@ class BeProcessor:
             comms_sig.set_obj('exit')
             self.comms_tx_q.put(comms_sig)
 
-            logmsg(1, f"{msg_prefix}{command}")
+            logger.info(f"{msg_prefix}{command}")
             add_progress(command)
             exit(0)
 
         elif command == 'L':
             # Get abbreviated list
             process_msg = f"{command}{msg_object.get_op()}{msg_object.get_post_id()}~"
-            logmsg(1, f"{msg_prefix}{process_msg}")
+            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_list_cmd(msg_object)
 
         elif command == 'D':
             # Get full list details not using the cache
             process_msg = f"{command}{msg_object.get_op()}{msg_object.get_post_id()}~"
-            logmsg(1, f"{msg_prefix}{process_msg}")
+            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_extended_cmd(msg_object)
 
         elif command == 'E':
             # Get full list details using the cache
             process_msg = f"{command}{msg_object.get_op()}{msg_object.get_post_id()}~"
-            logmsg(1, f"{msg_prefix}{process_msg}")
+            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_extended_cmd(msg_object)
 
         elif command == 'F':
             # Fetch post(s)
             process_msg = f"{command}{msg_object.get_post_id()}~"
-            logmsg(1, f"{msg_prefix}{process_msg}")
+            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_fetch_cmd(msg_object)
             self.signal_reload('post')
@@ -874,56 +876,56 @@ class BeProcessor:
         elif command == 'G':
             # Get post(s)
             process_msg = f"{command}{msg_object.get_post_id()}~"
-            logmsg(1, f"{msg_prefix}{process_msg}")
+            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.get_post_from_server(msg_object)
 
         elif command == 'R':
             # Refresh a post (results in sending a Get to the server)
             process_msg = f"{command}{msg_object.get_post_id()}~"
-            logmsg(1, f"{msg_prefix}{process_msg}")
+            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_refresh_cmd(msg_object)
 
         elif command == 'I':
             # Get information from the server
             process_msg = f"INFO?"
-            logmsg(1, f"{msg_prefix}{process_msg}")
+            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_info_cmd(msg_object)
 
         elif command == 'S':
             # Switch to a blog (internal - no server command is sent)
             process_msg = f"{command}"
-            logmsg(1, f"{msg_prefix}{process_msg}")
+            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_set_cmd(msg_object)
 
         elif command == 'C':
             # Change the config - not implemented
             process_msg = f"{command}"
-            logmsg(1, f"{msg_prefix}{process_msg}")
+            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_config_cmd(msg_object)
 
         elif command == 'P':
             # Initiate a Scan - not implemented
             process_msg = f"{command}"
-            logmsg(1, f"{msg_prefix}{process_msg}")
+            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_scan_cmd(msg_object)
 
         elif command == 'Q':
             # Query command to elicit an announcement from all MB servers
             process_msg = f"{command}"
-            logmsg(1, f"{msg_prefix}{process_msg}")
+            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_query_cmd(msg_object)
 
         elif command == 'WX':
             # Request a weather report - results in G0~ to the server
             process_msg = f"{command}"
-            logmsg(1, f"{msg_prefix}{process_msg}")
+            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_weather_cmd(msg_object)
 
@@ -993,7 +995,7 @@ class BeProcessor:
         try:
             fe_msg: GuiMessage = self.f2b_q.get(block=False)
             if fe_msg:
-                logmsg(3, f"backend: {fe_msg.cmd}")
+                logger.debug(f"backend: {fe_msg.cmd}")
                 self.preprocess(fe_msg)
                 self.f2b_q.task_done()
         except queue.Empty:
@@ -1002,7 +1004,7 @@ class BeProcessor:
         # check for messages from the comms driver
         try:
             comms_rx: CommsMessage = self.comms_rx_q.get(block=True, timeout=0.1)  # if no msg waiting, throw an except
-            logmsg(3, f"backend: {comms_rx.payload}")
+            logger.debug(f"backend: {comms_rx.payload}")
             self.process_comms_rx(comms_rx)
             self.comms_rx_q.task_done()
         except queue.Empty:

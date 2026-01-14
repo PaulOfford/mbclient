@@ -4,7 +4,9 @@ import shutil
 import tkinter as tk
 from queue import Queue
 
-from my_logging import logmsg
+from logging_config import setup_logging
+import logging
+
 from mb_database import MbDatabase
 from mb_gui import GuiMain
 from backend import Backend
