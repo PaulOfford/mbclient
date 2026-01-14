@@ -1,34 +1,43 @@
+from __future__ import annotations
+
 import time
 
 
 class GuiMessage:
+    """Message sent between GUI and backend.
 
-    # Valid cmd and other values
-    # L - blog, post_id or post_date, op set to 'eq', 'gt' or 'lt': lists posts in brief format
-    # E - blog, post_id or post_date, op set to 'eq', 'gt' or 'lt': lists posts in extended format
-    # G - blog and post_id: gets a specific post
-    # I - blog: returns information about the blog
-    # S - blog and station: sets the selected_blog value
-    # S - frequency: sets the radio frequency
-    # C - operator equals the configuration item and param is the value: sets a configuration setting
-    #       all configuration settings cause a change in the database settings table except for
-    #       setting db_file which causes a recreation of the db_root.py file
-    # P - op set to 'start' or 'stop': starts and stops a promiscuous scan
-    # Q - send @MB Q to elicit @MB announcements
-    # Note that the station that receives blog-based commands is selected by the backend based on the best SNR
+    NOTE: This class historically used class attributes for defaults; we now
+    initialise instance state in __init__ to avoid accidental shared state.
+    """
 
-    ts = 0.0
-    req_ts = 0.0
-    cli_input = ""
-    cmd = ""
-    blog = ""
-    station = ""
-    frequency = 0
-    post_id = 0
-    post_date = 0
-    op = ""
-    param = ""
-    rc = 0
+    __slots__ = (
+        "ts",
+        "req_ts",
+        "cli_input",
+        "cmd",
+        "blog",
+        "station",
+        "frequency",
+        "post_id",
+        "post_date",
+        "op",
+        "param",
+        "rc",
+    )
+
+    def __init__(self):
+        self.ts = 0.0
+        self.req_ts = 0.0
+        self.cli_input = ""
+        self.cmd = ""
+        self.blog = ""
+        self.station = ""
+        self.frequency = 0
+        self.post_id = 0
+        self.post_date = 0
+        self.op = ""
+        self.param = ""
+        self.rc = 0
 
     def set_ts(self):
         self.ts = time.time()
@@ -118,42 +127,126 @@ class GuiMessage:
 
 
 class CommsMessage:
+    """Message used for transport to/from the comms layer.
 
-    ts = 0.0
-    req_ts = 0.0
-    direction = ''
-    blog = ""
-    source = ""
-    destination = ""
-    frequency = 0
-    offset = 0
-    snr = 0
-    typ = ''
-    target = ''
-    obj = ''
-    payload = ""
-    rc = 0
+    Efficiency improvements:
+      - Uses __slots__ to reduce per-instance overhead.
+      - Initialises instance state in __init__ (avoids accidental shared state).
+      - Provides set_many() to avoid many Python-level setter calls.
+      - Provides small factory constructors for common message shapes.
+    """
 
-    # Although the following refers to Js8Call, we need to keep this abstract enough such
-    # that another transport mechanism could be used.
-    # direction - tx to Js8Call, rx from Js8Call
-    # source - call id of the source of this message
-    # destination - call id of the destination this message; may be our callid or another
-    # frequency - the dial frequency that a message was received on
-    # snr - the signal-to-noise ratio for any received messages
-    # typ - control, mb_req, mb_rsp, mb_notify
-    # target:obj -
-    #   * mb_server:service - mb_req
-    #   * mb_client:receiver - mb_rsp and mb_notify
-    #   * set:radio_frequency - control request
-    #   * set:offset - control request
-    #   * set:exit - control request
-    #   * status:radio_frequency - control notification
-    #   * status:offset - control notification
-    #   * status:callsign - control notification
-    #   * ui_header:tx_led - control notification
-    #   * ui_header:rx_led - control notification
+    __slots__ = (
+        "ts",
+        "req_ts",
+        "direction",
+        "blog",
+        "source",
+        "destination",
+        "frequency",
+        "offset",
+        "snr",
+        "typ",
+        "target",
+        "obj",
+        "payload",
+        "rc",
+    )
 
+    def __init__(self, **kwargs):
+        # Defaults
+        self.ts = 0.0
+        self.req_ts = 0.0
+        self.direction = ""
+        self.blog = ""
+        self.source = ""
+        self.destination = ""
+        self.frequency = 0
+        self.offset = 0
+        self.snr = 0
+        self.typ = ""
+        self.target = ""
+        self.obj = ""
+        self.payload = ""
+        self.rc = 0
+
+        if kwargs:
+            self.set_many(**kwargs)
+
+    # ---- efficiency helpers ----
+    def set_many(self, **kwargs):
+        """Bulk-assign fields in one Python call.
+
+        Example:
+            m.set_many(ts=..., direction='rx', typ='control', target='status', obj='offset', payload='123')
+        """
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    # ---- factories for common message shapes ----
+    @classmethod
+    def signal_frontend(cls, ts: float, obj: str, payload: str) -> "CommsMessage":
+        return cls(
+            ts=ts,
+            direction="rx",
+            typ="signal",
+            target="frontend",
+            obj=obj,
+            payload=payload,
+        )
+
+    @classmethod
+    def control_status(
+        cls, ts: float, obj: str, payload: str, *, frequency: int = 0, offset: int = 0
+    ) -> "CommsMessage":
+        return cls(
+            ts=ts,
+            direction="rx",
+            typ="control",
+            target="status",
+            obj=obj,
+            payload=payload,
+            frequency=frequency,
+            offset=offset,
+        )
+
+    @classmethod
+    def control_set(cls, ts: float, obj: str, payload: str) -> "CommsMessage":
+        return cls(
+            ts=ts,
+            direction="tx",
+            typ="control",
+            target="set",
+            obj=obj,
+            payload=payload,
+        )
+
+    @classmethod
+    def mb_rx(
+        cls,
+        ts: float,
+        source: str,
+        destination: str,
+        *,
+        frequency: int,
+        snr: int,
+        typ: str,
+        payload: str,
+    ) -> "CommsMessage":
+        return cls(
+            ts=ts,
+            direction="rx",
+            source=source,
+            destination=destination,
+            frequency=frequency,
+            snr=snr,
+            typ=typ,
+            target="mb_client",
+            obj="receiver",
+            payload=payload,
+        )
+
+    # ---- existing setters/getters (kept for compatibility) ----
     def set_ts(self, ts: float):
         self.ts = ts
 
