@@ -2,7 +2,9 @@ import os
 import re
 import sqlite3
 
-from my_logging import logmsg
+import logging
+logger = logging.getLogger(__name__)
+
 from db_root import db_path
 
 
@@ -17,10 +19,10 @@ def get_db_file_spec():
         result[0] = os.getenv(env[0])
 
         if result[0] is None:
-            logmsg(1, "Invalid environmental variable in db_root.py")
+            logging.info("Invalid environmental variable in db_root.py")
             exit(99)
         elif not os.path.isdir(result[0]):
-            logmsg(1, "Environmental variable in db_root.py points to a non-existent path")
+            logging.info("Environmental variable in db_root.py points to a non-existent path")
             exit(99)
 
     # reconstruct the total path
@@ -46,7 +48,7 @@ class DbTable:
         c = db.cursor()
         query = f"SELECT * FROM {table} LIMIT 1"
         c.execute(query)
-        logmsg(3, query)
+        logging.debug(query)
         row = c.fetchone()
         if row:
             self.col_names = row.keys()
@@ -81,7 +83,7 @@ class DbTable:
         if limit > 0:
             query += f" LIMIT {limit}"
 
-        logmsg(3, query)
+        logging.debug(query)
 
         c.execute(query)
         list_of_tuples = c.fetchall()
@@ -128,7 +130,7 @@ class DbTable:
         query += f" LIMIT {limit}"
         query += f") ORDER BY {order_by} ASC"
 
-        logmsg(3, query)
+        logging.debug(query)
 
         c.execute(query)
         list_of_tuples = c.fetchall()
@@ -166,7 +168,7 @@ class DbTable:
         if where:
             query += f" WHERE {where}"
 
-        logmsg(2, query)
+        logging.debug(query)
 
         with db:
             c.execute(query)
@@ -191,7 +193,7 @@ class DbTable:
                 values += f"{row[column]}"
 
         query = f"INSERT INTO {self.table} VALUES ({values})"
-        logmsg(2, query)
+        logging.debug(query)
 
         with db:
             c.execute(query)
@@ -207,7 +209,7 @@ class DbTable:
         if where:
             query += f" WHERE {where}"
 
-        logmsg(2, query)
+        logging.debug(query)
 
         with db:
             c.execute(query)
