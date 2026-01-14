@@ -828,7 +828,7 @@ class BeProcessor:
 
     def preprocess(self, msg_object: GuiMessage):
         command = msg_object.get_cmd()
-        msg_prefix = "BeProcessor:preprocess: "
+        msg_prefix = "Received command from the frontend "
 
         if command == 'X':
             # we have to give the comms interface a kick to get its thread to shut down

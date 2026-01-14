@@ -33,7 +33,7 @@ class Js8CallApi:
         self.sock = socket(AF_INET, SOCK_STREAM)
 
     def connect(self):
-        logger.info('info: Connecting to JS8Call at ' + ':'.join(map(str, js8call_addr)))
+        logger.info('Connecting to JS8Call at ' + ':'.join(map(str, js8call_addr)))
         try:
             api = self.sock.connect(js8call_addr)
             self.connected = True
