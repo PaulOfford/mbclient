@@ -995,7 +995,7 @@ class BeProcessor:
         try:
             fe_msg: GuiMessage = self.f2b_q.get(block=False)
             if fe_msg:
-                logger.debug(f"backend: {fe_msg.cmd}")
+                logger.debug(f"{fe_msg.cmd}")
                 self.preprocess(fe_msg)
                 self.f2b_q.task_done()
         except queue.Empty:
@@ -1004,7 +1004,7 @@ class BeProcessor:
         # check for messages from the comms driver
         try:
             comms_rx: CommsMessage = self.comms_rx_q.get(block=True, timeout=0.1)  # if no msg waiting, throw an except
-            logger.debug(f"backend: {comms_rx.payload}")
+            logger.debug(f"{comms_rx.payload}")
             self.process_comms_rx(comms_rx)
             self.comms_rx_q.task_done()
         except queue.Empty:

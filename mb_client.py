@@ -5,7 +5,7 @@ from queue import Queue
 
 from logging_config import setup_logging
 import logging
-setup_logging(logging.DEBUG)   # or INFO
+setup_logging(logging.INFO)   # DEBUG or INFO
 
 logger = logging.getLogger(__name__)
 
