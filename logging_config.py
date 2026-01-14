@@ -4,6 +4,7 @@ import sys
 
 DEFAULT_LOG_LEVEL = logging.INFO
 
+
 def setup_logging(level=DEFAULT_LOG_LEVEL):
     logging.basicConfig(
         level=level,

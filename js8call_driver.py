@@ -8,8 +8,6 @@ from socket import socket, AF_INET, SOCK_STREAM
 import queue
 
 import logging
-logger = logging.getLogger(__name__)
-
 from status import Status
 from message_q import CommsMessage
 from client_mocking import js8call_mock_listen
@@ -17,6 +15,8 @@ from client_mocking import js8call_mock_listen
 import json
 import time
 import select
+
+logger = logging.getLogger(__name__)
 
 js8call_addr = ('127.0.0.1', 2442)
 debug = False
@@ -44,10 +44,14 @@ class Js8CallApi:
             logger.error('Connection to JS8Call has been refused.')
             logger.error('Check that:')
             logger.error('* JS8Call is running')
-            logger.error('* JS8Call settings check boxes Enable TCP Server API and'
-                      'Accept TCP Requests are checked')
-            logger.error('* The API server port number in JS8Call matches the setting in this script'
-                      ' - default is 2442')
+            logger.error(
+                '* JS8Call settings check boxes Enable TCP Server API and'
+                'Accept TCP Requests are checked'
+            )
+            logger.error(
+                '* The API server port number in JS8Call matches the setting in this script'
+                ' - default is 2442'
+            )
             logger.error('* There are no firewall rules preventing the connection')
             exit(1)
 
