@@ -1,14 +1,14 @@
 import time
 import queue
 import re
-
 import logging
-logger = logging.getLogger(__name__)
 
 from status import Status
 from settings import Settings
 from message_q import CommsMessage, GuiMessage
 from db_table import DbTable
+
+logger = logging.getLogger(__name__)
 
 
 # compress_date takes epoch as sole argument
@@ -495,20 +495,20 @@ class BeProcessor:
         status = Status()  # we'll need status data a bit later
 
         # form a request to get the posts in the svr_request_list
-        payload = f"G{req.post_id}~"
+        payload = f"G{req.get_post_id()}~"
         logger.debug('comms: send: ' + str(payload))
-        mblog_api_req = CommsMessage()
-
-        mblog_api_req.set_ts(time.time())
-        mblog_api_req.set_direction('tx')
-        mblog_api_req.set_source(status.callsign)
-        mblog_api_req.set_destination(req.blog)
-        mblog_api_req.set_snr(0)
-        mblog_api_req.set_blog(req.blog)
-        mblog_api_req.set_typ('mb_req')
-        mblog_api_req.set_target('mb_service')
-        mblog_api_req.set_obj('service')
-        mblog_api_req.set_payload(str(payload))
+        mblog_api_req = CommsMessage(
+            ts=time.time(),
+            direction='tx',
+            source=status.callsign,
+            destination=req.get_blog(),
+            snr=0,
+            blog=req.get_blog(),
+            typ='mb_req',
+            target='mb_service',
+            obj='service',
+            payload=str(payload),
+        )
         self.comms_tx_q.put(mblog_api_req)
 
         return
@@ -560,18 +560,18 @@ class BeProcessor:
 
             payload = f"E{posts_needed}~"
             logger.debug('comms: send: ' + str(payload))
-            mblog_api_req = CommsMessage()
-
-            mblog_api_req.set_ts(time.time())
-            mblog_api_req.set_direction('tx')
-            mblog_api_req.set_source(status.callsign)
-            mblog_api_req.set_destination(station)
-            mblog_api_req.set_snr(0)
-            mblog_api_req.set_blog(blog)
-            mblog_api_req.set_typ('mb_req')
-            mblog_api_req.set_target('mb_service')
-            mblog_api_req.set_obj('service')
-            mblog_api_req.set_payload(str(payload))
+            mblog_api_req = CommsMessage(
+                ts=time.time(),
+                direction='tx',
+                source=status.callsign,
+                destination=station,
+                snr=0,
+                blog=blog,
+                typ='mb_req',
+                target='mb_service',
+                obj='service',
+                payload=str(payload),
+            )
             self.comms_tx_q.put(mblog_api_req)
 
         return
@@ -613,18 +613,18 @@ class BeProcessor:
 
             payload = f"E{req.get_post_id()}~"
             logger.debug('comms: send: ' + str(payload))
-            mblog_api_req = CommsMessage()
-
-            mblog_api_req.set_ts(time.time())
-            mblog_api_req.set_direction('tx')
-            mblog_api_req.set_source(status.callsign)
-            mblog_api_req.set_destination(req.get_station())
-            mblog_api_req.set_snr(0)
-            mblog_api_req.set_blog(req.get_blog())
-            mblog_api_req.set_typ('mb_req')
-            mblog_api_req.set_target('mb_service')
-            mblog_api_req.set_obj('service')
-            mblog_api_req.set_payload(str(payload))
+            mblog_api_req = CommsMessage(
+                ts=time.time(),
+                direction='tx',
+                source=status.callsign,
+                destination=req.get_station(),
+                snr=0,
+                blog=req.get_blog(),
+                typ='mb_req',
+                target='mb_service',
+                obj='service',
+                payload=str(payload),
+            )
             self.comms_tx_q.put(mblog_api_req)
 
         # get the frontend to reload the Post List
@@ -673,58 +673,61 @@ class BeProcessor:
 
         payload = f"{req.get_cmd()}"
         logger.debug('comms: send: ' + str(payload))
-        mblog_api_req = CommsMessage()
 
-        mblog_api_req.set_ts(time.time())
-        mblog_api_req.set_direction('tx')
-        mblog_api_req.set_source(status.callsign)
-        mblog_api_req.set_destination('@MB')
-        mblog_api_req.set_snr(0)
-        mblog_api_req.set_blog('@MB')
-        mblog_api_req.set_typ('mb_req')
-        mblog_api_req.set_target('mb_service')
-        mblog_api_req.set_obj('service')
-        mblog_api_req.set_payload(str(payload))
+        mblog_api_req = CommsMessage(
+            ts=time.time(),
+            direction='tx',
+            source=status.callsign,
+            destination='@MB',
+            snr=0,
+            blog='@MB',
+            typ='mb_req',
+            target='mb_service',
+            obj='service',
+            payload=str(payload),
+        )
         self.comms_tx_q.put(mblog_api_req)
         return
 
     def process_info_cmd(self, req: GuiMessage):
         status = Status()
 
-        payload = f"INFO?"
+        payload = "INFO?"
         logger.debug('comms: send: ' + str(payload))
-        mblog_api_req = CommsMessage()
 
-        mblog_api_req.set_ts(time.time())
-        mblog_api_req.set_direction('tx')
-        mblog_api_req.set_source(status.callsign)
-        mblog_api_req.set_destination(req.get_blog())
-        mblog_api_req.set_snr(0)
-        mblog_api_req.set_blog(req.get_blog())
-        mblog_api_req.set_typ('mb_req')
-        mblog_api_req.set_target('mb_service')
-        mblog_api_req.set_obj('service')
-        mblog_api_req.set_payload(str(payload))
+        mblog_api_req = CommsMessage(
+            ts=time.time(),
+            direction='tx',
+            source=status.callsign,
+            destination=req.get_blog(),
+            snr=0,
+            blog=req.get_blog(),
+            typ='mb_req',
+            target='mb_service',
+            obj='service',
+            payload=str(payload),
+        )
         self.comms_tx_q.put(mblog_api_req)
         return
 
     def process_weather_cmd(self, req: GuiMessage):
         status = Status()
 
-        payload = f"WX~"
+        payload = "WX~"
         logger.debug('comms: send: ' + str(payload))
-        mblog_api_req = CommsMessage()
 
-        mblog_api_req.set_ts(time.time())
-        mblog_api_req.set_direction('tx')
-        mblog_api_req.set_source(status.callsign)
-        mblog_api_req.set_destination(req.get_station())
-        mblog_api_req.set_snr(0)
-        mblog_api_req.set_blog(req.get_blog())
-        mblog_api_req.set_typ('mb_req')
-        mblog_api_req.set_target('mb_service')
-        mblog_api_req.set_obj('service')
-        mblog_api_req.set_payload(str(payload))
+        mblog_api_req = CommsMessage(
+            ts=time.time(),
+            direction='tx',
+            source=status.callsign,
+            destination=req.get_station(),
+            snr=0,
+            blog=req.get_blog(),
+            typ='mb_req',
+            target='mb_service',
+            obj='service',
+            payload=str(payload),
+        )
         self.comms_tx_q.put(mblog_api_req)
         return
 
@@ -751,13 +754,7 @@ class BeProcessor:
 
     def set_rig_frequency(self, freq):
         # signal to the comms driver that the frequency must be changed
-        comms_sig = CommsMessage()
-        comms_sig.set_ts(time.time())
-        comms_sig.set_direction('tx')
-        comms_sig.set_typ('control')
-        comms_sig.set_target('set')
-        comms_sig.set_obj('radio_frequency')
-        comms_sig.set_payload(freq)
+        comms_sig = CommsMessage.control_set(time.time(), 'radio_frequency', freq)
         self.comms_tx_q.put(comms_sig)
 
     def set_hdr_callsign(self, callsign: str):
@@ -832,12 +829,7 @@ class BeProcessor:
 
         if command == 'X':
             # we have to give the comms interface a kick to get its thread to shut down
-            comms_sig = CommsMessage()
-            comms_sig.set_ts(time.time())
-            comms_sig.set_direction('tx')
-            comms_sig.set_typ('control')
-            comms_sig.set_target('set')
-            comms_sig.set_obj('exit')
+            comms_sig = CommsMessage.control_set(time.time(), 'exit', '')
             self.comms_tx_q.put(comms_sig)
 
             logger.info(f"{msg_prefix}{command}")
@@ -995,7 +987,7 @@ class BeProcessor:
         try:
             fe_msg: GuiMessage = self.f2b_q.get(block=False)
             if fe_msg:
-                logger.debug(f"{fe_msg.cmd}")
+                logger.debug(fe_msg.get_cmd())
                 self.preprocess(fe_msg)
                 self.f2b_q.task_done()
         except queue.Empty:
@@ -1004,7 +996,7 @@ class BeProcessor:
         # check for messages from the comms driver
         try:
             comms_rx: CommsMessage = self.comms_rx_q.get(block=True, timeout=0.1)  # if no msg waiting, throw an except
-            logger.debug(f"{comms_rx.payload}")
+            logger.debug(comms_rx.get_payload())
             self.process_comms_rx(comms_rx)
             self.comms_rx_q.task_done()
         except queue.Empty:

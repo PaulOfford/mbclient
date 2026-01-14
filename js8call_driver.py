@@ -153,26 +153,36 @@ class Js8CallDriver:
         else:
             logger.info(f"js8drv: err: Invalid message received from backend, typ = {message.get_typ()}")
 
-    def process_tx_q(self):
-        try:
-            comms_tx: CommsMessage = self.comms_tx_q.get(block=False)  # if no msg waiting, this will throw an exception
-            logger.debug(f"js8drv: debug: {comms_tx.payload}")
-            self.process_comms_tx(comms_tx)
-            self.comms_tx_q.task_done()
-        except queue.Empty:
-            pass
+    def process_tx_q(self, timeout: float = 0.05):
+        """Process outbound messages from the backend.
 
-        return
+        Uses a short blocking wait (reduces CPU) and then drains any burst.
+        """
+        try:
+            comms_tx: CommsMessage = self.comms_tx_q.get(timeout=timeout)
+        except queue.Empty:
+            return
+
+        try:
+            logger.debug(f"js8drv: debug: {comms_tx.get_payload()}")
+            self.process_comms_tx(comms_tx)
+        finally:
+            self.comms_tx_q.task_done()
+
+        # Drain any queued burst without blocking.
+        while True:
+            try:
+                comms_tx = self.comms_tx_q.get_nowait()
+            except queue.Empty:
+                break
+            try:
+                logger.debug(f"js8drv: debug: {comms_tx.get_payload()}")
+                self.process_comms_tx(comms_tx)
+            finally:
+                self.comms_tx_q.task_done()
 
     def signal_frontend(self, ts: float, target_object: str, payload: str):
-        rx_data = CommsMessage()
-        rx_data.set_ts(ts)
-        rx_data.set_direction('rx')
-        rx_data.set_typ('signal')
-        rx_data.set_target('frontend')
-        rx_data.set_obj(target_object)
-        rx_data.set_payload(payload)
-        self.comms_rx_q.put(rx_data)
+        self.comms_rx_q.put(CommsMessage.signal_frontend(ts, target_object, payload))
 
     def run_comms(self):
 
@@ -223,83 +233,48 @@ class Js8CallDriver:
                     elif typ == 'STATION.CALLSIGN':
                         logger.debug(f"js8call_driver: Received {value}")
 
-                        rx_status_callsign = CommsMessage()
-                        rx_status_callsign.set_ts(float(params.get('_ID'))/1000)
-                        rx_status_callsign.set_direction('rx')
-                        rx_status_callsign.set_typ('control')
-                        rx_status_callsign.set_target('status')
-                        rx_status_callsign.set_obj('callsign')
-                        rx_status_callsign.set_payload(value)
-                        self.comms_rx_q.put(rx_status_callsign)
+                        ts = float(params.get('_ID')) / 1000
+                        self.comms_rx_q.put(CommsMessage.control_status(ts, 'callsign', value))
 
                     elif typ == 'RIG.FREQ':
                         logger.debug(f"js8call_driver: Received {value}")
 
-                        # send message to backend re frequency
-                        rx_status_radio_frequency = CommsMessage()
-                        rx_status_radio_frequency.set_ts(float(params.get('_ID'))/1000)
-                        rx_status_radio_frequency.set_direction('rx')
-                        rx_status_radio_frequency.set_typ('control')
-                        rx_status_radio_frequency.set_target('status')
-                        rx_status_radio_frequency.set_obj('radio_frequency')
-                        rx_status_radio_frequency.set_frequency(int(params['DIAL']))
-                        rx_status_radio_frequency.set_offset(int(params['OFFSET']))
-                        rx_status_radio_frequency.set_payload(str(params['DIAL']))
-                        self.comms_rx_q.put(rx_status_radio_frequency)
-                        logger.debug('q_put: REG_FREQ - radio_frequency: ' + str(params['DIAL']))
+                        ts = float(params.get('_ID')) / 1000
+                        dial = int(params['DIAL'])
+                        off = int(params['OFFSET'])
 
-                        # send message to backend re offset
-                        rx_status_offset = CommsMessage()
-                        rx_status_offset.set_ts(float(params.get('_ID'))/1000)
-                        rx_status_offset.set_direction('rx')
-                        rx_status_offset.set_typ('control')
-                        rx_status_offset.set_target('status')
-                        rx_status_offset.set_obj('offset')
-                        rx_status_offset.set_frequency(int(params['DIAL']))
-                        rx_status_offset.set_offset(int(params['OFFSET']))
-                        rx_status_offset.set_payload(str(params['OFFSET']))
-                        self.comms_rx_q.put(rx_status_offset)
-                        logger.debug('q_put: REG_FREQ - offset: ' + str(params['OFFSET']))
+                        self.comms_rx_q.put(
+                            CommsMessage.control_status(ts, 'radio_frequency', str(dial), frequency=dial, offset=off)
+                        )
+                        logger.debug('q_put: REG_FREQ - radio_frequency: ' + str(dial))
+
+                        self.comms_rx_q.put(
+                            CommsMessage.control_status(ts, 'offset', str(off), frequency=dial, offset=off)
+                        )
+                        logger.debug('q_put: REG_FREQ - offset: ' + str(off))
 
                     elif typ == 'STATION.STATUS':
                         logger.debug(f"js8call_driver: STATION.STATUS is {value}")
 
-                        # send message to backend re frequency
-                        rx_status_radio_frequency = CommsMessage()
-                        rx_status_radio_frequency.set_ts(float(params.get('_ID'))/1000)
-                        rx_status_radio_frequency.set_direction('rx')
-                        rx_status_radio_frequency.set_typ('control')
-                        rx_status_radio_frequency.set_target('status')
-                        rx_status_radio_frequency.set_obj('radio_frequency')
-                        rx_status_radio_frequency.set_frequency(int(params['DIAL']))
-                        rx_status_radio_frequency.set_offset(int(params['OFFSET']))
-                        rx_status_radio_frequency.set_payload(str(params['DIAL']))
-                        self.comms_rx_q.put(rx_status_radio_frequency)
-                        logger.debug('q_put: STATION.STATUS - radio_frequency: ' + str(params['DIAL']))
+                        ts = float(params.get('_ID')) / 1000
+                        dial = int(params['DIAL'])
+                        off = int(params['OFFSET'])
 
-                        # send message to backend re offset
-                        rx_status_offset = CommsMessage()
-                        rx_status_offset.set_ts(float(params.get('_ID'))/1000)
-                        rx_status_offset.set_direction('rx')
-                        rx_status_offset.set_typ('control')
-                        rx_status_offset.set_target('status')
-                        rx_status_offset.set_obj('offset')
-                        rx_status_offset.set_frequency(int(params['DIAL']))
-                        rx_status_offset.set_offset(int(params['OFFSET']))
-                        rx_status_offset.set_payload(str(params['OFFSET']))
-                        self.comms_rx_q.put(rx_status_offset)
-                        logger.debug('q_put: STATION.STATUS - offset: ' + str(params['OFFSET']))
+                        self.comms_rx_q.put(
+                            CommsMessage.control_status(ts, 'radio_frequency', str(dial), frequency=dial, offset=off)
+                        )
+                        logger.debug('q_put: STATION.STATUS - radio_frequency: ' + str(dial))
+
+                        self.comms_rx_q.put(
+                            CommsMessage.control_status(ts, 'offset', str(off), frequency=dial, offset=off)
+                        )
+                        logger.debug('q_put: STATION.STATUS - offset: ' + str(off))
 
                     elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us, including @MB
                         logger.debug('rx - ' + str(message))
-                        rx_mb_msg = CommsMessage()
-
-                        rx_mb_msg.set_ts(float(params['UTC'])/1000)
-                        rx_mb_msg.set_direction('rx')
-                        rx_mb_msg.set_source(params['FROM'])
-                        rx_mb_msg.set_destination(params['TO'])
-                        rx_mb_msg.set_frequency(params['DIAL'])
-                        rx_mb_msg.set_snr(params['SNR'])
+                        ts = float(params['UTC']) / 1000
+                        dial = int(params['DIAL'])
+                        snr = int(params['SNR'])
 
                         # if we haven't got the callsign, yet we need to wait
                         self.status.reload_status()
@@ -308,14 +283,21 @@ class Js8CallDriver:
                             self.status.reload_status()
 
                         if params['TO'] == self.status.callsign:
-                            rx_mb_msg.set_typ('mb_rsp')
+                            mb_typ = 'mb_rsp'
                         else:
-                            rx_mb_msg.set_typ('mb_notify')
+                            mb_typ = 'mb_notify'
 
-                        rx_mb_msg.set_target('mb_client')
-                        rx_mb_msg.set_obj('receiver')
-                        rx_mb_msg.set_payload((message['value']).strip())
-                        self.comms_rx_q.put(rx_mb_msg)
+                        self.comms_rx_q.put(
+                            CommsMessage.mb_rx(
+                                ts,
+                                params['FROM'],
+                                params['TO'],
+                                frequency=dial,
+                                snr=snr,
+                                typ=mb_typ,
+                                payload=(message['value']).strip(),
+                            )
+                        )
 
         finally:
             self.js8call_api.close()
