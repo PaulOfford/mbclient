@@ -39,7 +39,7 @@ class Settings:
         else:
             return 'unknown'
 
-    def set_setting(self, name: str, value: [int, float, str]):
+    def set_setting(self, name: str, value):
         self.settings_table.update(
             value_dictionary={'ts': time.time(), 'val': str(value)},
             where=f"name='{name}'"
