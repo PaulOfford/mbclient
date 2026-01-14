@@ -1,11 +1,10 @@
 import os
 import re
 import sqlite3
-
 import logging
-logger = logging.getLogger(__name__)
-
 from db_root import db_path
+
+logger = logging.getLogger(__name__)
 
 
 def get_db_file_spec():
