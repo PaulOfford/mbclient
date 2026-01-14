@@ -1,6 +1,22 @@
 from __future__ import annotations
-
 import time
+from enum import Enum
+
+
+class MessageType(str, Enum):
+    CONTROL = "control"
+    MB_REQ = "mb_req"
+    MB_RSP = "mb_rsp"
+    MB_NOTIFY = "mb_notify"
+    SIGNAL = "signal"
+
+
+class MessageTarget(str, Enum):
+    SET = "set"
+    STATUS = "status"
+    MB_SERVICE = "mb_service"
+    MB_CLIENT = "mb_client"
+    FRONTEND = "frontend"
 
 
 class GuiMessage:
@@ -189,8 +205,8 @@ class CommsMessage:
         return cls(
             ts=ts,
             direction="rx",
-            typ="signal",
-            target="frontend",
+            typ=MessageType.SIGNAL,
+            target=MessageTarget.FRONTEND,
             obj=obj,
             payload=payload,
         )
@@ -202,8 +218,8 @@ class CommsMessage:
         return cls(
             ts=ts,
             direction="rx",
-            typ="control",
-            target="status",
+            typ=MessageType.CONTROL,
+            target=MessageTarget.STATUS,
             obj=obj,
             payload=payload,
             frequency=frequency,
@@ -215,8 +231,8 @@ class CommsMessage:
         return cls(
             ts=ts,
             direction="tx",
-            typ="control",
-            target="set",
+            typ=MessageType.CONTROL,
+            target=MessageTarget.SET,
             obj=obj,
             payload=payload,
         )
@@ -241,7 +257,7 @@ class CommsMessage:
             frequency=frequency,
             snr=snr,
             typ=typ,
-            target="mb_client",
+            target=MessageTarget.MB_CLIENT,
             obj="receiver",
             payload=payload,
         )

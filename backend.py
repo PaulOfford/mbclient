@@ -5,7 +5,7 @@ import logging
 
 from status import Status
 from settings import Settings
-from message_q import CommsMessage, GuiMessage
+from message_q import CommsMessage, GuiMessage, MessageType, MessageTarget
 from db_table import DbTable
 
 logger = logging.getLogger(__name__)
@@ -504,8 +504,8 @@ class BeProcessor:
             destination=req.get_blog(),
             snr=0,
             blog=req.get_blog(),
-            typ='mb_req',
-            target='mb_service',
+            typ=MessageType.MB_REQ,
+            target=MessageTarget.MB_SERVICE,
             obj='service',
             payload=str(payload),
         )
@@ -567,8 +567,8 @@ class BeProcessor:
                 destination=station,
                 snr=0,
                 blog=blog,
-                typ='mb_req',
-                target='mb_service',
+                typ=MessageType.MB_REQ,
+                target=MessageTarget.MB_SERVICE,
                 obj='service',
                 payload=str(payload),
             )
@@ -621,8 +621,8 @@ class BeProcessor:
                     destination=req.get_station(),
                     snr=0,
                     blog=req.get_blog(),
-                    typ='mb_req',
-                    target='mb_service',
+                    typ=MessageType.MB_REQ,
+                    target=MessageTarget.MB_SERVICE,
                     obj='service',
                     payload=str(payload),
                 )
@@ -682,8 +682,8 @@ class BeProcessor:
             destination='@MB',
             snr=0,
             blog='@MB',
-            typ='mb_req',
-            target='mb_service',
+            typ=MessageType.MB_REQ,
+            target=MessageTarget.MB_SERVICE,
             obj='service',
             payload=str(payload),
         )
@@ -703,8 +703,8 @@ class BeProcessor:
             destination=req.get_blog(),
             snr=0,
             blog=req.get_blog(),
-            typ='mb_req',
-            target='mb_service',
+            typ=MessageType.MB_REQ,
+            target=MessageTarget.MB_SERVICE,
             obj='service',
             payload=str(payload),
         )
@@ -724,8 +724,8 @@ class BeProcessor:
             destination=req.get_station(),
             snr=0,
             blog=req.get_blog(),
-            typ='mb_req',
-            target='mb_service',
+            typ=MessageType.MB_REQ,
+            target=MessageTarget.MB_SERVICE,
             obj='service',
             payload=str(payload),
         )
@@ -951,7 +951,7 @@ class BeProcessor:
         self.set_hdr_callsign(comms_msg.get_payload())
 
     def process_comms_rx(self, comms_msg: CommsMessage):
-        if comms_msg.get_target() == 'frontend':
+        if comms_msg.get_target() == MessageTarget.FRONTEND:
             notify_msg = GuiMessage()
 
             notify_msg.set_ts()
@@ -967,17 +967,17 @@ class BeProcessor:
             notify_msg.set_rc(0)
             self.b2f_q.put(notify_msg)
 
-        elif comms_msg.get_typ() == 'mb_rsp':
+        elif comms_msg.get_typ() == MessageType.MB_RSP:
             self.process_mb_rsp(comms_msg)
-        elif comms_msg.get_typ() == 'mb_notify':
+        elif comms_msg.get_typ() == MessageType.MB_NOTIFY:
             self.process_mb_notify(comms_msg)
-        elif comms_msg.get_typ() == 'control' and comms_msg.get_target() == 'status'\
+        elif comms_msg.get_typ() == MessageType.CONTROL and comms_msg.get_target() == 'status'\
                 and comms_msg.get_obj() == 'radio_frequency':
             self.process_status_radio_frequency(comms_msg)
-        elif comms_msg.get_typ() == 'control' and comms_msg.get_target() == 'status'\
+        elif comms_msg.get_typ() == MessageType.CONTROL and comms_msg.get_target() == 'status'\
                 and comms_msg.get_obj() == 'offset':
             self.process_status_offset(comms_msg)
-        elif comms_msg.get_typ() == 'control' and comms_msg.get_target() == 'status'\
+        elif comms_msg.get_typ() == MessageType.CONTROL and comms_msg.get_target() == 'status'\
                 and comms_msg.get_obj() == 'callsign':
             self.process_status_callsign(comms_msg)
 
