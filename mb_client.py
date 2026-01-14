@@ -1,11 +1,10 @@
 import time
 import threading
 import shutil
-import tkinter as tk
 from queue import Queue
 
-from logging_config import setup_logging
 import logging
+logger = logging.getLogger(__name__)
 
 from mb_database import MbDatabase
 from mb_gui import GuiMain
@@ -47,7 +46,7 @@ if __name__ == "__main__":
 
     db_version = new_db.determine_version()
 
-    logmsg(1, f"mb_client: Database version: {db_version}")
+    logger.info(f"mb_client: Database version: {db_version}")
 
     if db_version == 0:
         new_db.create()
@@ -58,10 +57,10 @@ if __name__ == "__main__":
         # backup the version 1 database
         backup_file = new_db.db_file + time.strftime(".%Y%m%d_%H%M%S", time.gmtime())
         shutil.copy2(new_db.db_file, f"{backup_file}")
-        logmsg(1, f"mb_client: Created database backup {backup_file}")
+        logger.info(f"mb_client: Created database backup {backup_file}")
 
         new_db.migrate_from_v1()
-        logmsg(1, "mb_client: Database conversion complete")
+        logger.info("mb_client: Database conversion complete")
 
     elif db_version == 2:
         pass  # nothing to do
@@ -69,7 +68,7 @@ if __name__ == "__main__":
     else:
         raise Exception(f"Unable to determine the version of the database {new_db.db_file}")
 
-    logmsg(1, "mb_client: Database is ready to go")
+    logger.info("mb_client: Database is ready to go")
 
     c = MbClient()
     c.start_gui()
