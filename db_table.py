@@ -2,7 +2,7 @@ import os
 import re
 import sqlite3
 
-from logging import logmsg
+from my_logging import logmsg
 from db_root import db_path
 
 

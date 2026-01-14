@@ -8,7 +8,7 @@ from socket import socket, AF_INET, SOCK_STREAM
 import queue
 
 from status import Status
-from logging import logmsg, current_log_level
+from my_logging import logmsg, current_log_level
 from message_q import CommsMessage
 from client_mocking import js8call_mock_listen
 

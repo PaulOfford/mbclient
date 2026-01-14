@@ -8,7 +8,7 @@ import functools as ft
 from queue import Empty, Queue
 
 from _version import __version__
-from logging import logmsg
+from my_logging import logmsg
 from status import Status
 from settings import Settings
 from db_table import DbTable

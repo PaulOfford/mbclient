@@ -3,7 +3,7 @@ import time
 import sqlite3
 from datetime import datetime, timezone
 
-from logging import logmsg
+from my_logging import logmsg
 from db_table import get_db_file_spec
 
 

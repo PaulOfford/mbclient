@@ -2,7 +2,7 @@ import time
 import queue
 import re
 
-from logging import logmsg
+from my_logging import logmsg
 from status import Status
 from settings import Settings
 from message_q import CommsMessage, GuiMessage
