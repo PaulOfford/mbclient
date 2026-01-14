@@ -12,12 +12,14 @@ from mb_gui import GuiMain
 from backend import Backend
 from js8call_driver import Js8CallDriver
 
+MAX_QUEUE_SIZE = 20
+
 
 class MbClient:
-    f2b_q = Queue(maxsize=20)  # queue for messages from the frontend to the backend
-    b2f_q = Queue(maxsize=20)  # queue for messages to the frontend from the backend
-    comms_tx_q = Queue(maxsize=20)  # queue for messages from the backend to the comms driver
-    comms_rx_q = Queue(maxsize=20)  # queue for messages to the backend from the comms driver
+    f2b_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages from the frontend to the backend
+    b2f_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages to the frontend from the backend
+    comms_tx_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages from the backend to the comms driver
+    comms_rx_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages to the backend from the comms driver
     be_t = None  # thread anchor
     comms_t = None  # thread anchor
 
