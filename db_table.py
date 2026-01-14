@@ -162,6 +162,7 @@ class DbTable:
                 int(value)  # this tests for int and float values
                 query += f"{key}={value}"
             except ValueError:
+                value = value.replace("'", "''")  # we need to escape single quotes
                 query += f"{key}='{value}'"
 
         if where:
