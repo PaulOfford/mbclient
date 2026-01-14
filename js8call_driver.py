@@ -151,7 +151,7 @@ class Js8CallDriver:
             self.js8call_api.send('TX.SEND_MESSAGE', req_msg)
             pass
         else:
-            logger.info(f"js8drv: err: Invalid message received from backend, typ = {message.get_typ()}")
+            logger.error(f"Invalid message received from backend, typ = {message.get_typ()}")
 
     def process_tx_q(self, timeout: float = 0.05):
         """Process outbound messages from the backend.
@@ -176,7 +176,7 @@ class Js8CallDriver:
             except queue.Empty:
                 break
             try:
-                logger.debug(f"js8drv: debug: {comms_tx.get_payload()}")
+                logger.debug(comms_tx.get_payload())
                 self.process_comms_tx(comms_tx)
             finally:
                 self.comms_tx_q.task_done()
@@ -187,10 +187,10 @@ class Js8CallDriver:
     def run_comms(self):
 
         if self.js8call_api.connected:
-            logger.debug('call: STATION.GET_CALLSIGN')
+            logger.debug('Send STATION.GET_CALLSIGN')
             self.js8call_api.send('STATION.GET_CALLSIGN', '')
 
-            logger.debug('call: RIG.GET_FREQ')
+            logger.debug('Send RIG.GET_FREQ')
             self.js8call_api.send('RIG.GET_FREQ', '')
 
         try:
@@ -227,17 +227,17 @@ class Js8CallDriver:
                         else:
                             payload = 'ptt_off'
 
-                        logger.debug(f"js8call_driver: Received {payload}")
+                        logger.debug(f"Received {payload}")
                         self.signal_frontend(float(params.get('_ID')) / 1000, 'tx_indicator', payload)
 
                     elif typ == 'STATION.CALLSIGN':
-                        logger.debug(f"js8call_driver: Received {value}")
+                        logger.debug(f"Received {value}")
 
                         ts = float(params.get('_ID')) / 1000
                         self.comms_rx_q.put(CommsMessage.control_status(ts, 'callsign', value))
 
                     elif typ == 'RIG.FREQ':
-                        logger.debug(f"js8call_driver: Received {value}")
+                        logger.debug(f"Received {value}")
 
                         ts = float(params.get('_ID')) / 1000
                         dial = int(params['DIAL'])
@@ -254,7 +254,7 @@ class Js8CallDriver:
                         logger.debug('q_put: REG_FREQ - offset: ' + str(off))
 
                     elif typ == 'STATION.STATUS':
-                        logger.debug(f"js8call_driver: STATION.STATUS is {value}")
+                        logger.debug(f"STATION.STATUS is {value}")
 
                         ts = float(params.get('_ID')) / 1000
                         dial = int(params['DIAL'])
