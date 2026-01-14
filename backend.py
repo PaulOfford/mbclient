@@ -604,28 +604,29 @@ class BeProcessor:
             for i in range(starting_post_id, req.get_post_id()):
                 post_ids.append(i)
 
-        if req.get_cmd() == 'E':
-            # do we have any of the information in the cache
-            self.get_list_via_cache(req, post_ids)
-        elif req.get_cmd() == 'D':
-            # get the listing info from the server
-            status = Status()
+        if len(post_ids) > 0:
+            if req.get_cmd() == 'E':
+                # do we have any of the information in the cache
+                self.get_list_via_cache(req, post_ids)
+            elif req.get_cmd() == 'D':
+                # get the listing info from the server
+                status = Status()
 
-            payload = f"E{req.get_post_id()}~"
-            logger.debug('comms: send: ' + str(payload))
-            mblog_api_req = CommsMessage(
-                ts=time.time(),
-                direction='tx',
-                source=status.callsign,
-                destination=req.get_station(),
-                snr=0,
-                blog=req.get_blog(),
-                typ='mb_req',
-                target='mb_service',
-                obj='service',
-                payload=str(payload),
-            )
-            self.comms_tx_q.put(mblog_api_req)
+                payload = f"E{req.get_post_id()}~"
+                logger.debug('comms: send: ' + str(payload))
+                mblog_api_req = CommsMessage(
+                    ts=time.time(),
+                    direction='tx',
+                    source=status.callsign,
+                    destination=req.get_station(),
+                    snr=0,
+                    blog=req.get_blog(),
+                    typ='mb_req',
+                    target='mb_service',
+                    obj='service',
+                    payload=str(payload),
+                )
+                self.comms_tx_q.put(mblog_api_req)
 
         # get the frontend to reload the Post List
         self.signal_reload('post_list')
