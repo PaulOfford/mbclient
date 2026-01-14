@@ -59,7 +59,7 @@ class Js8CallApi:
         ready = select.select([self.sock], [], [], 0.5)
         if ready[0]:
             content = self.sock.recv(65500)
-            logger.debug('recv: ' + str(content))
+            logger.debug('rx - ' + str(content))
 
             if content:
                 # remove the terminator
@@ -196,7 +196,7 @@ class Js8CallDriver:
                     self.rx_ind_timeout = 0
 
                 for message in messages:
-                    logger.info('recv: ' + str(message))
+                    logger.info('rx - ' + str(message))
                     typ = message.get('type', '')
                     value = message.get('value', '')
                     params = message.get('params', {})
@@ -287,7 +287,7 @@ class Js8CallDriver:
                         logger.debug('q_put: STATION.STATUS - offset: ' + str(params['OFFSET']))
 
                     elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us, including @MB
-                        logger.debug('comms: recv: ' + str(message))
+                        logger.debug('rx - ' + str(message))
                         rx_mb_msg = CommsMessage()
 
                         rx_mb_msg.set_ts(float(params['UTC'])/1000)
