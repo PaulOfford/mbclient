@@ -193,6 +193,7 @@ class Js8CallDriver:
 
                 if 0 < self.rx_ind_timeout < time.time():
                     self.signal_frontend(time.time(), 'rx_indicator', 'flash_rx_stop')
+                    self.rx_ind_timeout = 0
 
                 for message in messages:
                     logger.info('js8drv: recv: ' + str(message))
