@@ -9,7 +9,7 @@ import queue
 
 import logging
 from status import Status
-from message_q import CommsMessage
+from message_q import CommsMessage, MessageType, MessageTarget, MessageOperator
 from client_mocking import js8call_mock_listen
 
 import json
@@ -137,16 +137,14 @@ class Js8CallDriver:
         pass
 
     def process_comms_tx(self, message: CommsMessage):
-        # message = {'ts': 0.0, 'req_ts': 0.0, 'direction': '', 'source': "", 'destination': "", 'frequency': 0,
-        #            'snr': 0, 'typ': "", 'target': '', 'obj': "", 'payload': "", 'rc': 0}
 
-        if message.get_typ() == 'control':
-            if message.get_target() == 'set':
+        if message.get_typ() == MessageType.CONTROL:
+            if message.get_target() == MessageTarget.SET:
                 if message.get_obj() == 'exit':
                     exit(0)
                 elif message.get_obj() == 'radio_frequency':
                     self.set_radio_frequency(int(message.get_payload()))
-        elif message.get_typ() == 'mb_req':
+        elif message.get_typ() == MessageType.MB_REQ:
             req_msg = f"{message.get_destination()} {message.get_payload()}"
             self.js8call_api.send('TX.SEND_MESSAGE', req_msg)
             pass
@@ -206,37 +204,41 @@ class Js8CallDriver:
                     messages = self.js8call_api.listen()
 
                 if 0 < self.rx_ind_timeout < time.time():
-                    self.signal_frontend(time.time(), 'rx_indicator', 'flash_rx_stop')
+                    self.signal_frontend(
+                        time.time(), 'rx_indicator', MessageOperator.FLASH_RX_STOP
+                    )
                     self.rx_ind_timeout = 0
 
                 for message in messages:
                     logger.info('rx - ' + str(message))
-                    typ = message.get('type', '')
+                    js8call_msg_type = message.get('type', '')
                     value = message.get('value', '')
                     params = message.get('params', {})
 
-                    self.signal_frontend(float(params.get('_ID')) / 1000, 'rx_indicator', 'flash_rx_start')
+                    self.signal_frontend(
+                        float(params.get('_ID')) / 1000, 'rx_indicator', MessageOperator.FLASH_RX_START
+                    )
                     self.rx_ind_timeout = time.time() + self.flash_duration
 
-                    if not typ:
+                    if not js8call_msg_type:
                         continue
 
-                    elif typ == 'RIG.PTT':
+                    elif js8call_msg_type == 'RIG.PTT':
                         if value == 'on':
-                            payload = 'ptt_on'
+                            payload = MessageOperator.PTT_ON
                         else:
-                            payload = 'ptt_off'
+                            payload = MessageOperator.PTT_OFF
 
                         logger.debug(f"Received {payload}")
                         self.signal_frontend(float(params.get('_ID')) / 1000, 'tx_indicator', payload)
 
-                    elif typ == 'STATION.CALLSIGN':
+                    elif js8call_msg_type == 'STATION.CALLSIGN':
                         logger.debug(f"Received {value}")
 
                         ts = float(params.get('_ID')) / 1000
                         self.comms_rx_q.put(CommsMessage.control_status(ts, 'callsign', value))
 
-                    elif typ == 'RIG.FREQ':
+                    elif js8call_msg_type == 'RIG.FREQ':
                         logger.debug(f"Received {value}")
 
                         ts = float(params.get('_ID')) / 1000
@@ -253,7 +255,7 @@ class Js8CallDriver:
                         )
                         logger.debug('q_put: REG_FREQ - offset: ' + str(off))
 
-                    elif typ == 'STATION.STATUS':
+                    elif js8call_msg_type == 'STATION.STATUS':
                         logger.debug(f"STATION.STATUS is {value}")
 
                         ts = float(params.get('_ID')) / 1000
@@ -270,7 +272,7 @@ class Js8CallDriver:
                         )
                         logger.debug('q_put: STATION.STATUS - offset: ' + str(off))
 
-                    elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us, including @MB
+                    elif js8call_msg_type == 'RX.DIRECTED':  # we are only interested in messages directed to us, including @MB
                         logger.debug('rx - ' + str(message))
                         ts = float(params['UTC']) / 1000
                         dial = int(params['DIAL'])
@@ -283,9 +285,9 @@ class Js8CallDriver:
                             self.status.reload_status()
 
                         if params['TO'] == self.status.callsign:
-                            mb_typ = 'mb_rsp'
+                            mb_typ = MessageType.MB_RSP
                         else:
-                            mb_typ = 'mb_notify'
+                            mb_typ = MessageType.MB_NOTIFY
 
                         self.comms_rx_q.put(
                             CommsMessage.mb_rx(

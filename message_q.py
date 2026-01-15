@@ -1,6 +1,39 @@
 from __future__ import annotations
-
 import time
+from enum import Enum
+
+
+class MessageType(str, Enum):
+    CONTROL = "control"
+    MB_REQ = "mb_req"
+    MB_RSP = "mb_rsp"
+    MB_NOTIFY = "mb_notify"
+    SIGNAL = "signal"
+
+
+class MessageTarget(str, Enum):
+    SET = "set"
+    STATUS = "status"
+    MB_SERVICE = "mb_service"
+    MB_CLIENT = "mb_client"
+    FRONTEND = "frontend"
+
+
+class MessageOperator(str, Enum):
+    NULL = ''
+    EQ = 'eq'
+    GT = 'gt'
+    LT = 'lt'
+    LATEST = 'latest'
+    RECENT = 'recent'
+    MORE = 'more'
+
+    # ToDo: This following to be moved in the new message architecture
+    RELOAD = 'reload'
+    FLASH_RX_START = 'flash_rx_start'
+    FLASH_RX_STOP = 'flash_rx_stop'
+    PTT_ON = 'ptt_on'
+    PTT_OFF = 'ptt_off'
 
 
 class GuiMessage:
@@ -35,7 +68,7 @@ class GuiMessage:
         self.frequency = 0
         self.post_id = 0
         self.post_date = 0
-        self.op = ""
+        self.op = MessageOperator.NULL
         self.param = ""
         self.rc = 0
 
@@ -66,7 +99,7 @@ class GuiMessage:
     def set_post_date(self, value: int):
         self.post_date = value
 
-    def set_op(self, value: str):
+    def set_op(self, value: MessageOperator):
         self.op = value
 
     def set_param(self, value: str):
@@ -102,7 +135,7 @@ class GuiMessage:
     def get_post_date(self) -> int:
         return self.post_date
 
-    def get_op(self) -> str:
+    def get_op(self) -> MessageOperator:
         return self.op
 
     def get_param(self) -> str:
@@ -189,8 +222,8 @@ class CommsMessage:
         return cls(
             ts=ts,
             direction="rx",
-            typ="signal",
-            target="frontend",
+            typ=MessageType.SIGNAL,
+            target=MessageTarget.FRONTEND,
             obj=obj,
             payload=payload,
         )
@@ -202,8 +235,8 @@ class CommsMessage:
         return cls(
             ts=ts,
             direction="rx",
-            typ="control",
-            target="status",
+            typ=MessageType.CONTROL,
+            target=MessageTarget.STATUS,
             obj=obj,
             payload=payload,
             frequency=frequency,
@@ -215,8 +248,8 @@ class CommsMessage:
         return cls(
             ts=ts,
             direction="tx",
-            typ="control",
-            target="set",
+            typ=MessageType.CONTROL,
+            target=MessageTarget.SET,
             obj=obj,
             payload=payload,
         )
@@ -241,7 +274,7 @@ class CommsMessage:
             frequency=frequency,
             snr=snr,
             typ=typ,
-            target="mb_client",
+            target=MessageTarget.MB_CLIENT,
             obj="receiver",
             payload=payload,
         )
