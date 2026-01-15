@@ -2,7 +2,7 @@ import os
 import time
 import webbrowser
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, Event, EventType
 import locale
 import functools as ft
 from queue import Empty, Queue
@@ -94,14 +94,16 @@ class ScrollableFrame(ttk.Frame):
     canvas = None
     scrollable_frame = None
 
-    def on_mousewheel(self, event):
+    def on_mousewheel(self, event: Event):
         self.canvas.yview_scroll(int(-1*(event.delta/120)), 'units')
 
-    def focus_in(self, event):
-        self.canvas.bind_all('<MouseWheel>', self.on_mousewheel)
+    def focus_in(self, event: Event):
+        if event.type == EventType.Enter:
+            self.canvas.bind_all('<MouseWheel>', self.on_mousewheel)
 
-    def focus_out(self, event):
-        self.canvas.unbind_all('<MouseWheel>')
+    def focus_out(self, event: Event):
+        if event.type == EventType.Leave:
+            self.canvas.unbind_all('<MouseWheel>')
 
     def __init__(self, container, *args, **kwargs):
         super().__init__(container, *args, **kwargs)
@@ -233,7 +235,7 @@ class GuiHeader:
             relief='flat',
             command=self.run_scan
         )
-        self.tx_indicator.pack(side=tk.LEFT)
+        self.tx_indicator.pack(side='left')
 
         self.rx_indicator = tk.Button(
             frame_cell_6,
@@ -243,7 +245,7 @@ class GuiHeader:
             relief='flat',
             command=self.run_scan
         )
-        self.rx_indicator.pack(side=tk.RIGHT)
+        self.rx_indicator.pack(side='right')
 
         self.reload_header()
 
@@ -405,7 +407,7 @@ class GuiTable:
                     frame_hdr,
                     bg='white',
                     font=self.gui_fonts.font_main_bold,
-                    relief=tk.FLAT,
+                    relief='flat',
                     width=self.table_headers[col]['width'],
                     height=1,
                     padx=10
@@ -418,7 +420,7 @@ class GuiTable:
                     'tag_all', '<Button-1>', ft.partial(self.hdr_click_cb, col)
                 )
 
-                headers['widget'].configure(state=tk.DISABLED)
+                headers['widget'].configure(state='disabled')
 
         # add the blog list Text widgets to the grid
         for row, _ in enumerate(self.table_data):
@@ -428,21 +430,21 @@ class GuiTable:
                         frame_body.scrollable_frame,
                         bg='white',
                         font=self.gui_fonts.font_main,
-                        relief=tk.FLAT,
+                        relief='flat',
                         width=self.table_headers[col]['width'],
                         height=1,
                         padx=10
                     )
                     blog['widget'].grid(column=col, row=(row + 1))  # need to row+1 to allow for header
 
-        frame_hdr.pack(fill=tk.BOTH, expand=0, side='top', anchor='n', padx=4)
-        frame_body.pack(fill=tk.BOTH, expand=1, side='top', anchor='n', padx=4)
+        frame_hdr.pack(fill='both', expand=0, side='top', anchor='n', padx=4)
+        frame_body.pack(fill='both', expand=1, side='top', anchor='n', padx=4)
 
     def reload_table(self, db_values):
         # clear all entries
         for row, _ in enumerate(self.table_data):
             for col, row_data in enumerate(self.table_data[row]):
-                row_data['widget'].configure(state=tk.NORMAL)
+                row_data['widget'].configure(state='normal')
                 row_data['widget'].configure(bg='#ffffff')
                 row_data['widget'].delete(1.0, tk.END)
 
@@ -470,7 +472,7 @@ class GuiTable:
                     cell['widget'].configure(bg='#6699FF', fg='#ffffff')
                 else:  # check the selected flag
                     cell['widget'].configure(bg='#ffffff', fg='#000000')
-                cell['widget'].configure(state=tk.DISABLED)
+                cell['widget'].configure(state='disabled')
 
         return
 
@@ -598,22 +600,22 @@ class GuiBlogInfo:
             text="Blog Information",
             bg='black', fg='white',
             font=self.gui_fonts.font_main_bold,
-            justify=tk.LEFT,
-            anchor=tk.W,
+            justify='left',
+            anchor='w',
             padx=10, pady=12
         )
-        blog_info_box_hdr.pack(anchor='ne', fill=tk.X)
+        blog_info_box_hdr.pack(anchor='ne', fill='x')
 
         v = tk.Scrollbar(frame, orient='vertical')
-        v.pack(side=tk.RIGHT, fill='y')
+        v.pack(side='right', fill='y')
         self.blog_info_box = tk.Text(
             frame, width=480,
-            wrap=tk.WORD, padx=10, pady=10,
+            wrap='word', padx=10, pady=10,
             font=self.gui_fonts.font_main, bg='white', yscrollcommand=v.set,
             spacing1=1.1, spacing2=1.1
         )
         v.config(command=self.blog_info_box.yview)
-        self.blog_info_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
+        self.blog_info_box.pack(fill='both', expand=1, anchor='ne')
 
     def reload_blog_info_box(self):
         status = Status()
@@ -626,7 +628,7 @@ class GuiBlogInfo:
             hdr_list=['info']
         )
 
-        self.blog_info_box.configure(state=tk.NORMAL)
+        self.blog_info_box.configure(state='normal')
         self.blog_info_box.delete(1.0, 'end')
 
         if len(db_values) > 0:
@@ -635,7 +637,7 @@ class GuiBlogInfo:
         self.blog_info_box.insert(tk.END, info_string)
         self.blog_info_box.see(tk.END)
 
-        self.blog_info_box.configure(state=tk.DISABLED)
+        self.blog_info_box.configure(state='disabled')
 
         return
 
@@ -772,19 +774,19 @@ class GuiPostContent:
             text="Post",
             bg='black', fg='white',
             font=self.gui_fonts.font_main_bold,
-            justify=tk.LEFT,
-            anchor=tk.W,
+            justify='left',
+            anchor='w',
             padx=10, pady=12
         )
-        post_content_hdr.pack(anchor='ne', fill=tk.X)
+        post_content_hdr.pack(anchor='ne', fill='x')
 
         self.post_box = tk.Text(
-            frame, width=300, wrap=tk.WORD, padx=10, pady=5,
+            frame, width=300, wrap='word', padx=10, pady=5,
             font=self.gui_fonts.font_main, bg='#ffffff',
             spacing1=1.1, spacing2=1.1,
             borderwidth=0
         )
-        self.post_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
+        self.post_box.pack(fill='both', expand=1, anchor='ne')
 
         self.reload_post_content()
 
@@ -819,7 +821,7 @@ class GuiPostContent:
             hdr_list=self.post_cols
         )
 
-        self.post_box.configure(state=tk.NORMAL)
+        self.post_box.configure(state='normal')
         self.post_box.delete(1.0, 'end')
 
         if len(db_values) > 0:
@@ -849,7 +851,7 @@ class GuiPostContent:
 
                 self.post_box.see(tk.END)
 
-        self.post_box.configure(state=tk.DISABLED)
+        self.post_box.configure(state='disabled')
 
         return
 
@@ -877,19 +879,19 @@ class GuiProgress:
             text="Progress",
             bg='black', fg='white',
             font=self.gui_fonts.font_main_bold,
-            justify=tk.LEFT,
-            anchor=tk.W,
+            justify='left',
+            anchor='w',
             padx=10, pady=12
         )
-        progress_box_hdr.pack(anchor='ne', fill=tk.X)
+        progress_box_hdr.pack(anchor='ne', fill='x')
 
         v = tk.Scrollbar(frame, orient='vertical')
-        v.pack(side=tk.RIGHT, fill='y')
-        self.progress_box = tk.Text(frame, width=300, wrap=tk.WORD, padx=10, pady=10,
+        v.pack(side='right', fill='y')
+        self.progress_box = tk.Text(frame, width=300, wrap='word', padx=10, pady=10,
                                     font=self.gui_fonts.font_console, bg='white', yscrollcommand=v.set,
                                     spacing1=1.1, spacing2=1.1)
         v.config(command=self.progress_box.yview)
-        self.progress_box.pack(fill=tk.BOTH, expand=1, anchor='ne')
+        self.progress_box.pack(fill='both', expand=1, anchor='ne')
         self.progress_box.bind('<Enter>', self.focus_in)
         self.progress_box.bind('<Leave>', self.focus_out)
 
@@ -901,7 +903,7 @@ class GuiProgress:
             hdr_list=self.progress_cols
         )
 
-        self.progress_box.configure(state=tk.NORMAL)
+        self.progress_box.configure(state='normal')
         self.progress_box.delete(1.0, 'end')
 
         for i, r in enumerate(db_values):
@@ -914,7 +916,7 @@ class GuiProgress:
             self.progress_box.insert(tk.END, progress_string)
             self.progress_box.see(tk.END)
 
-        self.progress_box.configure(state=tk.DISABLED)
+        self.progress_box.configure(state='disabled')
         return
 
 
@@ -980,7 +982,7 @@ class GuiMain:
         self.header = GuiHeader(header_frame=frame_hdr, f2b_q=self.f2b_q)  # populate the header
 
         frame_main = tk.Frame(frame_container, pady=4)
-        frame_main.pack(fill=tk.BOTH, expand=1, side='top', anchor='n', padx=4)
+        frame_main.pack(fill='both', expand=1, side='top', anchor='n', padx=4)
 
         self.header.clock_tick()
 
@@ -998,31 +1000,31 @@ class GuiMain:
 
         # Blog list area - left of main
         frame_blog_list = tk.Frame(frame_left, bg='white', padx=4, pady=4)
-        frame_blog_list.pack(side='top', fill=tk.BOTH, expand=1)
+        frame_blog_list.pack(side='top', fill='both', expand=1)
 
         self.blog_list = GuiBlogList(frame_blog_list, f2b_q)
 
         # Blog Information area
         frame_blog_info = tk.Frame(frame_left, bg='white', padx=4, pady=4)
-        frame_blog_info.pack(side='bottom', fill=tk.BOTH, expand=1)
+        frame_blog_info.pack(side='bottom', fill='both', expand=1)
 
         self.blog_info = GuiBlogInfo(frame_blog_info)
 
         # Post List Area follows - middle of main
         frame_post_list = tk.Frame(frame_mid, bg='white', padx=4, pady=4)
-        frame_post_list.pack(side='top', fill=tk.BOTH, expand=1)
+        frame_post_list.pack(side='top', fill='both', expand=1)
 
         self.post_list = GuiPostListBox(frame_post_list, f2b_q)
 
         # Latest Posts area
         frame_post_content = tk.Frame(frame_right, bg='white')
-        frame_post_content.pack(side='top', fill=tk.BOTH, expand=1)
+        frame_post_content.pack(side='top', fill='both', expand=1)
 
         self.post_content = GuiPostContent(frame_post_content, f2b_q)
 
         # Latest Progress area
         frame_progress = tk.Frame(frame_right, bg='white')
-        frame_progress.pack(side='bottom', fill=tk.BOTH, expand=1)
+        frame_progress.pack(side='bottom', fill='both', expand=1)
 
         self.progress = GuiProgress(frame_progress)
         self.reload_blog_list()
@@ -1030,7 +1032,7 @@ class GuiMain:
         self.reload_post_content()
         self.reload_progress_box()
 
-        root.after(200, self.process_updates)
+        root.after(200, self.process_updates)  # type: ignore[arg-type]
 
         if self.stop:
             return
@@ -1108,7 +1110,7 @@ class GuiMain:
         if self.stop:
             return
 
-        root.after(200, self.process_updates)
+        root.after(200, self.process_updates)  # type: ignore[arg-type]
 
     def reload_blog_list(self):
         self.blog_list.reload_blog_list()
