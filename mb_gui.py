@@ -475,6 +475,11 @@ class GuiTable:
 
         return
 
+    def popup_cb(self, row, event):
+        """Right-click popup callback (must be overridden by subclasses)."""
+        pass
+
+
 
 class GuiBlogList(GuiTable):
     blog_list_headers = [
