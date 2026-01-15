@@ -1,12 +1,12 @@
 import os
 import time
 import sqlite3
+import logging
 from datetime import datetime, timezone
 
-import logging
-logger = logging.getLogger(__name__)
-
 from db_table import get_db_file_spec
+
+logger = logging.getLogger(__name__)
 
 
 hdr_time = time.time()

@@ -1,11 +1,10 @@
 import os
 import re
 import sqlite3
-
 import logging
-logger = logging.getLogger(__name__)
-
 from db_root import db_path
+
+logger = logging.getLogger(__name__)
 
 
 def get_db_file_spec():
@@ -163,6 +162,7 @@ class DbTable:
                 int(value)  # this tests for int and float values
                 query += f"{key}={value}"
             except ValueError:
+                value = value.replace("'", "''")  # we need to escape single quotes
                 query += f"{key}='{value}'"
 
         if where:

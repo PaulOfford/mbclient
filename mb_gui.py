@@ -6,16 +6,15 @@ from tkinter import ttk
 import locale
 import functools as ft
 from queue import Empty, Queue
-
 import logging
-logger = logging.getLogger(__name__)
-
 from _version import __version__
 from status import Status
 from settings import Settings
 from db_table import DbTable
 from message_q import GuiMessage
 from mb_fonts import MbFonts
+
+logger = logging.getLogger(__name__)
 
 root = tk.Tk()
 
