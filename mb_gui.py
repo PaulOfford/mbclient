@@ -52,7 +52,7 @@ def settings_window():
         tk.Label(sw_frame, text=label[1] + ' ', font='8').grid(row=i, column=0, sticky='w')
         # Store the entry widgets in a list for later use
         if label[2] == 'entry':
-            entry_list.append(tk.Entry(sw_frame, borderwidth=2, width=8, font='8', relief=tk.GROOVE))
+            entry_list.append(tk.Entry(sw_frame, borderwidth=2, width=8, font='8', relief='groove'))
             entry_list[-1].grid(row=i, column=1)
             entry_list[-1].insert(0, settings.get_setting(label[0]))
         elif label[2] == 'checkbox':
@@ -998,31 +998,31 @@ class GuiMain:
 
         # Blog list area - left of main
         frame_blog_list = tk.Frame(frame_left, bg='white', padx=4, pady=4)
-        frame_blog_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        frame_blog_list.pack(side='top', fill=tk.BOTH, expand=1)
 
         self.blog_list = GuiBlogList(frame_blog_list, f2b_q)
 
         # Blog Information area
         frame_blog_info = tk.Frame(frame_left, bg='white', padx=4, pady=4)
-        frame_blog_info.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=1)
+        frame_blog_info.pack(side='bottom', fill=tk.BOTH, expand=1)
 
         self.blog_info = GuiBlogInfo(frame_blog_info)
 
         # Post List Area follows - middle of main
         frame_post_list = tk.Frame(frame_mid, bg='white', padx=4, pady=4)
-        frame_post_list.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        frame_post_list.pack(side='top', fill=tk.BOTH, expand=1)
 
         self.post_list = GuiPostListBox(frame_post_list, f2b_q)
 
         # Latest Posts area
         frame_post_content = tk.Frame(frame_right, bg='white')
-        frame_post_content.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        frame_post_content.pack(side='top', fill=tk.BOTH, expand=1)
 
         self.post_content = GuiPostContent(frame_post_content, f2b_q)
 
         # Latest Progress area
         frame_progress = tk.Frame(frame_right, bg='white')
-        frame_progress.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=1)
+        frame_progress.pack(side='bottom', fill=tk.BOTH, expand=1)
 
         self.progress = GuiProgress(frame_progress)
         self.reload_blog_list()
