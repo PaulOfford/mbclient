@@ -249,6 +249,8 @@ class ServerMsgProcessors:
         # + or - for good or bad response [2], the original command [3],
         # a post_id or post_date or list of dates [4], and list entries separated by \n character [5]
 
+        post_table = DbTable('post')  # we'll need to put the listing info in the post table
+
         directed_to = req[1]
 
         # push the data into the database
@@ -259,19 +261,25 @@ class ServerMsgProcessors:
             else:
                 if is_extended:
                     details = re.findall(r"(\d+) - (\d{4}-\d{2}-\d{2}) - ([\S\s]+)", line)
-                    self.post_id = int(details[0][0])
-                    self.post_date = time.mktime(time.strptime(details[0][1], "%Y-%m-%d"))
-                    self.title = details[0][2]
-                else:
-                    details = re.findall(r"(\d+) - ([\S\s]+)", line)
+
                     if len(details) > 0:
                         self.post_id = int(details[0][0])
-                        self.title = details[0][1]
-                    else:  # got something unexpected - just output it
-                        self.rsp = rsp_lines[0]
-                        self.title = f"{self.cmd} {rsp_lines[0]}"
+                        self.post_date = time.mktime(time.strptime(details[0][1], "%Y-%m-%d"))
+                        self.title = details[0][2]
+                    else:
+                        logger.info(f"Received extended listing is too corrupt to interpret: {line}")
+                        continue
 
-            post_table = DbTable('post')
+                else:
+                    details = re.findall(r"(\d+) - ([\S\s]+)", line)
+
+                    if len(details[0]) > 0:
+                        self.post_id = int(details[0][0])
+                        self.title = details[0][1]
+                    else:
+                        logger.info(f"Received listing is too corrupt to interpret: {line}")
+                        continue
+
             # if we already have an entry for this post we only want to replace it
             # if this listing was directed_to this station
 
