@@ -11,7 +11,7 @@ from _version import __version__
 from status import Status
 from settings import Settings
 from db_table import DbTable
-from message_q import GuiMessage
+from message_q import GuiMessage, MessageOperator
 from mb_fonts import MbFonts
 
 logger = logging.getLogger(__name__)
@@ -273,7 +273,7 @@ class GuiHeader:
             req.set_blog('@MB')
             req.set_station('@MB')
             req.set_frequency(status.radio_frequency)
-            req.set_op('latest')
+            req.set_op(MessageOperator.LATEST)
             req.set_ts()
             self.f2b_q.put(req)
             logger.debug(req)
@@ -524,7 +524,7 @@ class GuiBlogList(GuiTable):
         req.set_blog(self.db_values[self.clicked_row]['blog'])
         req.set_station(self.db_values[self.clicked_row]['station'])
         req.set_frequency(self.db_values[self.clicked_row]['frequency'])
-        req.set_op('recent')
+        req.set_op(MessageOperator.RECENT)
         req.set_ts()
         self.f2b_q.put(req)
         logger.debug(req)
@@ -536,7 +536,7 @@ class GuiBlogList(GuiTable):
         req.set_blog(self.db_values[self.clicked_row]['blog'])
         req.set_station(self.db_values[self.clicked_row]['station'])
         req.set_frequency(self.db_values[self.clicked_row]['frequency'])
-        req.set_op('latest')
+        req.set_op(MessageOperator.LATEST)
         req.set_ts()
         self.f2b_q.put(req)
         logger.debug(req)
@@ -547,7 +547,7 @@ class GuiBlogList(GuiTable):
         req.set_blog(self.db_values[self.clicked_row]['blog'])
         req.set_station(self.db_values[self.clicked_row]['station'])
         req.set_frequency(self.db_values[self.clicked_row]['frequency'])
-        req.set_op('latest')
+        req.set_op(MessageOperator.LATEST)
         req.set_ts()
         self.f2b_q.put(req)
         logger.debug(req)
@@ -721,7 +721,7 @@ class GuiPostListBox(GuiTable):
         req.set_post_id(self.db_values[self.clicked_row]['post_id'])
         req.set_station(status.selected_station)
         req.set_frequency(status.radio_frequency)
-        req.set_op('more')
+        req.set_op(MessageOperator.MORE)
         req.set_ts()
         self.f2b_q.put(req)
         logger.debug(req)
@@ -735,7 +735,7 @@ class GuiPostListBox(GuiTable):
         req.set_post_id(self.db_values[self.clicked_row]['post_id'])
         req.set_station(status.selected_station)
         req.set_frequency(status.radio_frequency)
-        req.set_op('eq')
+        req.set_op(MessageOperator.EQ)
         req.set_ts()
         self.f2b_q.put(req)
         logger.debug(req)
@@ -749,7 +749,7 @@ class GuiPostListBox(GuiTable):
         req.set_post_id(self.db_values[self.clicked_row]['post_id'])
         req.set_station(status.selected_station)
         req.set_frequency(status.radio_frequency)
-        req.set_op('eq')
+        req.set_op(MessageOperator.EQ)
         req.set_ts()
         self.f2b_q.put(req)
         logger.debug(req)
@@ -798,7 +798,7 @@ class GuiPostContent:
         req.set_frequency(frequency)
         req.set_cli_input(f'G {post_id}')
         req.set_cmd('G')
-        req.set_op('eq')
+        req.set_op(MessageOperator.EQ)
         req.set_post_id(post_id)
         req.set_post_date(0)
         req.set_ts()
@@ -1065,7 +1065,6 @@ class GuiMain:
         be_sig = GuiMessage()
         be_sig.set_cmd('X')
         be_sig.set_cli_input('MB Client Shutdown')
-        be_sig.set_op('exit')
         self.f2b_q.put(be_sig)
 
         root.destroy()
@@ -1087,16 +1086,16 @@ class GuiMain:
         try:
             msg: GuiMessage = self.b2f_q.get(block=False)  # if no msg waiting, this will throw an exception
 
-            if msg.get_op() == 'flash_rx_start':
+            if msg.get_op() == MessageOperator.FLASH_RX_START:
                 self.header.flash_rx_start()
 
-            elif msg.get_op() == 'flash_rx_stop':
+            elif msg.get_op() == MessageOperator.FLASH_RX_STOP:
                 self.header.flash_rx_stop()
 
-            elif msg.get_op() == 'ptt_on':
+            elif msg.get_op() == MessageOperator.PTT_ON:
                 self.header.flash_tx_start()
 
-            elif msg.get_op() == 'ptt_off':
+            elif msg.get_op() == MessageOperator.PTT_OFF:
                 self.header.flash_tx_stop()
 
             else:

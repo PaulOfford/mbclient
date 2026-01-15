@@ -9,7 +9,7 @@ import queue
 
 import logging
 from status import Status
-from message_q import CommsMessage, MessageType, MessageTarget
+from message_q import CommsMessage, MessageType, MessageTarget, MessageOperator
 from client_mocking import js8call_mock_listen
 
 import json
@@ -204,7 +204,9 @@ class Js8CallDriver:
                     messages = self.js8call_api.listen()
 
                 if 0 < self.rx_ind_timeout < time.time():
-                    self.signal_frontend(time.time(), 'rx_indicator', 'flash_rx_stop')
+                    self.signal_frontend(
+                        time.time(), 'rx_indicator', MessageOperator.FLASH_RX_STOP
+                    )
                     self.rx_ind_timeout = 0
 
                 for message in messages:
@@ -213,7 +215,9 @@ class Js8CallDriver:
                     value = message.get('value', '')
                     params = message.get('params', {})
 
-                    self.signal_frontend(float(params.get('_ID')) / 1000, 'rx_indicator', 'flash_rx_start')
+                    self.signal_frontend(
+                        float(params.get('_ID')) / 1000, 'rx_indicator', MessageOperator.FLASH_RX_START
+                    )
                     self.rx_ind_timeout = time.time() + self.flash_duration
 
                     if not js8call_msg_type:
@@ -221,9 +225,9 @@ class Js8CallDriver:
 
                     elif js8call_msg_type == 'RIG.PTT':
                         if value == 'on':
-                            payload = 'ptt_on'
+                            payload = MessageOperator.PTT_ON
                         else:
-                            payload = 'ptt_off'
+                            payload = MessageOperator.PTT_OFF
 
                         logger.debug(f"Received {payload}")
                         self.signal_frontend(float(params.get('_ID')) / 1000, 'tx_indicator', payload)

@@ -5,7 +5,7 @@ import logging
 
 from status import Status
 from settings import Settings
-from message_q import CommsMessage, GuiMessage, MessageType, MessageTarget
+from message_q import CommsMessage, GuiMessage, MessageType, MessageTarget, MessageOperator
 from db_table import DbTable
 
 logger = logging.getLogger(__name__)
@@ -168,7 +168,7 @@ class ServerMsgProcessors:
         notify_msg.set_frequency(0)
         notify_msg.set_post_id(0)
         notify_msg.set_post_date(0)
-        notify_msg.set_op('reload')
+        notify_msg.set_op(MessageOperator.RELOAD)
         notify_msg.set_param(ui_area)
         notify_msg.set_rc(0)
         self.b2f_q.put(notify_msg)
@@ -492,7 +492,7 @@ class BeProcessor:
         notify_msg.set_frequency(0)
         notify_msg.set_post_id(0)
         notify_msg.set_post_date(0)
-        notify_msg.set_op('reload')
+        notify_msg.set_op(MessageOperator.RELOAD)
         notify_msg.set_param(ui_area)
         notify_msg.set_rc(0)
         self.b2f_q.put(notify_msg)
@@ -589,14 +589,14 @@ class BeProcessor:
 
         post_ids = []
 
-        if req.get_op() == 'eq':
+        if req.get_op() == MessageOperator.EQ:
             post_ids.append(req.get_post_id())
 
-        elif req.get_op() == 'gt':
+        elif req.get_op() == MessageOperator.GT:
             for i in range(settings.max_listing):
                 post_ids.append(req.get_post_id() + 1 + i)
 
-        elif req.get_op() == 'recent':
+        elif req.get_op() == MessageOperator.RECENT:
             # get the latest post id for this blog
             blog_obj = BlogInstanceFQ(req.get_blog(), req.get_blog(), req.get_frequency())
             latest_post_id, latest_post_date = blog_obj.get_latest_post_details()
@@ -606,7 +606,7 @@ class BeProcessor:
             for i in range(starting_post_id, latest_post_id + 1):
                 post_ids.append(i)
 
-        elif req.get_op() == 'more':
+        elif req.get_op() == MessageOperator.MORE:
             starting_post_id = max(req.get_post_id() - settings.max_listing, 1)
 
             for i in range(starting_post_id, req.get_post_id()):
@@ -847,21 +847,21 @@ class BeProcessor:
 
         elif command == 'L':
             # Get abbreviated list
-            process_msg = f"{command}{msg_object.get_op()}{msg_object.get_post_id()}~"
+            process_msg = f"{command}{msg_object.get_op().value}{msg_object.get_post_id()}~"
             logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_list_cmd(msg_object)
 
         elif command == 'D':
             # Get full list details not using the cache
-            process_msg = f"{command}{msg_object.get_op()}{msg_object.get_post_id()}~"
+            process_msg = f"{command}{msg_object.get_op().value}{msg_object.get_post_id()}~"
             logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_extended_cmd(msg_object)
 
         elif command == 'E':
             # Get full list details using the cache
-            process_msg = f"{command}{msg_object.get_op()}{msg_object.get_post_id()}~"
+            process_msg = f"{command}{msg_object.get_op().value}{msg_object.get_post_id()}~"
             logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg)
             self.process_extended_cmd(msg_object)

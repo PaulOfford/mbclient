@@ -19,6 +19,23 @@ class MessageTarget(str, Enum):
     FRONTEND = "frontend"
 
 
+class MessageOperator(str, Enum):
+    NULL = ''
+    EQ = 'eq'
+    GT = 'gt'
+    LT = 'lt'
+    LATEST = 'latest'
+    RECENT = 'recent'
+    MORE = 'more'
+
+    # ToDo: This following to be moved in the new message architecture
+    RELOAD = 'reload'
+    FLASH_RX_START = 'flash_rx_start'
+    FLASH_RX_STOP = 'flash_rx_stop'
+    PTT_ON = 'ptt_on'
+    PTT_OFF = 'ptt_off'
+
+
 class GuiMessage:
     """Message sent between GUI and backend.
 
@@ -51,7 +68,7 @@ class GuiMessage:
         self.frequency = 0
         self.post_id = 0
         self.post_date = 0
-        self.op = ""
+        self.op = MessageOperator.NULL
         self.param = ""
         self.rc = 0
 
@@ -82,7 +99,7 @@ class GuiMessage:
     def set_post_date(self, value: int):
         self.post_date = value
 
-    def set_op(self, value: str):
+    def set_op(self, value: MessageOperator):
         self.op = value
 
     def set_param(self, value: str):
@@ -118,7 +135,7 @@ class GuiMessage:
     def get_post_date(self) -> int:
         return self.post_date
 
-    def get_op(self) -> str:
+    def get_op(self) -> MessageOperator:
         return self.op
 
     def get_param(self) -> str:
