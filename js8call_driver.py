@@ -214,6 +214,15 @@ class Js8CallDriver:
         )
         self.comms_rx_q.put(m)
 
+    def announce_to_backend(self, source: str, frequency: int, destination: str, mb_message: str):
+        # This is where we send an inbound microblog message to the backend
+        m = CommsMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND, type=MessageType.MB_MSG, verb=MessageVerb.ANNOUNCE,
+            source=source, frequency=frequency, destination=destination, mb_message=mb_message
+        )
+        self.comms_rx_q.put(m)
+
     def run_comms(self):
 
         if self.js8call_api.connected:
@@ -284,12 +293,22 @@ class Js8CallDriver:
                         msg_elements = re.findall(r"^\S+: +\S+ +([\S\s]+)", value)
                         mb_message = msg_elements[0][0]
 
-                        self.inform_backend(
-                            str(params['FROM']),
-                            int(params['DIAL']),
-                            str(params['TO']),
-                            mb_message
-                        )
+                        if str(params['TO']) == "@MB":
+                            self.announce_to_backend(
+                                str(params['FROM']),
+                                int(params['DIAL']),
+                                str(params['TO']),
+                                mb_message
+                            )
+
+                        else:
+                            self.inform_backend(
+                                str(params['FROM']),
+                                int(params['DIAL']),
+                                str(params['TO']),
+                                mb_message
+                            )
+
                         logger.debug('q_put: INFORM - ' + mb_message)
 
         finally:

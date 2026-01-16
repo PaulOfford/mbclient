@@ -5,7 +5,7 @@ import logging
 
 from status import Status
 from settings import Settings
-from message_q import CommsMessage, GuiMessage, MessageType, MessageTarget, MessageOperator
+from message_q import CommsMessage, GuiMessage, MessageTarget, MessageType, MessageVerb, MessageOperator
 from db_table import DbTable
 
 logger = logging.getLogger(__name__)
@@ -118,22 +118,6 @@ class ServerMsgProcessors:
     qso_fields = ['qso_date', 'blog', 'station', 'directed_to', 'frequency',
                   'offset', 'cmd', 'post_id', 'post_date', 'title', 'body']
 
-    mb_status = None
-    qso_date = 0
-    blog = ''
-    station = ''
-    directed_to = ''
-    frequency = 0
-    offset = 0
-    snr = 0
-    cmd = ''
-    post_id = 0
-    post_date = 0
-    title = ''
-    body = ''
-
-    rsp = ''
-
     # we use __init__ to preload some metadata we will need to create a qso entry
     def __init__(self, b2f_q: queue.Queue):
         self.b2f_q = b2f_q
@@ -167,11 +151,13 @@ class ServerMsgProcessors:
         self.b2f_q.put(notify_msg)
         return
 
-    def update_blog_list(self, blog: str, station: str, freq: int, post_id: int, post_date: float = 0):
+    def update_blog_list(self, comms_msg: CommsMessage):
+        status = Status()
+
         # do we have a blog entry for this blog at this station
         blog_table = DbTable('blog')
         results = blog_table.select(
-            where=f"blog='{blog}' AND station='{station}' AND frequency={freq}",
+            where=f"blog='{comms_msg.get_source()}' AND station='{comms_msg.get_source()}' AND frequency={status.radio_frequency}",
             limit=1, hdr_list=['latest_post_id', 'latest_post_date']
         )
         if len(results) > 0:
@@ -209,19 +195,31 @@ class ServerMsgProcessors:
             )
         self.signal_reload('blog')
 
-    def process_announcement(self, req: list):
+    def process_announcement(self, blog: str, frequency: int, post_id: int, post_date: float) -> None:
         # we need to support two formats of announcement
         # old:  callsign callsign blog_name post_id date_time
         # new:  callsign callsign post_id date_time
 
         status = Status()
 
-        station = req[0]
+        announcement_patterns = [
+            {'exp': r"^(\d+) +(\d{2})(\d{2})(\d{2})", 'proc': 'process_announcement'},  # new style
+            {'exp': r"^([A-Z,0-9/]+) +(\d+) +(\d{4}-\d{2}-\d{2})", 'proc': 'process_announcement'},  # old style
+        ]
+
+        blog = comms_msg.get_source()
+
+        for entry in announcement_patterns:
+            # try to match the request
+            result = re.findall(entry['exp'], comms_msg.get_param())
+
+        if len(result) == 0:
+            return
 
         # if req[2] is an integer it must be the new style announcement
         try:
-            announcement_post_id = int(req[2])
-            blog = station
+            announcement_post_id = int(result[0][])
+            blog = comms_msg.get_source()
             announcement_post_date = time.mktime(
                 time.strptime(
                     "20" + req[3] + "-" + req[4] + "-" + req[5] + " GMT", "%Y-%m-%d %Z"
@@ -230,35 +228,32 @@ class ServerMsgProcessors:
 
         except ValueError:
             # must be an old style announcement
-            blog = req[2]
             announcement_post_id = int(req[3])
             announcement_post_date = time.mktime(time.strptime(req[4] + " GMT", "%Y-%m-%d %Z"))
 
-        self.update_blog_list(blog, station, status.radio_frequency, announcement_post_id, announcement_post_date)
+        self.update_blog_list(blog, frequency, post_id, post_date)
 
-    def process_listing(self, req: list, is_extended=False):
+    def process_listing(self, cmd: str, blog: str, lines_string: str):
         status = Status()
-        # the req list has source station [0], destination station [1],
-        # + or - for good or bad response [2], the original command [3],
-        # a post_id or post_date or list of dates [4], and list entries separated by \n character [5]
+        post_table = DbTable('post')
+        qso_date = time.time()
 
-        post_table = DbTable('post')  # we'll need to put the listing info in the post table
+        lines = str(lines_string).split('\n')  # this is the list output
+        for line in lines:
+            post_id = 0
+            post_date = 0
+            title = ""
 
-        directed_to = req[1]
-
-        # push the data into the database
-        rsp_lines = str(req[5]).split('\n')  # this is the list output
-        for line in rsp_lines:
             if line == 'NO POSTS FOUND':
-                self.title = line
+                title = line
             else:
-                if is_extended:
+                if cmd == 'E':
                     details = re.findall(r"(\d+) - (\d{4}-\d{2}-\d{2}) - ([\S\s]+)", line)
 
                     if len(details) > 0:
-                        self.post_id = int(details[0][0])
-                        self.post_date = time.mktime(time.strptime(details[0][1], "%Y-%m-%d"))
-                        self.title = details[0][2]
+                        post_id = int(details[0][0])
+                        post_date = time.mktime(time.strptime(details[0][1], "%Y-%m-%d"))
+                        title = details[0][2]
                     else:
                         logger.info(f"Received extended listing is too corrupt to interpret: {line}")
                         continue
@@ -267,8 +262,8 @@ class ServerMsgProcessors:
                     details = re.findall(r"(\d+) - ([\S\s]+)", line)
 
                     if len(details[0]) > 0:
-                        self.post_id = int(details[0][0])
-                        self.title = details[0][1]
+                        post_id = int(details[0][0])
+                        title = details[0][1]
                     else:
                         logger.info(f"Received listing is too corrupt to interpret: {line}")
                         continue
@@ -277,65 +272,72 @@ class ServerMsgProcessors:
             # if this listing was directed_to this station
 
             db_values = post_table.select(
-                where=f"blog='{self.blog}' AND post_id={self.post_id}",
+                where=f"blog='{comms_msg.get_source()}' AND post_id={post_id}",
                 hdr_list=['body', 'is_selected']
             )
 
             if len(db_values) == 0:
                 # Delete any existing entry and create a new one
                 post_table.delete(
-                    where=f"blog='{self.blog}' AND post_id={self.post_id}"
+                    where=f"blog='{comms_msg.get_source()}' AND post_id={post_id}"
                 )
 
                 row = {
-                    'qso_date': self.qso_date, 'blog': self.blog, 'station': self.station,
-                    'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset,
-                    'cmd': self.cmd,
-                    'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title, 'body': '',
+                    'qso_date': qso_date,
+                    'blog': comms_msg.get_source(), 'station': comms_msg.get_source(),
+                    'directed_to': comms_msg.get_destination(),
+                    'frequency': status.radio_frequency, 'offset': status.offset,
+                    'cmd': command,
+                    'post_id': post_id, 'post_date': post_date, 'title': title, 'body': '',
                     'is_selected': 0
                 }
                 post_table.insert(row)
 
-            elif directed_to == status.callsign:
+            elif comms_msg.get_destination() == status.callsign:
                 # Delete any existing entry and create a new one
                 post_table.delete(
-                    where=f"blog='{self.blog}' AND post_id={self.post_id}"
+                    where=f"blog='{comms_msg.get_source()}' AND post_id={post_id}"
                 )
 
                 row = {
-                    'qso_date': self.qso_date, 'blog': self.blog, 'station': self.station,
-                    'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset,
+                    'qso_date': self.qso_date, 'blog': comms_msg.get_source(), 'station': comms_msg.get_source(),
+                    'directed_to': comms_msg.get_destination(),
+                    'frequency': status.radio_frequency, 'offset': status.offset,
                     'cmd': self.cmd,
-                    'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title,
+                    'post_id': post_id, 'post_date': post_date, 'title': title,
                     'body': db_values[0]['body'], 'is_selected': db_values[0]['is_selected']
                 }
                 post_table.insert(row)
 
             self.signal_reload('post_list')
             self.signal_reload('post_content')
-            self.update_blog_list(self.blog, self.station, status.radio_frequency, self.post_id, self.post_date)
+            self.update_blog_list(
+                comms_msg.get_source(), comms_msg.get_source(), status.radio_frequency, post_id, post_date
+            )
 
-    def process_extended(self, req: list):
-        self.process_listing(req, True)
-
-    def process_post(self, msg_fields: list):
+    def process_post(self, comms_msg: CommsMessage):
         status = Status()
+
+        # Get the post content out of the comms_message
+        post_elements = re.findall(r"^([+-])(G)(\d+)~\n*([\S\s]+)", comms_msg.get_param())[0][0]
+        post_id = int(post_elements[0][2])
+        body = str(post_elements[0][3])
 
         # push the data into the database
         post_table = DbTable('post')
 
         # do we have the title for this blog
-        self.post_id = int(msg_fields[4])
+
         db_values = post_table.select(
-            where=f"blog='{self.blog}' AND post_id={self.post_id}",
+            where=f"blog='{comms_msg.get_source()}' AND post_id={post_id}",
             limit=1,
             hdr_list=['post_id']
         )
 
         if len(db_values) > 0:
             post_table.update(
-                value_dictionary={'body': msg_fields[5]},
-                where=f"blog='{self.blog}' AND post_id={self.post_id}"
+                value_dictionary={'body': body},
+                where=f"blog='{comms_msg.get_source()}' AND post_id={post_id}"
             )
             # signal post table update
             status.set_post_updated()
@@ -343,68 +345,67 @@ class ServerMsgProcessors:
         else:
             post_table.insert(
                 row={
-                    'qso_date': self.qso_date,
-                    'blog': status.selected_blog,
-                    'station': status.selected_station,
+                    'qso_date': 0,
+                    'blog': comms_msg.get_source(),
+                    'station': comms_msg.get_source(),
                     'directed_to': '',
                     'frequency': status.radio_frequency,
                     'offset': status.offset,
                     'cmd': 'G',
-                    'post_id': self.post_id,
+                    'post_id': post_id,
                     'post_date': 0.0,
-                    'title': f"** {msg_fields[5][:20]}",
-                    'body': msg_fields[5],
+                    'title': f"** {body[:20]}",
+                    'body': body,
                     'is_selected': 0
                    },
             )
             # signal post table update
             status.set_post_list_updated()
 
-    def process_weather(self, req: list):
-        req.insert(4, 0)  # insert a dummy post_id into the request
-        self.process_post(req)
+    def process_weather(self, comms_msg: CommsMessage):
+        # ToDo:  Maybe we should add this to the Blog Info window since it relates to the blog server location
         pass
 
-    def process_info(self, msg_fields: list):
+    def process_info(self, blog: str, frequency: int, blog_info: str):
         status = Status()
-        blog = msg_fields[0]
-        info = msg_fields[3]
 
-        # push the data into the database
+        # Push the data into the database
         blog_table = DbTable('blog')
 
-        # do we have the title for this blog
+        # Do we have the title for this blog?
         db_values = blog_table.select(
-            where=f"blog='{blog}' AND frequency={status.radio_frequency}",
+            where=f"blog='{blog}' AND frequency={frequency}",
             limit=1,
             hdr_list=['info']
         )
 
-        if len(db_values) > 0:
-            blog_table.update(
-                value_dictionary={'info': info},
-                where=f"blog='{self.blog}' AND frequency={status.radio_frequency}"
-            )
-            # signal post table update
-            status.set_blog_updated()
+        blog_table.update(
+            value_dictionary={'info': blog_info},
+            where=f"blog='{blog}' AND frequency={frequency}"
+        )
+        # signal post table update
+        status.set_blog_updated()
 
-    def parse_mb_msg(self, source: str, destination: str, mb_msg: str):
+
+    def parse_inform(self, comms_msg: CommsMessage):
+
+        status = Status()
+
         mb_rsp_patterns = [
             {'exp': r"^([+-])(L)([\d,]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
             {'exp': r"^([+-])(L)([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
             {'exp': r"^([+-])([LM][EG])([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
-            {'exp': r"^([+-])(E)([\d,]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
-            {'exp': r"^([+-])(E)([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
-            {'exp': r"^([+-])([EF][EG])([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
+            {'exp': r"^([+-])(E)([\d,]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
+            {'exp': r"^([+-])(E)([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
+            {'exp': r"^([+-])([EF][EG])([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
             {'exp': r"^([+-])(G)(\d+)~\n*([\S\s]+)", 'proc': 'process_post'},
             {'exp': r"^([+-])(WX)~\n*([\S\s]+)", 'proc': 'process_weather'},
             {'exp': r"^(INFO) +([\S\s]+)", 'proc': 'process_info'},
         ]
-        self.blog = source
 
         for entry in mb_rsp_patterns:
             # try to match the request
-            result = re.findall(entry['exp'], mb_msg)
+            result = re.findall(entry['exp'], comms_msg.get_param())
 
             if len(result) == 0:
                 continue
@@ -412,112 +413,76 @@ class ServerMsgProcessors:
                 # the result is a list of tuples
                 result = list(result[0])  # pull the 1st result out of the list and convert to a list
 
-                self.blog = source
                 # process if the result was positive
                 if result[0] == '+':
-                    self.cmd = f"{source}{result[0]}{result[1]}~"
-                    logger.info(self.cmd)
-                    add_progress(self.cmd)
-                    getattr(ServerMsgProcessors, entry['proc'])(self, result)
+                    mb_cmd = result[1]  # The cmd we sent to the microblog server to get this information
+
+                    if mb_cmd == 'G':
+                        self.process_post(
+                            post_id=result[2],
+                            body=result[3]
+                        )
+
+                    elif mb_cmd == 'L':
+                        self.process_listing(
+
+                        )
+
+                    elif mb_cmd == 'E':
 
                 elif result[0] == 'INFO':
-                    getattr(ServerMsgProcessors, entry['proc'])(self, result)
-                    progress_msg = f"{source} {result[0]} {result[1]}"
-                    logger.info(progress_msg)
-                    add_progress(progress_msg)
+                    self.process_info(
+                        blog=comms_msg.get_source(),
+                        frequency=status.radio_frequency,
+                        blog_info=result[1]
+                    )
 
                 break
 
-    def parse_announcement(self, source: str, destination: str, mb_msg: str):
-        # need to change this to inform_patterns and signal_patterns
+    def parse_announcement(self, comms_msg: CommsMessage):
 
-        announcement_patterns = [
-            {'exp': r"^(\d+) +(\d{2})(\d{2})(\d{2})", 'proc': 'process_announcement'},  # new style
-            {'exp': r"^([A-Z,0-9/]+) +(\d+) +(\d{4}-\d{2}-\d{2})", 'proc': 'process_announcement'},  # old style
-        ]
+        status = Status()
 
-        self.blog = source
+        post_date = 0
+        post_id = 0
 
-        for entry in announcement_patterns:
-            # try to match the request
-            result = re.findall(entry['exp'], mb_msg)
+        result = re.findall(r"^[A-Z,0-9/]+ +(\d+) +(\d{4}-\d{2}-\d{2})", comms_msg.get_param())
+        if len(result) > 0:
+            result = result[0]
+            # Old style announcement
+            post_id = int(result[0])
+            post_date = time.mktime(time.strptime(result[1] + " GMT", "%Y-%m-%d %Z"))
 
+        else:
+            result = re.findall(r"^(\d+) +(\d{2})(\d{2})(\d{2})", comms_msg.get_param())
             if len(result) > 0:
-                if destination == '@MB':
-                    getattr(ServerMsgProcessors, entry['proc'])(self, result)
-                    try:
-                        progress_msg = f"{destination} {result[0]} {result[1]}{result[2]}{result[3]}"
-                    except ValueError:
-                        progress_msg = f"{destination} {result[1]} {result[2]}"
-                    logger.info(progress_msg)
-                    add_progress(progress_msg)
-                break
+                result = result[0]
+                # New style announcement
+                post_id = int(result[0])
+                post_date = time.mktime(
+                    time.strptime("20" + result[1] + "-" + result[2] + "-" + result[3] + " GMT", "%Y-%m-%d %Z")
+                )
+
+        if post_id > 0 and post_date > 0:
+            self.process_announcement(
+                blog=comms_msg.get_source(),
+                frequency= status.radio_frequency,
+                post_id= post_id,
+                post_date= post_date
+            )
+
+        return
 
     def parse_rx_message(self, comms_msg: CommsMessage):
 
+        if comms_msg.get_typ() == MessageType.MB_MSG:
+            if comms_msg.get_verb() == MessageVerb.INFORM:
+                self.parse_inform(comms_msg)
+            elif comms_msg.get_verb() == MessageVerb.ANNOUNCE:
+                self.parse_announcement(comms_msg)
 
-
-        # need to change this to inform_patterns and signal_patterns
-        
-        announcement_patterns = [
-            {'exp': r"^(\d+) +(\d{2})(\d{2})(\d{2})", 'proc': 'process_announcement'},  # new style
-            {'exp': r"^([A-Z,0-9/]+) +(\d+) +(\d{4}-\d{2}-\d{2})", 'proc': 'process_announcement'},  # old style
-        ]
-
-        mb_msg_patterns = [
-            {'exp': r"^([+-])(L)([\d,]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
-            {'exp': r"^([+-])(L)([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
-            {'exp': r"^([+-])([LM][EG])([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
-            {'exp': r"^([+-])(E)([\d,]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
-            {'exp': r"^([+-])(E)([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
-            {'exp': r"^([+-])([EF][EG])([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
-            {'exp': r"^([+-])(G)(\d+)~\n*([\S\s]+)", 'proc': 'process_post'},
-            {'exp': r"^([+-])(WX)~\n*([\S\s]+)", 'proc': 'process_weather'},
-            {'exp': r"^(INFO) +([\S\s]+)", 'proc': 'process_info'},
-        ]
-        self.blog = comms_msg.get_source()
-
-        for entry in mb_msg_patterns:
-            # try to match the request
-            result = re.findall(entry['exp'], comms_msg.get_param())
-            if len(result) == 0:
-                continue
-            else:
-                # the result is a list of tuples
-                result = list(result[0])  # pull the 1st result out of the list and convert to a list
-                self.station = comms_msg.get_source()
-                # ToDo: the following line must be changed once we implement the blog namespace
-                self.blog = result[0]
-                # process if the result was positive
-                if result[0] == '+':
-                    self.cmd = f"{result[0]}{result[1]}{result[2]}~"
-                    logger.info(self.cmd)
-                    add_progress(self.cmd)
-                    getattr(ServerMsgProcessors, entry['proc'])(self, result)
-
-                elif result[1] == '@MB':
-                    getattr(ServerMsgProcessors, entry['proc'])(self, result)
-                    try:
-                        progress_msg = f"{result[1]} {result[2]} {result[3]}{result[4]}{result[5]}"
-                    except ValueError:
-                        progress_msg = f"{result[1]} {result[2]} {result[3]}"
-                    logger.info(progress_msg)
-                    add_progress(progress_msg)
-
-                elif result[2] == 'INFO':
-                    getattr(ServerMsgProcessors, entry['proc'])(self, result)
-                    progress_msg = f"{result[1]} {result[2]} {result[3]}"
-                    logger.info(progress_msg)
-                    add_progress(progress_msg)
-
-                else:
-                    self.mb_status.reload_status()
-                    if result[1] == self.mb_status.callsign:  # we only need to show an error if this rsp was for us
-                        error_msg = f"{result[2]}{result[3]}{result[4]}~"
-                        logger.info(error_msg)
-                        add_progress(error_msg)
-                break
-
+        elif comms_msg.get_typ() == MessageType.SIGNAL:
+            pass
 
 class BeProcessor:
 

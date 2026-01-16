@@ -15,6 +15,7 @@ class MessageType(str, Enum):
     MB_MSG = "mb_msg"
     SIGNAL = "signal"
 
+
 class MessageVerb(str, Enum):
     FLASH_RX_START = "flash_rx_start"
     FLASH_RX_STOP = "flash_rx_stop"
@@ -35,6 +36,7 @@ class MessageVerb(str, Enum):
     CHG_BLOG_FREQ = "chg_blog_freq"
     SHUTDOWN = "shutdown"
     INFORM = "inform"
+    ANNOUNCE = "announce"
     NOTE_FREQ = "note_freq"
     NOTE_OFFSET = "note_offset"
     NOTE_CALLSIGN = "note_callsign"
