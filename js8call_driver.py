@@ -4,12 +4,13 @@
 # damage to equipment, corruption of data or consequential loss caused by this program code or any variant
 # of it.  The author(s) accept no responsibility for violation of any radio or amateur radio regulations
 # resulting from the use of the program code.
+import re
 from socket import socket, AF_INET, SOCK_STREAM
 import queue
 
 import logging
 from status import Status
-from message_q import CommsMessage, MessageType, MessageTarget, MessageOperator
+from message_q import CommsMessage, MessageType, MessageTarget, MessageOperator, MessageVerb
 from client_mocking import js8call_mock_listen
 
 import json
@@ -136,18 +137,29 @@ class Js8CallDriver:
         self.js8call_api.send('RIG.SET_FREQ', **kwargs)
         pass
 
-    def process_comms_tx(self, message: CommsMessage):
+    def process_mb_msg(self, message: CommsMessage):
+        req_msg = f"{message.get_destination()} {message.get_param()}"
+        self.js8call_api.send('TX.SEND_MESSAGE', req_msg)
 
-        if message.get_typ() == MessageType.CONTROL:
-            if message.get_target() == MessageTarget.SET:
-                if message.get_obj() == 'exit':
-                    exit(0)
-                elif message.get_obj() == 'radio_frequency':
-                    self.set_radio_frequency(int(message.get_payload()))
-        elif message.get_typ() == MessageType.MB_REQ:
-            req_msg = f"{message.get_destination()} {message.get_payload()}"
-            self.js8call_api.send('TX.SEND_MESSAGE', req_msg)
-            pass
+    def process_control(self, message: CommsMessage):
+        if message.get_verb() == MessageVerb.SHUTDOWN:
+            exit(0)
+        elif message.get_verb() == MessageVerb.SET_FREQ:
+            self.set_radio_frequency(int(message.get_param()))
+        elif message.get_verb() == MessageVerb.GET_FREQ:
+            self.js8call_api.send('RIG.GET_FREQ', '')
+        elif message.get_verb() == MessageVerb.GET_OFFSET:
+            self.js8call_api.send('RIG.GET_FREQ', '')
+        elif message.get_verb() == MessageVerb.GET_CALLSIGN:
+            self.js8call_api.send('STATION.GET_CALLSIGN', '')
+
+    def process_comms_tx(self, message: CommsMessage):
+        if message.get_typ() == MessageType.MB_MSG:
+            self.process_mb_msg(message)
+
+        elif message.get_typ() == MessageType.CONTROL:
+            self.process_control(message)
+
         else:
             logger.error(f"Invalid message received from backend, typ = {message.get_typ()}")
 
@@ -179,8 +191,28 @@ class Js8CallDriver:
             finally:
                 self.comms_tx_q.task_done()
 
-    def signal_frontend(self, ts: float, target_object: str, payload: str):
-        self.comms_rx_q.put(CommsMessage.signal_frontend(ts, target_object, payload))
+    def signal_frontend(self, verb: MessageVerb):
+        # These are the signa verbs we can send to the FRONTEND:
+        #   FLASH_RX_START, FLASH_RX_STOP, FLASH_TX_START, FLASH_TX_STOP, SCAN_OFF
+        m = CommsMessage()
+        m.set_many(target=MessageTarget.FRONTEND, type=MessageType.SIGNAL, verb=verb)
+        self.comms_rx_q.put(m)
+
+    def signal_backend(self, verb: MessageVerb, param):
+        # These are the signal verbs we can send to the FRONTEND:
+        #   NOTE_FREQ, NOTE_OFFSET, NOTE_CALLSIGN
+        m = CommsMessage()
+        m.set_many(target=MessageTarget.BACKEND, type=MessageType.SIGNAL, verb=verb, param=param)
+        self.comms_rx_q.put(m)
+
+    def inform_backend(self, source: str, frequency: int, destination: str, mb_message: str):
+        # This is where we send an inbound microblog message to the backend
+        m = CommsMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND, type=MessageType.MB_MSG, verb=MessageVerb.INFORM,
+            source=source, frequency=frequency, destination=destination, mb_message=mb_message
+        )
+        self.comms_rx_q.put(m)
 
     def run_comms(self):
 
@@ -204,9 +236,7 @@ class Js8CallDriver:
                     messages = self.js8call_api.listen()
 
                 if 0 < self.rx_ind_timeout < time.time():
-                    self.signal_frontend(
-                        time.time(), 'rx_indicator', MessageOperator.FLASH_RX_STOP
-                    )
+                    self.signal_frontend(MessageVerb.FLASH_RX_STOP)
                     self.rx_ind_timeout = 0
 
                 for message in messages:
@@ -215,9 +245,7 @@ class Js8CallDriver:
                     value = message.get('value', '')
                     params = message.get('params', {})
 
-                    self.signal_frontend(
-                        float(params.get('_ID')) / 1000, 'rx_indicator', MessageOperator.FLASH_RX_START
-                    )
+                    self.signal_frontend(MessageVerb.FLASH_RX_START)
                     self.rx_ind_timeout = time.time() + self.flash_duration
 
                     if not js8call_msg_type:
@@ -225,81 +253,44 @@ class Js8CallDriver:
 
                     elif js8call_msg_type == 'RIG.PTT':
                         if value == 'on':
-                            payload = MessageOperator.PTT_ON
+                            verb = MessageVerb.FLASH_TX_START
                         else:
-                            payload = MessageOperator.PTT_OFF
+                            verb = MessageVerb.FLASH_TX_STOP
 
-                        logger.debug(f"Received {payload}")
-                        self.signal_frontend(float(params.get('_ID')) / 1000, 'tx_indicator', payload)
+                        logger.debug(f"Received {verb}")
+                        self.signal_frontend(verb)
 
                     elif js8call_msg_type == 'STATION.CALLSIGN':
                         logger.debug(f"Received {value}")
+                        self.signal_backend(MessageVerb.NOTE_CALLSIGN, value)
 
-                        ts = float(params.get('_ID')) / 1000
-                        self.comms_rx_q.put(CommsMessage.control_status(ts, 'callsign', value))
-
-                    elif js8call_msg_type == 'RIG.FREQ':
+                    elif js8call_msg_type == 'RIG.FREQ' or js8call_msg_type == 'STATION.STATUS':
                         logger.debug(f"Received {value}")
 
-                        ts = float(params.get('_ID')) / 1000
                         dial = int(params['DIAL'])
-                        off = int(params['OFFSET'])
+                        offset = int(params['OFFSET'])
 
-                        self.comms_rx_q.put(
-                            CommsMessage.control_status(ts, 'radio_frequency', str(dial), frequency=dial, offset=off)
-                        )
-                        logger.debug('q_put: REG_FREQ - radio_frequency: ' + str(dial))
+                        self.signal_backend(MessageVerb.NOTE_FREQ, dial)
+                        logger.debug('q_put: NOTE_FREQ - ' + str(dial))
 
-                        self.comms_rx_q.put(
-                            CommsMessage.control_status(ts, 'offset', str(off), frequency=dial, offset=off)
-                        )
-                        logger.debug('q_put: REG_FREQ - offset: ' + str(off))
+                        self.signal_backend(MessageVerb.NOTE_OFFSET, offset)
+                        logger.debug('q_put: NOTE_OFFSET - ' + str(offset))
 
-                    elif js8call_msg_type == 'STATION.STATUS':
-                        logger.debug(f"STATION.STATUS is {value}")
-
-                        ts = float(params.get('_ID')) / 1000
-                        dial = int(params['DIAL'])
-                        off = int(params['OFFSET'])
-
-                        self.comms_rx_q.put(
-                            CommsMessage.control_status(ts, 'radio_frequency', str(dial), frequency=dial, offset=off)
-                        )
-                        logger.debug('q_put: STATION.STATUS - radio_frequency: ' + str(dial))
-
-                        self.comms_rx_q.put(
-                            CommsMessage.control_status(ts, 'offset', str(off), frequency=dial, offset=off)
-                        )
-                        logger.debug('q_put: STATION.STATUS - offset: ' + str(off))
-
-                    elif js8call_msg_type == 'RX.DIRECTED':  # we are only interested in messages directed to us, including @MB
+                    elif js8call_msg_type == 'RX.DIRECTED':
                         logger.debug('rx - ' + str(message))
-                        ts = float(params['UTC']) / 1000
                         dial = int(params['DIAL'])
-                        snr = int(params['SNR'])
 
-                        # if we haven't got the callsign, yet we need to wait
-                        self.status.reload_status()
-                        while self.status.callsign == "Pending":
-                            time.sleep(0.2)
-                            self.status.reload_status()
+                        # We need to extract the source and destination
+                        msg_elements = re.findall(r"^\S+: +\S+ +([\S\s]+)", value)
+                        mb_message = msg_elements[0][0]
 
-                        if params['TO'] == self.status.callsign:
-                            mb_typ = MessageType.MB_RSP
-                        else:
-                            mb_typ = MessageType.MB_NOTIFY
-
-                        self.comms_rx_q.put(
-                            CommsMessage.mb_rx(
-                                ts,
-                                params['FROM'],
-                                params['TO'],
-                                frequency=dial,
-                                snr=snr,
-                                typ=mb_typ,
-                                payload=(message['value']).strip(),
-                            )
+                        self.inform_backend(
+                            str(params['FROM']),
+                            int(params['DIAL']),
+                            str(params['TO']),
+                            mb_message
                         )
+                        logger.debug('q_put: INFORM - ' + mb_message)
 
         finally:
             self.js8call_api.close()

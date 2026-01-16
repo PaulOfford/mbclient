@@ -135,15 +135,8 @@ class ServerMsgProcessors:
     rsp = ''
 
     # we use __init__ to preload some metadata we will need to create a qso entry
-    def __init__(self, js8_msg: CommsMessage, b2f_q: queue.Queue):
+    def __init__(self, b2f_q: queue.Queue):
         self.b2f_q = b2f_q
-        self.mb_status = Status()
-        self.qso_date = js8_msg.get_ts()
-        self.station = js8_msg.get_source()
-        self.directed_to = js8_msg.get_destination()
-        self.frequency = js8_msg.get_frequency()
-        self.offset = js8_msg.get_offset()
-        self.snr = js8_msg.get_snr()
 
     def signal_reload(self, ui_area):
         status = Status()
@@ -395,36 +388,109 @@ class ServerMsgProcessors:
             # signal post table update
             status.set_blog_updated()
 
-    def parse_rx_message(self, mb_rsp_string: str):
-        rsp_patterns = [
-            {'exp': r"^([A-Z,0-9/]+): +(@MB) +(\d+) +(\d{2})(\d{2})(\d{2})",
-             'proc': 'process_announcement'},  # new style announcement
-            {'exp': r"^([A-Z,0-9/]+): +(@MB) +([A-Z,0-9/]+) +(\d+) +(\d{4}-\d{2}-\d{2})",
-             'proc': 'process_announcement'},  # old style announcement
-            {'exp': r"^(\S+): +(\S+) +([+-])(L)([\d,]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
-            {'exp': r"^(\S+): +(\S+) +([+-])(L)([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
-            {'exp': r"^(\S+): +(\S+) +([+-])([LM][EG])([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
-            {'exp': r"^(\S+): +(\S+) +([+-])(E)([\d,]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
-            {'exp': r"^(\S+): +(\S+) +([+-])(E)([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
-            {'exp': r"^(\S+): +(\S+) +([+-])([EF][EG])([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
-            {'exp': r"^(\S+): +(\S+) +([+-])(G)(\d+)~\n*([\S\s]+)", 'proc': 'process_post'},
-            {'exp': r"^(\S+): +(\S+) +([+-])(WX)~\n*([\S\s]+)", 'proc': 'process_weather'},
-            {'exp': r"^(\S+): +(\S+) +(INFO) +([\S\s]+)", 'proc': 'process_info'},
+    def parse_mb_msg(self, source: str, destination: str, mb_msg: str):
+        mb_rsp_patterns = [
+            {'exp': r"^([+-])(L)([\d,]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
+            {'exp': r"^([+-])(L)([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
+            {'exp': r"^([+-])([LM][EG])([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
+            {'exp': r"^([+-])(E)([\d,]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
+            {'exp': r"^([+-])(E)([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
+            {'exp': r"^([+-])([EF][EG])([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
+            {'exp': r"^([+-])(G)(\d+)~\n*([\S\s]+)", 'proc': 'process_post'},
+            {'exp': r"^([+-])(WX)~\n*([\S\s]+)", 'proc': 'process_weather'},
+            {'exp': r"^(INFO) +([\S\s]+)", 'proc': 'process_info'},
         ]
-        for entry in rsp_patterns:
+        self.blog = source
+
+        for entry in mb_rsp_patterns:
             # try to match the request
-            result = re.findall(entry['exp'], mb_rsp_string)
+            result = re.findall(entry['exp'], mb_msg)
+
             if len(result) == 0:
                 continue
             else:
                 # the result is a list of tuples
                 result = list(result[0])  # pull the 1st result out of the list and convert to a list
-                self.station = result[0]
+
+                self.blog = source
+                # process if the result was positive
+                if result[0] == '+':
+                    self.cmd = f"{source}{result[0]}{result[1]}~"
+                    logger.info(self.cmd)
+                    add_progress(self.cmd)
+                    getattr(ServerMsgProcessors, entry['proc'])(self, result)
+
+                elif result[0] == 'INFO':
+                    getattr(ServerMsgProcessors, entry['proc'])(self, result)
+                    progress_msg = f"{source} {result[0]} {result[1]}"
+                    logger.info(progress_msg)
+                    add_progress(progress_msg)
+
+                break
+
+    def parse_announcement(self, source: str, destination: str, mb_msg: str):
+        # need to change this to inform_patterns and signal_patterns
+
+        announcement_patterns = [
+            {'exp': r"^(\d+) +(\d{2})(\d{2})(\d{2})", 'proc': 'process_announcement'},  # new style
+            {'exp': r"^([A-Z,0-9/]+) +(\d+) +(\d{4}-\d{2}-\d{2})", 'proc': 'process_announcement'},  # old style
+        ]
+
+        self.blog = source
+
+        for entry in announcement_patterns:
+            # try to match the request
+            result = re.findall(entry['exp'], mb_msg)
+
+            if len(result) > 0:
+                if destination == '@MB':
+                    getattr(ServerMsgProcessors, entry['proc'])(self, result)
+                    try:
+                        progress_msg = f"{destination} {result[0]} {result[1]}{result[2]}{result[3]}"
+                    except ValueError:
+                        progress_msg = f"{destination} {result[1]} {result[2]}"
+                    logger.info(progress_msg)
+                    add_progress(progress_msg)
+                break
+
+    def parse_rx_message(self, comms_msg: CommsMessage):
+
+
+
+        # need to change this to inform_patterns and signal_patterns
+        
+        announcement_patterns = [
+            {'exp': r"^(\d+) +(\d{2})(\d{2})(\d{2})", 'proc': 'process_announcement'},  # new style
+            {'exp': r"^([A-Z,0-9/]+) +(\d+) +(\d{4}-\d{2}-\d{2})", 'proc': 'process_announcement'},  # old style
+        ]
+
+        mb_msg_patterns = [
+            {'exp': r"^([+-])(L)([\d,]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
+            {'exp': r"^([+-])(L)([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
+            {'exp': r"^([+-])([LM][EG])([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
+            {'exp': r"^([+-])(E)([\d,]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
+            {'exp': r"^([+-])(E)([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
+            {'exp': r"^([+-])([EF][EG])([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
+            {'exp': r"^([+-])(G)(\d+)~\n*([\S\s]+)", 'proc': 'process_post'},
+            {'exp': r"^([+-])(WX)~\n*([\S\s]+)", 'proc': 'process_weather'},
+            {'exp': r"^(INFO) +([\S\s]+)", 'proc': 'process_info'},
+        ]
+        self.blog = comms_msg.get_source()
+
+        for entry in mb_msg_patterns:
+            # try to match the request
+            result = re.findall(entry['exp'], comms_msg.get_param())
+            if len(result) == 0:
+                continue
+            else:
+                # the result is a list of tuples
+                result = list(result[0])  # pull the 1st result out of the list and convert to a list
+                self.station = comms_msg.get_source()
                 # ToDo: the following line must be changed once we implement the blog namespace
                 self.blog = result[0]
                 # process if the result was positive
-                if result[2] == '+':
-                    self.cmd = f"{result[2]}{result[3]}{result[4]}~"
+                if result[0] == '+':
+                    self.cmd = f"{result[0]}{result[1]}{result[2]}~"
                     logger.info(self.cmd)
                     add_progress(self.cmd)
                     getattr(ServerMsgProcessors, entry['proc'])(self, result)
@@ -933,22 +999,6 @@ class BeProcessor:
         self.signal_reload('post_list')
         self.signal_reload('post')
 
-    def process_mb_rsp(self, comms_msg: CommsMessage):
-        processor = ServerMsgProcessors(comms_msg, self.b2f_q)
-        # check to see if this is a listing, extended listing or post and process accordingly
-        processor.parse_rx_message(comms_msg.get_payload())
-
-        self.signal_reload('post_list')
-
-    def process_mb_notify(self, comms_msg: CommsMessage):
-        # ToDo: we should only insert an entry in qso if we don't have an entry already
-        processor = ServerMsgProcessors(comms_msg, self.b2f_q)
-        # check to see if this is a listing, extended listing or post and process accordingly
-        processor.parse_rx_message(comms_msg.get_payload())
-
-        self.signal_reload('blog')
-        pass
-
     def process_status_radio_frequency(self, comms_msg: CommsMessage):
         self.set_hdr_freq(comms_msg.get_frequency())
 
@@ -958,39 +1008,6 @@ class BeProcessor:
     def process_status_callsign(self, comms_msg: CommsMessage):
         self.set_hdr_callsign(comms_msg.get_payload())
 
-    def process_comms_rx(self, comms_msg: CommsMessage):
-        if comms_msg.get_target() == MessageTarget.FRONTEND:
-            notify_msg = GuiMessage()
-
-            notify_msg.set_ts()
-            notify_msg.set_req_ts(0)
-            notify_msg.set_cmd('Notify')
-            notify_msg.set_blog('')
-            notify_msg.set_station('')
-            notify_msg.set_frequency(0)
-            notify_msg.set_post_id(0)
-            notify_msg.set_post_date(0)
-            notify_msg.set_op(comms_msg.get_payload())
-            notify_msg.set_param('')
-            notify_msg.set_rc(0)
-            self.b2f_q.put(notify_msg)
-
-        elif comms_msg.get_typ() == MessageType.MB_RSP:
-            self.process_mb_rsp(comms_msg)
-        elif comms_msg.get_typ() == MessageType.MB_NOTIFY:
-            self.process_mb_notify(comms_msg)
-        elif comms_msg.get_typ() == MessageType.CONTROL and comms_msg.get_target() == 'status'\
-                and comms_msg.get_obj() == 'radio_frequency':
-            self.process_status_radio_frequency(comms_msg)
-        elif comms_msg.get_typ() == MessageType.CONTROL and comms_msg.get_target() == 'status'\
-                and comms_msg.get_obj() == 'offset':
-            self.process_status_offset(comms_msg)
-        elif comms_msg.get_typ() == MessageType.CONTROL and comms_msg.get_target() == 'status'\
-                and comms_msg.get_obj() == 'callsign':
-            self.process_status_callsign(comms_msg)
-
-        pass
-
     def check_for_msg(self):
         # check for messages from the frontend
         try:
@@ -999,15 +1016,26 @@ class BeProcessor:
                 logger.debug(fe_msg.get_cmd())
                 self.preprocess(fe_msg)
                 self.f2b_q.task_done()
+
         except queue.Empty:
             pass  # nothing on the queue - do nothing
 
         # check for messages from the comms driver
         try:
             comms_rx: CommsMessage = self.comms_rx_q.get(block=True, timeout=0.1)  # if no msg waiting, throw an except
-            logger.debug(comms_rx.get_payload())
-            self.process_comms_rx(comms_rx)
+            logger.debug(comms_rx)
+
+            if comms_rx.get_target() == MessageTarget.FRONTEND:
+                # pass message through to the front end
+                self.b2f_q.put(comms_rx)
+
+            elif comms_rx.get_target() == MessageTarget.BACKEND:
+                processor = ServerMsgProcessors(self.b2f_q)
+                processor.parse_rx_message(comms_rx)
+
+            # Even if this message is not for the FRONTEND or BACKEND we must take it off the queue
             self.comms_rx_q.task_done()
+
         except queue.Empty:
             pass
 
