@@ -190,7 +190,7 @@ class GuiMessage:
         self.set_rc(donor.get_rc())
 
 
-class CommsMessage:
+class UnifiedMessage:
     """Message used for transport to/from the comms layer.
 
     Efficiency improvements:
@@ -208,18 +208,20 @@ class CommsMessage:
         "value",
         "source",
         "destination",
+        "frequency",
         "param",
     )
 
     def __init__(self, **kwargs):
         # Defaults
-        self.target = ""
-        self.typ = ""
-        self.verb = ""
-        self.operator = ""
-        self.source = ""
-        self.destination = ""
-        self.param = ""
+        self.target: MessageTarget = None
+        self.typ: MessageType = None
+        self.verb: MessageVerb = None
+        self.operator: MessageOperator = None
+        self.source: str = ""
+        self.destination: str = ""
+        self.frequency: int = 0
+        self.param: str = ""
 
         if kwargs:
             self.set_many(**kwargs)

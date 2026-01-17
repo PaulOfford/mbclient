@@ -10,7 +10,7 @@ import queue
 
 import logging
 from status import Status
-from message_q import CommsMessage, MessageType, MessageTarget, MessageOperator, MessageVerb
+from message_q import UnifiedMessage, MessageType, MessageTarget, MessageVerb
 from client_mocking import js8call_mock_listen
 
 import json
@@ -137,11 +137,11 @@ class Js8CallDriver:
         self.js8call_api.send('RIG.SET_FREQ', **kwargs)
         pass
 
-    def process_mb_msg(self, message: CommsMessage):
+    def process_mb_msg(self, message: UnifiedMessage):
         req_msg = f"{message.get_destination()} {message.get_param()}"
         self.js8call_api.send('TX.SEND_MESSAGE', req_msg)
 
-    def process_control(self, message: CommsMessage):
+    def process_control(self, message: UnifiedMessage):
         if message.get_verb() == MessageVerb.SHUTDOWN:
             exit(0)
         elif message.get_verb() == MessageVerb.SET_FREQ:
@@ -153,7 +153,7 @@ class Js8CallDriver:
         elif message.get_verb() == MessageVerb.GET_CALLSIGN:
             self.js8call_api.send('STATION.GET_CALLSIGN', '')
 
-    def process_comms_tx(self, message: CommsMessage):
+    def process_comms_tx(self, message: UnifiedMessage):
         if message.get_typ() == MessageType.MB_MSG:
             self.process_mb_msg(message)
 
@@ -169,12 +169,12 @@ class Js8CallDriver:
         Uses a short blocking wait (reduces CPU) and then drains any burst.
         """
         try:
-            comms_tx: CommsMessage = self.comms_tx_q.get(timeout=timeout)
+            comms_tx: UnifiedMessage = self.comms_tx_q.get(timeout=timeout)
         except queue.Empty:
             return
 
         try:
-            logger.debug(f"js8drv: debug: {comms_tx.get_payload()}")
+            logger.debug(f"js8drv: debug: {comms_tx.get_param()}")
             self.process_comms_tx(comms_tx)
         finally:
             self.comms_tx_q.task_done()
@@ -186,7 +186,7 @@ class Js8CallDriver:
             except queue.Empty:
                 break
             try:
-                logger.debug(comms_tx.get_payload())
+                logger.debug(comms_tx.get_param())
                 self.process_comms_tx(comms_tx)
             finally:
                 self.comms_tx_q.task_done()
@@ -194,20 +194,20 @@ class Js8CallDriver:
     def signal_frontend(self, verb: MessageVerb):
         # These are the signa verbs we can send to the FRONTEND:
         #   FLASH_RX_START, FLASH_RX_STOP, FLASH_TX_START, FLASH_TX_STOP, SCAN_OFF
-        m = CommsMessage()
+        m = UnifiedMessage()
         m.set_many(target=MessageTarget.FRONTEND, type=MessageType.SIGNAL, verb=verb)
         self.comms_rx_q.put(m)
 
     def signal_backend(self, verb: MessageVerb, param):
         # These are the signal verbs we can send to the FRONTEND:
         #   NOTE_FREQ, NOTE_OFFSET, NOTE_CALLSIGN
-        m = CommsMessage()
+        m = UnifiedMessage()
         m.set_many(target=MessageTarget.BACKEND, type=MessageType.SIGNAL, verb=verb, param=param)
         self.comms_rx_q.put(m)
 
     def inform_backend(self, source: str, frequency: int, destination: str, mb_message: str):
         # This is where we send an inbound microblog message to the backend
-        m = CommsMessage()
+        m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND, type=MessageType.MB_MSG, verb=MessageVerb.INFORM,
             source=source, frequency=frequency, destination=destination, mb_message=mb_message
@@ -216,7 +216,7 @@ class Js8CallDriver:
 
     def announce_to_backend(self, source: str, frequency: int, destination: str, mb_message: str):
         # This is where we send an inbound microblog message to the backend
-        m = CommsMessage()
+        m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND, type=MessageType.MB_MSG, verb=MessageVerb.ANNOUNCE,
             source=source, frequency=frequency, destination=destination, mb_message=mb_message
@@ -287,7 +287,6 @@ class Js8CallDriver:
 
                     elif js8call_msg_type == 'RX.DIRECTED':
                         logger.debug('rx - ' + str(message))
-                        dial = int(params['DIAL'])
 
                         # We need to extract the source and destination
                         msg_elements = re.findall(r"^\S+: +\S+ +([\S\s]+)", value)
