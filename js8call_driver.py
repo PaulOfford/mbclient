@@ -195,21 +195,21 @@ class Js8CallDriver:
         # These are the signa verbs we can send to the FRONTEND:
         #   FLASH_RX_START, FLASH_RX_STOP, FLASH_TX_START, FLASH_TX_STOP, SCAN_OFF
         m = UnifiedMessage()
-        m.set_many(target=MessageTarget.FRONTEND, type=MessageType.SIGNAL, verb=verb)
+        m.set_many(target=MessageTarget.FRONTEND, typ=MessageType.SIGNAL, verb=verb)
         self.comms_rx_q.put(m)
 
     def signal_backend(self, verb: MessageVerb, param):
         # These are the signal verbs we can send to the FRONTEND:
         #   NOTE_FREQ, NOTE_OFFSET, NOTE_CALLSIGN
         m = UnifiedMessage()
-        m.set_many(target=MessageTarget.BACKEND, type=MessageType.SIGNAL, verb=verb, param=param)
+        m.set_many(target=MessageTarget.BACKEND, typ=MessageType.SIGNAL, verb=verb, param=param)
         self.comms_rx_q.put(m)
 
     def inform_backend(self, source: str, frequency: int, destination: str, mb_message: str):
         # This is where we send an inbound microblog message to the backend
         m = UnifiedMessage()
         m.set_many(
-            target=MessageTarget.BACKEND, type=MessageType.MB_MSG, verb=MessageVerb.INFORM,
+            target=MessageTarget.BACKEND, typ=MessageType.MB_MSG, verb=MessageVerb.INFORM,
             source=source, frequency=frequency, destination=destination, mb_message=mb_message
         )
         self.comms_rx_q.put(m)
@@ -218,7 +218,7 @@ class Js8CallDriver:
         # This is where we send an inbound microblog message to the backend
         m = UnifiedMessage()
         m.set_many(
-            target=MessageTarget.BACKEND, type=MessageType.MB_MSG, verb=MessageVerb.ANNOUNCE,
+            target=MessageTarget.BACKEND, typ=MessageType.MB_MSG, verb=MessageVerb.ANNOUNCE,
             source=source, frequency=frequency, destination=destination, mb_message=mb_message
         )
         self.comms_rx_q.put(m)

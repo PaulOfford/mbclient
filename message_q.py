@@ -231,7 +231,7 @@ class UnifiedMessage:
         """Bulk-assign fields in one Python call.
 
         Example:
-            m.set_many(target=MessageTarget.BACKEND, type=MessageType.MB_MSG, verb=MessageVerb.INFORM ...)
+            m.set_many(target=MessageTarget.BACKEND, typ=MessageType.MB_MSG, verb=MessageVerb.INFORM ...)
         """
         for k, v in kwargs.items():
             setattr(self, k, v)

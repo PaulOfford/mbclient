@@ -11,7 +11,7 @@ from _version import __version__
 from status import Status
 from settings import Settings
 from db_table import DbTable
-from message_q import GuiMessage, MessageOperator
+from message_q import GuiMessage, UnifiedMessage, MessageTarget, MessageType, MessageVerb, MessageOperator
 from mb_fonts import MbFonts
 
 logger = logging.getLogger(__name__)
@@ -481,7 +481,6 @@ class GuiTable:
         pass
 
 
-
 class GuiBlogList(GuiTable):
     blog_list_headers = [
         {'db_col': 'blog', 'type': 'Text', 'suffix': '', 'width': 10,
@@ -552,7 +551,7 @@ class GuiBlogList(GuiTable):
         self.f2b_q.put(req)
         logger.debug(req)
 
-    def reload_blog_list(self):
+    def reload(self):
         blog_table = DbTable('blog')
 
         fields = []
@@ -617,7 +616,7 @@ class GuiBlogInfo:
         v.config(command=self.blog_info_box.yview)
         self.blog_info_box.pack(fill='both', expand=1, anchor='ne')
 
-    def reload_blog_info_box(self):
+    def reload(self):
         status = Status()
         info_string = ""
 
@@ -676,7 +675,7 @@ class GuiPostListBox(GuiTable):
         self.post_list_pop_up.add_command(label='Refresh listing', command=self.refresh_listing)
         self.post_list_pop_up.add_command(label='Refresh content', command=self.refresh_content)
 
-    def reload_post_list(self):
+    def reload(self):
         status = Status()
         # settings = Settings()
 
@@ -788,7 +787,7 @@ class GuiPostContent:
         )
         self.post_box.pack(fill='both', expand=1, anchor='ne')
 
-        self.reload_post_content()
+        self.reload()
 
     def get_post(self, blog: str, frequency: int, post_id: int):
 
@@ -809,7 +808,7 @@ class GuiPostContent:
         status = Status()
         self.get_post(status.selected_blog, status.radio_frequency, status.selected_post)
 
-    def reload_post_content(self):
+    def reload(self):
         status = Status()
         post_string = f"{status.selected_post}"
 
@@ -895,7 +894,7 @@ class GuiProgress:
         self.progress_box.bind('<Enter>', self.focus_in)
         self.progress_box.bind('<Leave>', self.focus_out)
 
-    def reload_progress_box(self):
+    def reload(self):
 
         progress_table = DbTable('progress')
         db_values = progress_table.select(
@@ -1027,10 +1026,7 @@ class GuiMain:
         frame_progress.pack(side='bottom', fill='both', expand=1)
 
         self.progress = GuiProgress(frame_progress)
-        self.reload_blog_list()
-        self.reload_post_list_box()
-        self.reload_post_content()
-        self.reload_progress_box()
+        self.reload_all_ui_areas()
 
         root.after(200, self.process_updates)  # type: ignore[arg-type]
 
@@ -1038,28 +1034,6 @@ class GuiMain:
             return
 
         root.mainloop()
-
-    def status_check(self):
-        # we have had a message from the backend -> check for updated sections
-        status = Status()
-
-        if status.hdr_updated > status.last_checked:
-            self.header.reload_header()
-
-        if status.blog_updated > status.last_checked:
-            self.reload_blog_list()
-            logger.debug("reload_blog_list()")
-
-        if status.post_list_updated > status.last_checked:
-            self.reload_post_list_box()
-
-        if status.post_updated > status.last_checked:
-            self.reload_post_content()
-
-        if status.progress_updated > status.last_checked:
-            self.reload_progress_box()
-
-        status.update_last_checked()
 
     def client_shutdown(self):
         be_sig = GuiMessage()
@@ -1084,25 +1058,40 @@ class GuiMain:
     def process_updates(self):
 
         try:
-            msg: GuiMessage = self.b2f_q.get(block=False)  # if no msg waiting, this will throw an exception
+            m: UnifiedMessage = self.b2f_q.get(block=False)  # if no msg waiting, this will throw an exception
 
-            if msg.get_op() == MessageOperator.FLASH_RX_START:
-                self.header.flash_rx_start()
+            if m.get_target() == MessageTarget.FRONTEND:
+                if m.get_typ() == MessageType.SIGNAL:
 
-            elif msg.get_op() == MessageOperator.FLASH_RX_STOP:
-                self.header.flash_rx_stop()
+                    if m.get_verb() == MessageVerb.FLASH_RX_START:
+                        self.header.flash_rx_start()
 
-            elif msg.get_op() == MessageOperator.PTT_ON:
-                self.header.flash_tx_start()
+                    elif m.get_verb() == MessageVerb.FLASH_RX_STOP:
+                        self.header.flash_rx_stop()
 
-            elif msg.get_op() == MessageOperator.PTT_OFF:
-                self.header.flash_tx_stop()
+                    elif m.get_verb() == MessageVerb.FLASH_TX_START:
+                        self.header.flash_tx_start()
 
-            else:
-                logger.debug(f"{msg.cmd} {msg.param}")
-                self.status_check()
+                    elif m.get_verb() == MessageVerb.FLASH_TX_STOP:
+                        self.header.flash_tx_stop()
+
+                    elif m.get_verb() == MessageVerb.RELOAD_BLOG_LIST:
+                        self.blog_list.reload()
+
+                    elif m.get_verb() == MessageVerb.RELOAD_BLOG_INFO:
+                        self.blog_info.reload()
+
+                    elif m.get_verb() == MessageVerb.RELOAD_POST_LIST:
+                        self.post_list.reload()
+
+                    elif m.get_verb() == MessageVerb.RELOAD_POST_CONTENT:
+                        self.post_content.reload()
+
+                    elif m.get_verb() == MessageVerb.RELOAD_PROGRESS:
+                        self.progress.reload()
 
             self.b2f_q.task_done()
+
         except Empty:
             pass
 
@@ -1111,15 +1100,9 @@ class GuiMain:
 
         root.after(200, self.process_updates)  # type: ignore[arg-type]
 
-    def reload_blog_list(self):
-        self.blog_list.reload_blog_list()
-        self.blog_info.reload_blog_info_box()
-
-    def reload_post_list_box(self):
-        self.post_list.reload_post_list()
-
-    def reload_post_content(self):
-        self.post_content.reload_post_content()
-
-    def reload_progress_box(self):
-        self.progress.reload_progress_box()
+    def reload_all_ui_areas(self):
+        self.blog_list.reload()
+        self.blog_info.reload()
+        self.post_list.reload()
+        self.post_content.reload()
+        self.progress.reload()

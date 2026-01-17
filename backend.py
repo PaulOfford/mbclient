@@ -34,7 +34,7 @@ def compress_date(post_epoch: int) -> str:
         return ''
 
 
-def add_progress(progress_msg: str):
+def add_progress(progress_msg: str, b2f_q: queue.Queue):
     status = Status()
     progress_table = DbTable('progress')
 
@@ -49,29 +49,33 @@ def add_progress(progress_msg: str):
         }
     )
     status.set_progress_updated()
+    reload_ui_areas('progress', b2f_q)
 
 
-def reload_ui_areas(ui_area: str, q: queue.Queue):
+def reload_ui_areas(ui_area: str, b2f_q: queue.Queue):
     status = Status()
     m = UnifiedMessage()
 
     if ui_area == 'header':
         status.set_hdr_updated()
-        m.set_many(target=MessageTarget.FRONTEND, type=MessageType.SIGNAL, verb=MessageVerb.RELOAD_HEADER)
+        m.set_many(target=MessageTarget.FRONTEND, typ=MessageType.SIGNAL, verb=MessageVerb.RELOAD_HEADER)
     elif ui_area == 'blog_list':
         status.set_blog_updated()
-        m.set_many(target=MessageTarget.FRONTEND, type=MessageType.SIGNAL, verb=MessageVerb.RELOAD_BLOG_LIST)
+        m.set_many(target=MessageTarget.FRONTEND, typ=MessageType.SIGNAL, verb=MessageVerb.RELOAD_BLOG_LIST)
+    elif ui_area == 'blog_info':
+        status.set_blog_updated()
+        m.set_many(target=MessageTarget.FRONTEND, typ=MessageType.SIGNAL, verb=MessageVerb.RELOAD_BLOG_INFO)
     elif ui_area == 'post_list':
         status.set_post_list_updated()
-        m.set_many(target=MessageTarget.FRONTEND, type=MessageType.SIGNAL, verb=MessageVerb.RELOAD_POST_LIST)
+        m.set_many(target=MessageTarget.FRONTEND, typ=MessageType.SIGNAL, verb=MessageVerb.RELOAD_POST_LIST)
     elif ui_area == 'post_content':
         status.set_post_updated()
-        m.set_many(target=MessageTarget.FRONTEND, type=MessageType.SIGNAL, verb=MessageVerb.RELOAD_POST_CONTENT)
+        m.set_many(target=MessageTarget.FRONTEND, typ=MessageType.SIGNAL, verb=MessageVerb.RELOAD_POST_CONTENT)
     elif ui_area == 'progress':
         status.set_post_updated()
-        m.set_many(target=MessageTarget.FRONTEND, type=MessageType.SIGNAL, verb=MessageVerb.RELOAD_PROGRESS)
+        m.set_many(target=MessageTarget.FRONTEND, typ=MessageType.SIGNAL, verb=MessageVerb.RELOAD_PROGRESS)
 
-    q.put(m)
+    b2f_q.put(m)
 
     return
 
@@ -468,13 +472,13 @@ class BeProcessor:
     f2b_q = None
     b2f_q = None
     comms_tx_q = None
-    m_q = None
+    comms_rx_q = None
 
-    def __init__(self, f2b_q: queue.Queue, b2f_q: queue.Queue, comms_tx_q: queue.Queue, m_q: queue.Queue):
+    def __init__(self, f2b_q: queue.Queue, b2f_q: queue.Queue, comms_tx_q: queue.Queue, comms_rx_q: queue.Queue):
         self.f2b_q = f2b_q
         self.b2f_q = b2f_q
         self.comms_tx_q = comms_tx_q
-        self.m_q = m_q
+        self.comms_rx_q = comms_rx_q
 
     def signal_reload(self, ui_area):
         reload_ui_areas(ui_area, self.b2f_q)
@@ -665,7 +669,7 @@ class BeProcessor:
 
     def set_rig_frequency(self, freq):
         m = UnifiedMessage()
-        m.set_many(target=MessageTarget.FRONTEND, type=MessageType.CONTROL, verb=MessageVerb.SET_FREQ, param=freq)
+        m.set_many(target=MessageTarget.FRONTEND, typ=MessageType.CONTROL, verb=MessageVerb.SET_FREQ, param=freq)
         self.comms_tx_q.put(m)
 
     def set_hdr_callsign(self, callsign: str):
@@ -687,7 +691,7 @@ class BeProcessor:
 
         m = UnifiedMessage(
             target=MessageTarget.COMMS,
-            type=MessageType.MB_MSG,
+            typ=MessageType.MB_MSG,
             verb=MessageVerb.SEND,
             operator=MessageOperator.EQ,
             destination=destination,
@@ -733,19 +737,14 @@ class BeProcessor:
             # signal to the comms driver that the frequency must be changed
             self.set_rig_frequency(frequency)
 
-            # send OK back to the frontend
-            rsp = GuiMessage()
-            rsp.clone_msg(req)
-            rsp.set_blog(blog)
-            rsp.set_rc(0)
-            self.b2f_q.put(rsp)
-
     def process_set_cmd(self, req: GuiMessage):
 
         if len(req.get_blog()) > 0:
             self.select_blog(req)
         elif req.get_frequency() > 0:
             self.set_rig_frequency(req.get_frequency())
+
+        self.signal_reload('blog_list')
 
     def process_config_cmd(self, msg: GuiMessage):
         pass
@@ -759,39 +758,39 @@ class BeProcessor:
 
         if command == 'X':
             m = UnifiedMessage()
-            m.set_many(target=MessageTarget.FRONTEND, type=MessageType.CONTROL, verb=MessageVerb.SHUTDOWN)
+            m.set_many(target=MessageTarget.FRONTEND, typ=MessageType.CONTROL, verb=MessageVerb.SHUTDOWN)
             self.comms_tx_q.put(m)
 
             logger.info(f"{msg_prefix}{command}")
-            add_progress(command)
+            add_progress(command, self.b2f_q)
             exit(0)
 
         elif command == 'L':
             # Get abbreviated list
             process_msg = f"{command}{msg_object.get_op().value}{msg_object.get_post_id()}~"
             logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
+            add_progress(process_msg, self.b2f_q)
             self.process_list_cmd(msg_object)
 
         elif command == 'D':
             # Get full list details not using the cache
             process_msg = f"{command}{msg_object.get_op().value}{msg_object.get_post_id()}~"
             logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
+            add_progress(process_msg, self.b2f_q)
             self.process_extended_cmd(msg_object)
 
         elif command == 'E':
             # Get full list details using the cache
             process_msg = f"{command}{msg_object.get_op().value}{msg_object.get_post_id()}~"
             logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
+            add_progress(process_msg, self.b2f_q)
             self.process_extended_cmd(msg_object)
 
         elif command == 'F':
             # Fetch post(s)
             process_msg = f"{command}{msg_object.get_post_id()}~"
             logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
+            add_progress(process_msg, self.b2f_q)
             self.process_fetch_cmd(msg_object)
             self.signal_reload('post_content')
 
@@ -799,56 +798,56 @@ class BeProcessor:
             # Get post(s)
             process_msg = f"{command}{msg_object.get_post_id()}~"
             logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
+            add_progress(process_msg, self.b2f_q)
             self.get_post_from_server(msg_object)
 
         elif command == 'R':
             # Refresh a post (results in sending a Get to the server)
             process_msg = f"{command}{msg_object.get_post_id()}~"
             logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
+            add_progress(process_msg, self.b2f_q)
             self.process_refresh_cmd(msg_object)
 
         elif command == 'I':
             # Get information from the server
             process_msg = f"INFO?"
             logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
+            add_progress(process_msg, self.b2f_q)
             self.process_info_cmd(msg_object)
 
         elif command == 'S':
             # Switch to a blog (internal - no server command is sent)
             process_msg = f"{command}"
             logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
+            add_progress(process_msg, self.b2f_q)
             self.process_set_cmd(msg_object)
 
         elif command == 'C':
             # Change the config - not implemented
             process_msg = f"{command}"
             logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
+            add_progress(process_msg, self.b2f_q)
             self.process_config_cmd(msg_object)
 
         elif command == 'P':
             # Initiate a Scan - not implemented
             process_msg = f"{command}"
             logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
+            add_progress(process_msg, self.b2f_q)
             self.process_scan_cmd(msg_object)
 
         elif command == 'Q':
             # Query command to elicit an announcement from all MB servers
             process_msg = f"{command}"
             logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
+            add_progress(process_msg, self.b2f_q)
             self.process_query_cmd(msg_object)
 
         elif command == 'WX':
             # Request a weather report - results in G0~ to the server
             process_msg = f"{command}"
             logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
+            add_progress(process_msg, self.b2f_q)
             self.process_weather_cmd(msg_object)
 
         self.signal_reload('post_list')
@@ -868,7 +867,7 @@ class BeProcessor:
 
         # check for messages from the comms driver
         try:
-            m: UnifiedMessage = self.m_q.get(block=True, timeout=0.1)  # if no msg waiting, throw an except
+            m: UnifiedMessage = self.comms_rx_q.get(block=True, timeout=0.1)  # if no msg waiting, throw an except
             logger.debug(m)
 
             if m.get_target() == MessageTarget.FRONTEND:
@@ -880,7 +879,7 @@ class BeProcessor:
                 processor.process_rx_message(m)
 
             # Even if this message is not for the FRONTEND or BACKEND we must take it off the queue
-            self.m_q.task_done()
+            self.comms_rx_q.task_done()
 
         except queue.Empty:
             pass
