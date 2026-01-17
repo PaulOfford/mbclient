@@ -11,7 +11,7 @@ from _version import __version__
 from status import Status
 from settings import Settings
 from db_table import DbTable
-from message_q import GuiMessage, UnifiedMessage, MessageTarget, MessageType, MessageVerb, MessageOperator
+from message_q import UnifiedMessage, MessageTarget, MessageType, MessageVerb, MessageOperator
 from mb_fonts import MbFonts
 
 logger = logging.getLogger(__name__)
@@ -266,17 +266,16 @@ class GuiHeader:
 
     def run_scan(self):
         if self.scan_timeout == 0:  # only do this if we are not in a scan period
-            status = Status()
 
-            req = GuiMessage()
-            req.set_cmd('Q')
-            req.set_blog('@MB')
-            req.set_station('@MB')
-            req.set_frequency(status.radio_frequency)
-            req.set_op(MessageOperator.LATEST)
-            req.set_ts()
-            self.f2b_q.put(req)
-            logger.debug(req)
+            m = UnifiedMessage()
+            m.set_many(
+                target=MessageTarget.BACKEND,
+                typ=MessageType.CONTROL,
+                verb=MessageVerb.SCAN,
+                destination="@MB"
+            )
+            self.f2b_q.put(m)
+            logger.debug(m)
 
             self.scan_btn.configure(bg='#ff2222')
             self.scan_timeout = time.time() + self.scan_duration
@@ -518,38 +517,44 @@ class GuiBlogList(GuiTable):
 
     # list_recent causes MbClient to update the Post List with the five most recent posts
     def list_recent(self):
-        req = GuiMessage()
-        req.set_cmd('E')
-        req.set_blog(self.db_values[self.clicked_row]['blog'])
-        req.set_station(self.db_values[self.clicked_row]['station'])
-        req.set_frequency(self.db_values[self.clicked_row]['frequency'])
-        req.set_op(MessageOperator.RECENT)
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.REQ,
+            verb=MessageVerb.FETCH_LISTING,
+            operator=MessageOperator.RECENT,
+            blog=self.db_values[self.clicked_row]['blog']
+        )
+        self.f2b_q.put(m)
+
+        return
 
     # check_for_latest causes MbClient to request an @MB announcement
     def check_for_latest(self):
-        req = GuiMessage()
-        req.set_cmd('Q')
-        req.set_blog(self.db_values[self.clicked_row]['blog'])
-        req.set_station(self.db_values[self.clicked_row]['station'])
-        req.set_frequency(self.db_values[self.clicked_row]['frequency'])
-        req.set_op(MessageOperator.LATEST)
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.CONTROL,
+            verb=MessageVerb.SCAN,
+            destination=self.db_values[self.clicked_row]['blog']
+        )
+        self.f2b_q.put(m)
+        logger.debug(m)
+
+        return
 
     def get_blog_info(self):
-        req = GuiMessage()
-        req.set_cmd('I')
-        req.set_blog(self.db_values[self.clicked_row]['blog'])
-        req.set_station(self.db_values[self.clicked_row]['station'])
-        req.set_frequency(self.db_values[self.clicked_row]['frequency'])
-        req.set_op(MessageOperator.LATEST)
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.CONTROL,
+            verb=MessageVerb.GET_BLOG_INFO,
+            destination=self.db_values[self.clicked_row]['blog']
+        )
+        self.f2b_q.put(m)
+        logger.debug(m)
+
+        return
 
     def reload(self):
         blog_table = DbTable('blog')
@@ -568,14 +573,18 @@ class GuiBlogList(GuiTable):
 
     # noinspection PyGlobalUndefined
     def cb_row_select(self, row, event):
-        req = GuiMessage()
-        req.set_cmd('S')
-        req.set_blog(self.db_values[row]['blog'])
-        req.set_station(self.db_values[row]['blog'])
-        req.set_frequency(self.db_values[row]['frequency'])
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.CONTROL,
+            verb=MessageVerb.CHG_BLOG,
+            operator=MessageOperator.EQ,
+            blog=self.db_values[row]['blog'],
+            param=self.db_values[row]['post_id']
+        )
+        self.f2b_q.put(m)
+
+        return
 
     def popup_cb(self, row, event):
         self.clicked_row = row
@@ -658,7 +667,7 @@ class GuiPostListBox(GuiTable):
 
     db_values = None  # data returned from the blog table query
     post_list_pop_up = None
-    clicked_row = None  # holds the db_values row number that has been right-clicked
+    clicked_row = 1  # holds the db_values row number that has been right-clicked
 
     def __init__(self, frame: tk.Frame, f2b_q: Queue):
         settings = Settings()
@@ -701,57 +710,60 @@ class GuiPostListBox(GuiTable):
         self.post_list_pop_up.tk_popup(event.x_root, event.y_root)
 
     def cb_row_select(self, row, event):
-        status = Status()
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.REQ,
+            verb=MessageVerb.FETCH_POST,
+            operator=MessageOperator.EQ,
+            blog=self.db_values[row]['blog'],
+            param=self.db_values[row]['post_id']
+        )
+        self.f2b_q.put(m)
 
-        req = GuiMessage()
-        req.set_cmd('F')
-        req.set_blog(status.selected_blog)
-        req.set_post_id(self.db_values[row]['post_id'])
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        return
 
     def get_more(self):
-        status = Status()
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.REQ,
+            verb=MessageVerb.FETCH_LISTING,
+            operator=MessageOperator.MORE,
+            blog=self.db_values[self.clicked_row]['blog'],
+            param=self.db_values[self.clicked_row]['post_id']
+        )
+        self.f2b_q.put(m)
 
-        req = GuiMessage()
-        req.set_cmd('E')  # we need get listing data
-        req.set_blog(self.db_values[self.clicked_row]['blog'])
-        req.set_post_id(self.db_values[self.clicked_row]['post_id'])
-        req.set_station(status.selected_station)
-        req.set_frequency(status.radio_frequency)
-        req.set_op(MessageOperator.MORE)
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        return
 
     def refresh_listing(self):
-        status = Status()
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.REQ,
+            verb=MessageVerb.GET_LISTING,
+            operator=MessageOperator.EQ,
+            blog=self.db_values[self.clicked_row]['blog'],
+            param=self.db_values[self.clicked_row]['post_id']
+        )
+        self.f2b_q.put(m)
 
-        req = GuiMessage()
-        req.set_cmd('D')  # we need get listing data but not use the cache
-        req.set_blog(self.db_values[self.clicked_row]['blog'])
-        req.set_post_id(self.db_values[self.clicked_row]['post_id'])
-        req.set_station(status.selected_station)
-        req.set_frequency(status.radio_frequency)
-        req.set_op(MessageOperator.EQ)
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        return
 
     def refresh_content(self):
-        status = Status()
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.REQ,
+            verb=MessageVerb.GET_POST,
+            operator=MessageOperator.EQ,
+            blog=self.db_values[self.clicked_row]['blog'],
+            param=self.db_values[self.clicked_row]['post_id']
+        )
+        self.f2b_q.put(m)
 
-        req = GuiMessage()
-        req.set_cmd('G')
-        req.set_blog(self.db_values[self.clicked_row]['blog'])
-        req.set_post_id(self.db_values[self.clicked_row]['post_id'])
-        req.set_station(status.selected_station)
-        req.set_frequency(status.radio_frequency)
-        req.set_op(MessageOperator.EQ)
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        return
 
     def cb_hdr_click(self, col, event):
         pass
@@ -789,24 +801,23 @@ class GuiPostContent:
 
         self.reload()
 
-    def get_post(self, blog: str, frequency: int, post_id: int):
+    def get_post(self, blog: str, post_id: int):
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.REQ,
+            verb=MessageVerb.GET_POST,
+            operator=MessageOperator.EQ,
+            blog=blog,
+            param=post_id
+        )
+        self.f2b_q.put(m)
 
-        req = GuiMessage()
-
-        req.set_blog(blog)
-        req.set_frequency(frequency)
-        req.set_cli_input(f'G {post_id}')
-        req.set_cmd('G')
-        req.set_op(MessageOperator.EQ)
-        req.set_post_id(post_id)
-        req.set_post_date(0)
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        return
 
     def get_post_cb(self, event):
         status = Status()
-        self.get_post(status.selected_blog, status.radio_frequency, status.selected_post)
+        self.get_post(status.selected_blog, status.selected_post)
 
     def reload(self):
         status = Status()
@@ -1036,24 +1047,32 @@ class GuiMain:
         root.mainloop()
 
     def client_shutdown(self):
-        be_sig = GuiMessage()
-        be_sig.set_cmd('X')
-        be_sig.set_cli_input('MB Client Shutdown')
-        self.f2b_q.put(be_sig)
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.CONTROL,
+            verb=MessageVerb.SHUTDOWN
+        )
+        self.f2b_q.put(m)
 
+        # ToDo: I don't think we should do the following here
         root.destroy()
-
         self.stop = True
 
-    def set_frequency(self, freq):
-        req = GuiMessage()
-        req.set_cmd('S')
-        req.set_frequency(freq)
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        return
 
-        pass
+    def set_frequency(self, freq):
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.CONTROL,
+            verb=MessageVerb.CHG_FREQ,
+            operator=MessageOperator.EQ,
+            param=freq
+        )
+        self.f2b_q.put(m)
+
+        return
 
     def process_updates(self):
 
