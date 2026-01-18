@@ -2,6 +2,15 @@ from __future__ import annotations
 from enum import Enum
 
 
+class UiArea(str, Enum):
+    HEADER = "header"
+    BLOG_LIST = "blog_list"
+    BLOG_INFO = "blog_info"
+    POST_LIST = "post_list"
+    POST_CONTENT = "post_content"
+    PROGRESS = "progress"
+
+
 class MessageTarget(str, Enum):
     FRONTEND = "frontend"
     BACKEND = "backend"

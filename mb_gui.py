@@ -247,7 +247,7 @@ class GuiHeader:
         )
         self.rx_indicator.pack(side='right')
 
-        self.reload_header()
+        self.reload()
 
     def clock_tick(self, curtime=''):  # used for the header clock
         if self.use_gmt:
@@ -294,7 +294,7 @@ class GuiHeader:
             limit=1, hdr_list=field
         )
         locale.setlocale(locale.LC_ALL, 'fr')
-        freq_str = locale.format_string("%d", db_values[0]['radio_frequency'], grouping=True)
+        freq_str = locale.format_string("%d", int(db_values[0]['radio_frequency']), grouping=True)
         locale.setlocale(locale.LC_ALL, 'en_GB')
 
         self.freq_text.set(freq_str)
@@ -331,7 +331,7 @@ class GuiHeader:
     def flash_rx_stop(self):
         self.rx_indicator.configure(bg='#22ff23')
 
-    def reload_header(self):
+    def reload(self):
         self.set_frequency()
         self.set_offset()
         self.set_callsign()
@@ -523,7 +523,7 @@ class GuiBlogList(GuiTable):
             typ=MessageType.REQ,
             verb=MessageVerb.FETCH_LISTING,
             operator=MessageOperator.RECENT,
-            blog=self.db_values[self.clicked_row]['blog']
+            destination=self.db_values[self.clicked_row]['blog']
         )
         self.f2b_q.put(m)
 
@@ -579,8 +579,7 @@ class GuiBlogList(GuiTable):
             typ=MessageType.CONTROL,
             verb=MessageVerb.CHG_BLOG,
             operator=MessageOperator.EQ,
-            blog=self.db_values[row]['blog'],
-            param=self.db_values[row]['post_id']
+            param=f"{self.db_values[row]['blog']}:{self.db_values[row]['frequency']}"
         )
         self.f2b_q.put(m)
 
@@ -631,7 +630,7 @@ class GuiBlogInfo:
 
         blog_table = DbTable('blog')
         db_values = blog_table.select(
-            where=f"blog='{status.selected_blog}' AND frequency={status.radio_frequency} AND info IS NOT NULL",
+            where=f"blog='{status.selected_blog}' AND frequency={status.user_frequency} AND info IS NOT NULL",
             limit=1,
             hdr_list=['info']
         )
@@ -716,7 +715,7 @@ class GuiPostListBox(GuiTable):
             typ=MessageType.REQ,
             verb=MessageVerb.FETCH_POST,
             operator=MessageOperator.EQ,
-            blog=self.db_values[row]['blog'],
+            destination=self.db_values[row]['blog'],
             param=self.db_values[row]['post_id']
         )
         self.f2b_q.put(m)
@@ -730,7 +729,7 @@ class GuiPostListBox(GuiTable):
             typ=MessageType.REQ,
             verb=MessageVerb.FETCH_LISTING,
             operator=MessageOperator.MORE,
-            blog=self.db_values[self.clicked_row]['blog'],
+            destination=self.db_values[self.clicked_row]['blog'],
             param=self.db_values[self.clicked_row]['post_id']
         )
         self.f2b_q.put(m)
@@ -744,7 +743,7 @@ class GuiPostListBox(GuiTable):
             typ=MessageType.REQ,
             verb=MessageVerb.GET_LISTING,
             operator=MessageOperator.EQ,
-            blog=self.db_values[self.clicked_row]['blog'],
+            destination=self.db_values[self.clicked_row]['blog'],
             param=self.db_values[self.clicked_row]['post_id']
         )
         self.f2b_q.put(m)
@@ -758,7 +757,7 @@ class GuiPostListBox(GuiTable):
             typ=MessageType.REQ,
             verb=MessageVerb.GET_POST,
             operator=MessageOperator.EQ,
-            blog=self.db_values[self.clicked_row]['blog'],
+            destination=self.db_values[self.clicked_row]['blog'],
             param=self.db_values[self.clicked_row]['post_id']
         )
         self.f2b_q.put(m)
@@ -808,7 +807,7 @@ class GuiPostContent:
             typ=MessageType.REQ,
             verb=MessageVerb.GET_POST,
             operator=MessageOperator.EQ,
-            blog=blog,
+            destination=blog,
             param=post_id
         )
         self.f2b_q.put(m)
@@ -1093,6 +1092,9 @@ class GuiMain:
 
                     elif m.get_verb() == MessageVerb.FLASH_TX_STOP:
                         self.header.flash_tx_stop()
+
+                    elif m.get_verb() == MessageVerb.RELOAD_HEADER:
+                        self.header.reload()
 
                     elif m.get_verb() == MessageVerb.RELOAD_BLOG_LIST:
                         self.blog_list.reload()

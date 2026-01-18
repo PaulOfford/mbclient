@@ -89,9 +89,7 @@ class Status:
         status_table.update(
             value_dictionary={
                 'selected_blog': blog,
-                'selected_station': station,
                 'user_frequency': frequency,
-                'radio_frequency': frequency
             }
         )
         self.set_blog_updated()
@@ -104,3 +102,31 @@ class Status:
             }
         )
         self.set_post_updated()
+
+    def set_callsign(self, callsign: str):
+        status_table = DbTable('status')
+        status_table.update(
+            value_dictionary={
+                'callsign': callsign
+            }
+        )
+        self.set_hdr_updated()
+
+    def set_radio_frequency(self, radio_frequency: str):
+        status_table = DbTable('status')
+        status_table.update(
+            value_dictionary={
+                'radio_frequency': radio_frequency
+            }
+        )
+        self.set_hdr_updated()
+
+    def set_offset(self, offset: str):
+        status_table = DbTable('status')
+        status_table.update(
+            value_dictionary={
+                'offset': offset
+            }
+        )
+        self.set_hdr_updated()
+

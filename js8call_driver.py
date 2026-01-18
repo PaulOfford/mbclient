@@ -10,7 +10,7 @@ import queue
 
 import logging
 from status import Status
-from message_q import UnifiedMessage, MessageType, MessageTarget, MessageVerb
+from message_q import UnifiedMessage, MessageType, MessageTarget, MessageVerb, MessageOperator
 from client_mocking import js8call_mock_listen
 
 import json
@@ -202,7 +202,9 @@ class Js8CallDriver:
         # These are the signal verbs we can send to the FRONTEND:
         #   NOTE_FREQ, NOTE_OFFSET, NOTE_CALLSIGN
         m = UnifiedMessage()
-        m.set_many(target=MessageTarget.BACKEND, typ=MessageType.SIGNAL, verb=verb, param=param)
+        m.set_many(
+            target=MessageTarget.BACKEND, typ=MessageType.SIGNAL, verb=verb, operator=MessageOperator.EQ, param=param
+        )
         self.comms_rx_q.put(m)
 
     def inform_backend(self, source: str, frequency: int, destination: str, mb_message: str):
@@ -210,7 +212,7 @@ class Js8CallDriver:
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND, typ=MessageType.MB_MSG, verb=MessageVerb.INFORM,
-            source=source, frequency=frequency, destination=destination, mb_message=mb_message
+            source=source, destination=destination, mb_message=mb_message
         )
         self.comms_rx_q.put(m)
 
