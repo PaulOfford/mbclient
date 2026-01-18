@@ -579,7 +579,7 @@ class GuiBlogList(GuiTable):
             typ=MessageType.CONTROL,
             verb=MessageVerb.CHG_BLOG,
             operator=MessageOperator.EQ,
-            param=f"{self.db_values[row]['blog']}:{self.db_values[row]['frequency']}"
+            param={'blog': self.db_values[row]['blog'], 'frequency': self.db_values[row]['frequency']}
         )
         self.f2b_q.put(m)
 

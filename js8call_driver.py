@@ -100,13 +100,14 @@ class Js8CallApi:
         message = self.to_message(*args, **kwargs)
 
         message = message.replace('\n\n', '\n \n')  # this seems to help with the JS8Call message window format
-        logger.debug('send: ' + message)
 
         if len(args) > 1 and debug:
             logger.debug('MB message not sent as we are in debug mode')
             # this avoids hamlib errors in JS8Call if the radio isn't connected
         else:
-            self.sock.send((message + '\n').encode())   # newline suffix is required
+            mb_msg = (message + '\n').encode()
+            logger.debug('send: ' + str(mb_msg))
+            self.sock.send(mb_msg)   # newline suffix is required
 
     # def set_rig_freq(self, freq):
 
@@ -212,7 +213,7 @@ class Js8CallDriver:
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND, typ=MessageType.MB_MSG, verb=MessageVerb.INFORM,
-            source=source, destination=destination, mb_message=mb_message
+            source=source, destination=destination, param=mb_message
         )
         self.comms_rx_q.put(m)
 
@@ -221,7 +222,7 @@ class Js8CallDriver:
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND, typ=MessageType.MB_MSG, verb=MessageVerb.ANNOUNCE,
-            source=source, frequency=frequency, destination=destination, mb_message=mb_message
+            source=source, destination=destination, param=mb_message
         )
         self.comms_rx_q.put(m)
 
@@ -247,16 +248,16 @@ class Js8CallDriver:
                     messages = self.js8call_api.listen()
 
                 if 0 < self.rx_ind_timeout < time.time():
-                    self.signal_frontend(MessageVerb.FLASH_RX_STOP)
+                    # self.signal_frontend(MessageVerb.FLASH_RX_STOP)
                     self.rx_ind_timeout = 0
 
                 for message in messages:
-                    logger.info('rx - ' + str(message))
+                    logger.debug('rx - ' + str(message))
                     js8call_msg_type = message.get('type', '')
                     value = message.get('value', '')
                     params = message.get('params', {})
 
-                    self.signal_frontend(MessageVerb.FLASH_RX_START)
+                    # self.signal_frontend(MessageVerb.FLASH_RX_START)
                     self.rx_ind_timeout = time.time() + self.flash_duration
 
                     if not js8call_msg_type:
@@ -269,7 +270,7 @@ class Js8CallDriver:
                             verb = MessageVerb.FLASH_TX_STOP
 
                         logger.debug(f"Received {verb}")
-                        self.signal_frontend(verb)
+                        # self.signal_frontend(verb)
 
                     elif js8call_msg_type == 'STATION.CALLSIGN':
                         logger.debug(f"Received {value}")
@@ -292,7 +293,7 @@ class Js8CallDriver:
 
                         # We need to extract the source and destination
                         msg_elements = re.findall(r"^\S+: +\S+ +([\S\s]+)", value)
-                        mb_message = msg_elements[0][0]
+                        mb_message = msg_elements[0]
 
                         if str(params['TO']) == "@MB":
                             self.announce_to_backend(

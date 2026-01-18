@@ -157,5 +157,5 @@ class UnifiedMessage:
         """
         return self.destination
 
-    def get_param(self) -> str:
+    def get_param(self):
         return self.param

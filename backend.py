@@ -75,6 +75,7 @@ def reload_ui_areas(ui_area: str, b2f_q: queue.Queue):
         status.set_post_updated()
         m.set_many(target=MessageTarget.FRONTEND, typ=MessageType.SIGNAL, verb=MessageVerb.RELOAD_PROGRESS)
 
+    logger.info(f"Sending: {m.get_target()}|{m.get_typ()}|{m.get_verb()}")
     b2f_q.put(m)
 
     return
@@ -189,6 +190,7 @@ class ServerMsgProcessors:
                             post_id=result[2],
                             body=result[3]
                         )
+                        self.signal_reload(UiArea.POST_CONTENT)
 
                     elif mb_cmd == 'E' or mb_cmd == 'L':
                         destination, cmd, blog, post_range, lines = self.parse_listing(m)
@@ -199,6 +201,7 @@ class ServerMsgProcessors:
                             post_range=post_range,
                             lines=lines
                         )
+                        self.signal_reload(UiArea.POST_LIST)
 
                 elif result[0] == 'INFO':
                     self.process_info(
@@ -206,8 +209,50 @@ class ServerMsgProcessors:
                         frequency=status.radio_frequency,
                         blog_info=result[1]
                     )
+                self.signal_reload(UiArea.BLOG_INFO)
 
                 break
+
+        return
+
+    def process_announcement(self, m: UnifiedMessage) -> None:
+        # we need to support two formats of announcement
+        # old:  blog_name post_id date_time
+        # new:  post_id date_time
+
+        announcement_patterns = [self.announce_extractor, self.announce_extractor_old]
+
+        for entry in announcement_patterns:
+            # try to match the request
+            result = re.findall(entry, m.get_param())
+
+            if len(result) > 0:
+                is_valid = False
+                post_id = 0
+                post_date = 0
+
+                result = list(result[0])  # Dereference to match from the first group
+
+                if len(result) == 2:
+                    # We have a new style announcement
+                    post_id = int(result[0])
+                    post_date = time.mktime(time.strptime(result[1] + " GMT", "%y%m%d %Z"))
+                    is_valid = True
+
+                elif len(result) == 3:
+                    # We have an old style announcement
+                    post_id = int(result[1])
+                    post_date = time.mktime(time.strptime(result[2] + " GMT", "%Y-%m-%d %Z"))
+                    is_valid = True
+
+                if is_valid:
+                    # We have a valid announcement
+                    self.update_blog_list(
+                        blog=m.get_source(),
+                        post_id=post_id,
+                        post_date=post_date
+                    )
+                    self.signal_reload(UiArea.BLOG_LIST)
 
         return
 
@@ -258,9 +303,9 @@ class ServerMsgProcessors:
                 }
                 post_table.insert(row)
 
-            self.signal_reload(UiArea.POST_LIST)
-            self.signal_reload(UiArea.POST_CONTENT)
-            self.update_blog_list(blog, line['post_id'], line['post_date'])
+        self.signal_reload(UiArea.POST_LIST)
+        self.signal_reload(UiArea.POST_CONTENT)
+        self.update_blog_list(blog, line['post_id'], line['post_date'])
 
     @staticmethod
     def process_post(destination: str, blog: str, post_id: int, body: str):
@@ -322,45 +367,6 @@ class ServerMsgProcessors:
         )
         # signal post table update
         status.set_blog_updated()
-
-    def process_announcement(self, m: UnifiedMessage) -> None:
-        # we need to support two formats of announcement
-        # old:  blog_name post_id date_time
-        # new:  post_id date_time
-
-        announcement_patterns = [self.announce_extractor, self.announce_extractor_old]
-
-        for entry in announcement_patterns:
-            # try to match the request
-            result = re.findall(entry, m.get_param())
-
-            if len(result) > 0:
-                is_valid = False
-                post_id = 0
-                post_date = 0
-
-                result = list(result[0])  # Dereference to match from the first group
-
-                if len(result) == 2:
-                    # We have a new style announcement
-                    post_id = int(result[0])
-                    post_date = time.mktime(time.strptime(result[1] + " GMT", "%y%m%d %Z"))
-                    is_valid = True
-
-                elif len(result) == 3:
-                    # We have an old style announcement
-                    post_id = int(result[1])
-                    post_date = time.mktime(time.strptime(result[2] + " GMT", "%Y-%m-%d %Z"))
-                    is_valid = True
-
-                if is_valid:
-                    # We have a valid announcement
-                    self.update_blog_list(
-                        blog=m.get_source(),
-                        post_id=post_id,
-                        post_date=post_date
-                    )
-        return
 
     def parse_listing(self, m: UnifiedMessage) -> tuple[str, str, str, str, list[dict]]:
 
@@ -489,6 +495,39 @@ class BeProcessor:
         self.comms_tx_q = comms_tx_q
         self.comms_rx_q = comms_rx_q
 
+    def check_for_msg(self):
+        # check for messages from the frontend
+        try:
+            m: UnifiedMessage = self.f2b_q.get(block=False)
+            if m:
+                logger.info(f"Received: {m.get_target()}|{m.get_typ()}|{m.get_verb()}")
+                self.preprocess(m)
+                self.f2b_q.task_done()
+
+        except queue.Empty:
+            pass  # nothing on the queue - do nothing
+
+        # check for messages from the comms driver
+        try:
+            m: UnifiedMessage = self.comms_rx_q.get(block=True, timeout=0.1)  # if no msg waiting, throw an except
+            logger.info(f"Received: {m.get_target()}|{m.get_typ()}|{m.get_verb()}")
+            logger.debug(m)
+
+            if m.get_target() == MessageTarget.FRONTEND:
+                # pass message through to the front end
+                logger.info(f"Sending: {m.get_target()}|{m.get_typ()}|{m.get_verb()}")
+                self.b2f_q.put(m)
+
+            elif m.get_target() == MessageTarget.BACKEND:
+                processor = ServerMsgProcessors(self.b2f_q)
+                processor.process_rx_message(m)
+
+            # Even if this message is not for the FRONTEND or BACKEND we must take it off the queue
+            self.comms_rx_q.task_done()
+
+        except queue.Empty:
+            pass
+
     def signal_reload(self, ui_area):
         reload_ui_areas(ui_area, self.b2f_q)
 
@@ -580,7 +619,7 @@ class BeProcessor:
 
             elif m.get_verb() == MessageVerb.GET_LISTING:
                 # get the listing info from the server
-                mb_cmd = f"E{post_ids}~"
+                mb_cmd = f"E{','.join(map(str, post_ids))}~"
                 logger.debug(f"send: {mb_cmd}")
                 self.mb_msg_send(destination=m.get_destination(), mb_cmd=mb_cmd)
 
@@ -663,7 +702,7 @@ class BeProcessor:
     def set_rig_frequency(self, freq):
         m = UnifiedMessage()
         m.set_many(target=MessageTarget.COMMS, typ=MessageType.CONTROL, verb=MessageVerb.SET_FREQ, param=freq)
-        self.comms_tx_q.put(m)
+        self.send_to_comms(m)
 
     def set_hdr_callsign(self, callsign: str):
         s = DbTable('status')
@@ -688,23 +727,16 @@ class BeProcessor:
             param=mb_cmd
         )
 
-        self.comms_tx_q.put(m)
+        self.send_to_comms(m)
 
         return
 
     def select_blog(self, m: UnifiedMessage):
 
-        # Blog selector is in the form blog_name:blog_frequency
+        # Blog selector is in param field 'blog': blog_name, 'frequency':blog_frequency
 
-        results = re.findall(r"([A-Z0-9/]+):([0-9]+)", m.get_param())
-
-        if len(results) == 0:
-            return
-
-        result = results[0]
-
-        blog = result[0]
-        frequency = result[1]
+        blog = m.get_param()['blog']
+        frequency = m.get_param()['frequency']
 
         if len(blog) > 0:
             s = DbTable('status')
@@ -752,33 +784,29 @@ class BeProcessor:
 
         elif m.get_target() == MessageTarget.COMMS:
             # Pass through the message
-            self.comms_tx_q.put(m)
+            self.send_to_comms(m)
 
         self.signal_reload(UiArea.POST_LIST)
         self.signal_reload(UiArea.POST_LIST)
 
     def process_request(self, m: UnifiedMessage):
         command = m.get_verb()
-        msg_prefix = "Received command from the frontend: "
 
         if command == MessageVerb.FETCH_LISTING:
             # Get full list details via the cache
             process_msg = f"{m.get_verb()} {m.get_operator()} {m.get_param()}~"
-            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg, self.b2f_q)
             self.process_list_cmd(m)
 
         elif command == MessageVerb.GET_LISTING:
             # Get full list details not using the cache
             process_msg = f"{m.get_verb()} {m.get_operator()} {m.get_param()}~"
-            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg, self.b2f_q)
             self.process_list_cmd(m)
 
         elif command == MessageVerb.FETCH_POST:
             # Fetch post(s)
             process_msg = f"{m.get_verb()} {m.get_operator()} {m.get_param()}~"
-            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg, self.b2f_q)
             self.process_fetch_cmd(m)
             self.signal_reload(UiArea.POST_CONTENT)
@@ -786,21 +814,18 @@ class BeProcessor:
         elif command == MessageVerb.GET_POST:
             # Get post(s)
             process_msg = f"{m.get_verb()} {m.get_operator()} {m.get_param()}~"
-            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg, self.b2f_q)
             self.get_post_from_server(m)
 
         elif command == MessageVerb.GET_BLOG_INFO:
             # Get information from the server
             process_msg = f"{m.get_verb()}"
-            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg, self.b2f_q)
             self.process_info_cmd(m)
 
         elif command == MessageVerb.GET_WEATHER:
             # Request a weather report - results in G0~ to the server
             process_msg = f"{m.get_verb()}"
-            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg, self.b2f_q)
             self.process_weather_cmd(m)
 
@@ -808,69 +833,37 @@ class BeProcessor:
 
     def process_control(self, m: UnifiedMessage):
         command = m.get_verb()
-        msg_prefix = "Received command from the frontend: "
 
         if command == MessageVerb.SHUTDOWN:
             m = UnifiedMessage()
             m.set_many(target=MessageTarget.FRONTEND, typ=MessageType.CONTROL, verb=MessageVerb.SHUTDOWN)
-            self.comms_tx_q.put(m)
-
-            logger.info(f"{msg_prefix}{command}")
+            self.send_to_comms(m)
             add_progress(command, self.b2f_q)
             exit(0)
 
         elif command == MessageVerb.CHG_BLOG:
             # Switch to a blog (internal - no server command is sent)
             process_msg = f"{command}"
-            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg, self.b2f_q)
             self.process_set_cmd(m)
 
         elif command == MessageVerb.CHG_FREQ:
             # Switch to a blog (internal - no server command is sent)
             process_msg = f"{command}"
-            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg, self.b2f_q)
             self.process_set_cmd(m)
 
         elif command == MessageVerb.GET_BLOG_INFO:
             # Query command to elicit an announcement from all MB servers
             process_msg = f"{command}"
-            logger.info(f"{msg_prefix}{process_msg}")
             add_progress(process_msg, self.b2f_q)
             self.process_query_cmd(m)
 
         return
 
-    def check_for_msg(self):
-        # check for messages from the frontend
-        try:
-            m: UnifiedMessage = self.f2b_q.get(block=False)
-            if m:
-                self.preprocess(m)
-                self.f2b_q.task_done()
-
-        except queue.Empty:
-            pass  # nothing on the queue - do nothing
-
-        # check for messages from the comms driver
-        try:
-            m: UnifiedMessage = self.comms_rx_q.get(block=True, timeout=0.1)  # if no msg waiting, throw an except
-            logger.debug(m)
-
-            if m.get_target() == MessageTarget.FRONTEND:
-                # pass message through to the front end
-                self.b2f_q.put(m)
-
-            elif m.get_target() == MessageTarget.BACKEND:
-                processor = ServerMsgProcessors(self.b2f_q)
-                processor.process_rx_message(m)
-
-            # Even if this message is not for the FRONTEND or BACKEND we must take it off the queue
-            self.comms_rx_q.task_done()
-
-        except queue.Empty:
-            pass
+    def send_to_comms(self, m: UnifiedMessage):
+        logger.info(f"Sending: {m.get_target()}|{m.get_typ()}|{m.get_verb()}")
+        self.comms_tx_q.put(m)
 
 
 class Backend:
