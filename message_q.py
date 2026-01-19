@@ -50,7 +50,8 @@ class MessageVerb(str, Enum):
 
     # To BACKEND - CONTROL
     SCAN = "scan"
-    CHG_FREQ = "chg_freq"
+    CHG_RADIO_FREQUENCY = "chg_radio_frequency"
+    CHG_USER_FREQUENCY = "chg_user_frequency"
     CHG_BLOG = "chg_blog"
     SHUTDOWN = "shutdown"
 
@@ -83,9 +84,17 @@ class MessageOperator(str, Enum):
     GT = 'gt'
     LT = 'lt'
     LATEST = 'latest'
-    RECENT = 'recent'
     MORE = 'more'
     NONE = "none"  # A value has not yet been assigned
+
+
+class MessageParameter(str, Enum):
+    CALLSIGN = 'callsign'
+    FREQUENCY = 'frequency'
+    OFFSET = 'offset'
+    BLOG = 'blog'
+    POST_ID = 'post_id'
+    MB_MSG = 'mb_msg'
 
 
 class UnifiedMessage:
@@ -106,7 +115,7 @@ class UnifiedMessage:
         "value",
         "source",
         "destination",
-        "param",
+        "params",
     )
 
     def __init__(self, **kwargs):
@@ -117,7 +126,7 @@ class UnifiedMessage:
         self.operator: MessageOperator = MessageOperator.NONE
         self.source: str = ""
         self.destination: str = ""
-        self.param: str = ""
+        self.params: {} = {}
 
         if kwargs:
             self.set_many(**kwargs)
@@ -157,5 +166,8 @@ class UnifiedMessage:
         """
         return self.destination
 
-    def get_param(self):
-        return self.param
+    def get_param(self, parameter: MessageParameter):
+        return self.params[parameter]
+
+    def get_params(self) -> {}:
+        return self.params

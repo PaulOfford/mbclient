@@ -511,19 +511,19 @@ class GuiBlogList(GuiTable):
 
         # set up the pop up menu
         self.blog_list_pop_up = tk.Menu(frame, tearoff=False)
-        self.blog_list_pop_up.add_command(label='Get recent', command=self.list_recent)
+        self.blog_list_pop_up.add_command(label='List latest', command=self.list_latest)
         self.blog_list_pop_up.add_command(label='Refresh', command=self.check_for_latest)
         self.blog_list_pop_up.add_command(label='Get info', command=self.get_blog_info)
 
     # list_recent causes MbClient to update the Post List with the five most recent posts
-    def list_recent(self):
+    def list_latest(self):
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND,
             typ=MessageType.REQ,
-            verb=MessageVerb.FETCH_LISTING,
-            operator=MessageOperator.RECENT,
-            destination=self.db_values[self.clicked_row]['blog']
+            verb=MessageVerb.GET_LISTING,
+            operator=MessageOperator.LATEST,
+            destination=self.db_values[self.clicked_row]['blog'],
         )
         self.f2b_q.put(m)
 
@@ -579,7 +579,7 @@ class GuiBlogList(GuiTable):
             typ=MessageType.CONTROL,
             verb=MessageVerb.CHG_BLOG,
             operator=MessageOperator.EQ,
-            param={'blog': self.db_values[row]['blog'], 'frequency': self.db_values[row]['frequency']}
+            params={'blog': self.db_values[row]['blog'], 'frequency': self.db_values[row]['frequency']}
         )
         self.f2b_q.put(m)
 
@@ -630,7 +630,9 @@ class GuiBlogInfo:
 
         blog_table = DbTable('blog')
         db_values = blog_table.select(
-            where=f"blog='{status.selected_blog}' AND frequency={status.user_frequency} AND info IS NOT NULL",
+            where=f"blog='{status.get_selected_blog_name()}' " +
+                  f"AND frequency={status.get_selected_blog_frequency()} " +
+                  f"AND info IS NOT NULL",
             limit=1,
             hdr_list=['info']
         )
@@ -679,9 +681,9 @@ class GuiPostListBox(GuiTable):
         )
         # set up the pop up menu
         self.post_list_pop_up = tk.Menu(frame, tearoff=False)
-        self.post_list_pop_up.add_command(label='Get more posts', command=self.get_more)
+        self.post_list_pop_up.add_command(label='List more posts', command=self.list_more)
         self.post_list_pop_up.add_command(label='Refresh listing', command=self.refresh_listing)
-        self.post_list_pop_up.add_command(label='Refresh content', command=self.refresh_content)
+        self.post_list_pop_up.add_command(label='Refresh this post', command=self.refresh_content)
 
     def reload(self):
         status = Status()
@@ -694,7 +696,7 @@ class GuiPostListBox(GuiTable):
             fields.append(field['db_col'])
 
         self.db_values = post_table.select(
-            where=f"blog='{status.selected_blog}'",
+            where=f"blog='{status.get_selected_blog_name()}'",
             order_by='post_id', desc=True,
             limit=Settings().max_posts,
             hdr_list=fields
@@ -716,13 +718,13 @@ class GuiPostListBox(GuiTable):
             verb=MessageVerb.FETCH_POST,
             operator=MessageOperator.EQ,
             destination=self.db_values[row]['blog'],
-            param=self.db_values[row]['post_id']
+            params={'post_id': self.db_values[row]['post_id']}
         )
         self.f2b_q.put(m)
 
         return
 
-    def get_more(self):
+    def list_more(self):
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND,
@@ -730,7 +732,7 @@ class GuiPostListBox(GuiTable):
             verb=MessageVerb.FETCH_LISTING,
             operator=MessageOperator.MORE,
             destination=self.db_values[self.clicked_row]['blog'],
-            param=self.db_values[self.clicked_row]['post_id']
+            params={'post_id': f"{self.db_values[self.clicked_row]['post_id']}"}
         )
         self.f2b_q.put(m)
 
@@ -744,7 +746,7 @@ class GuiPostListBox(GuiTable):
             verb=MessageVerb.GET_LISTING,
             operator=MessageOperator.EQ,
             destination=self.db_values[self.clicked_row]['blog'],
-            param=self.db_values[self.clicked_row]['post_id']
+            params={'post_id': self.db_values[self.clicked_row]['post_id']}
         )
         self.f2b_q.put(m)
 
@@ -758,7 +760,7 @@ class GuiPostListBox(GuiTable):
             verb=MessageVerb.GET_POST,
             operator=MessageOperator.EQ,
             destination=self.db_values[self.clicked_row]['blog'],
-            param=self.db_values[self.clicked_row]['post_id']
+            params={'post_id': f"{self.db_values[self.clicked_row]['post_id']}"}
         )
         self.f2b_q.put(m)
 
@@ -808,7 +810,7 @@ class GuiPostContent:
             verb=MessageVerb.GET_POST,
             operator=MessageOperator.EQ,
             destination=blog,
-            param=post_id
+            params={'post_id': post_id}
         )
         self.f2b_q.put(m)
 
@@ -816,15 +818,20 @@ class GuiPostContent:
 
     def get_post_cb(self, event):
         status = Status()
-        self.get_post(status.selected_blog, status.selected_post)
+        self.get_post(
+            blog=status.get_selected_blog_name(),
+            post_id=status.get_selected_post(status.get_selected_blog_name())
+        )
 
     def reload(self):
         status = Status()
-        post_string = f"{status.selected_post}"
+        post_string = f"{status.get_selected_blog_name()}"
 
         post_table = DbTable('post')
+
         db_values = post_table.select_latest(
-            where=f"blog='{status.selected_blog}' AND post_id={status.selected_post}",
+            where=f"blog='{status.get_selected_blog_name()}' " +
+                  f"AND post_id={status.get_selected_post(status.get_selected_blog_name())}",
             order_by='post_id',
             limit=1,
             hdr_list=self.post_cols
@@ -1060,14 +1067,14 @@ class GuiMain:
 
         return
 
-    def set_frequency(self, freq):
+    def set_frequency(self, frequency):
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND,
             typ=MessageType.CONTROL,
-            verb=MessageVerb.CHG_FREQ,
+            verb=MessageVerb.CHG_RADIO_FREQUENCY,
             operator=MessageOperator.EQ,
-            param=freq
+            params={'frequency': frequency}
         )
         self.f2b_q.put(m)
 

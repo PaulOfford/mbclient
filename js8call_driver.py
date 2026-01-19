@@ -10,7 +10,7 @@ import queue
 
 import logging
 from status import Status
-from message_q import UnifiedMessage, MessageType, MessageTarget, MessageVerb, MessageOperator
+from message_q import UnifiedMessage, MessageType, MessageTarget, MessageVerb, MessageOperator, MessageParameter
 from client_mocking import js8call_mock_listen
 
 import json
@@ -139,14 +139,14 @@ class Js8CallDriver:
         pass
 
     def process_mb_msg(self, message: UnifiedMessage):
-        req_msg = f"{message.get_destination()} {message.get_param()}"
+        req_msg = f"{message.get_destination()} {message.get_params()}"
         self.js8call_api.send('TX.SEND_MESSAGE', req_msg)
 
     def process_control(self, message: UnifiedMessage):
         if message.get_verb() == MessageVerb.SHUTDOWN:
             exit(0)
         elif message.get_verb() == MessageVerb.SET_FREQ:
-            self.set_radio_frequency(int(message.get_param()))
+            self.set_radio_frequency(int(message.get_param(MessageParameter.FREQUENCY)))
         elif message.get_verb() == MessageVerb.GET_FREQ:
             self.js8call_api.send('RIG.GET_FREQ', '')
         elif message.get_verb() == MessageVerb.GET_OFFSET:
@@ -175,7 +175,7 @@ class Js8CallDriver:
             return
 
         try:
-            logger.debug(f"js8drv: debug: {comms_tx.get_param()}")
+            logger.debug(f"js8drv: debug: {comms_tx.get_params()}")
             self.process_comms_tx(comms_tx)
         finally:
             self.comms_tx_q.task_done()
@@ -187,7 +187,7 @@ class Js8CallDriver:
             except queue.Empty:
                 break
             try:
-                logger.debug(comms_tx.get_param())
+                logger.debug(comms_tx.get_params())
                 self.process_comms_tx(comms_tx)
             finally:
                 self.comms_tx_q.task_done()
@@ -204,7 +204,7 @@ class Js8CallDriver:
         #   NOTE_FREQ, NOTE_OFFSET, NOTE_CALLSIGN
         m = UnifiedMessage()
         m.set_many(
-            target=MessageTarget.BACKEND, typ=MessageType.SIGNAL, verb=verb, operator=MessageOperator.EQ, param=param
+            target=MessageTarget.BACKEND, typ=MessageType.SIGNAL, verb=verb, operator=MessageOperator.EQ, params=param
         )
         self.comms_rx_q.put(m)
 
@@ -213,7 +213,8 @@ class Js8CallDriver:
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND, typ=MessageType.MB_MSG, verb=MessageVerb.INFORM,
-            source=source, destination=destination, param=mb_message
+            source=source, destination=destination,
+            params={MessageParameter.MB_MSG: mb_message, MessageParameter.FREQUENCY: frequency}
         )
         self.comms_rx_q.put(m)
 
@@ -222,7 +223,8 @@ class Js8CallDriver:
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND, typ=MessageType.MB_MSG, verb=MessageVerb.ANNOUNCE,
-            source=source, destination=destination, param=mb_message
+            source=source, destination=destination,
+            params={MessageParameter.MB_MSG: mb_message, MessageParameter.FREQUENCY: frequency}
         )
         self.comms_rx_q.put(m)
 
@@ -274,7 +276,7 @@ class Js8CallDriver:
 
                     elif js8call_msg_type == 'STATION.CALLSIGN':
                         logger.debug(f"Received {value}")
-                        self.signal_backend(MessageVerb.NOTE_CALLSIGN, value)
+                        self.signal_backend(MessageVerb.NOTE_CALLSIGN, {'callsign': value})
 
                     elif js8call_msg_type == 'RIG.FREQ' or js8call_msg_type == 'STATION.STATUS':
                         logger.debug(f"Received {value}")
@@ -282,10 +284,10 @@ class Js8CallDriver:
                         dial = int(params['DIAL'])
                         offset = int(params['OFFSET'])
 
-                        self.signal_backend(MessageVerb.NOTE_FREQ, dial)
+                        self.signal_backend(MessageVerb.NOTE_FREQ, {'frequency': dial})
                         logger.debug('q_put: NOTE_FREQ - ' + str(dial))
 
-                        self.signal_backend(MessageVerb.NOTE_OFFSET, offset)
+                        self.signal_backend(MessageVerb.NOTE_OFFSET, {'offset': offset})
                         logger.debug('q_put: NOTE_OFFSET - ' + str(offset))
 
                     elif js8call_msg_type == 'RX.DIRECTED':
