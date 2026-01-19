@@ -19,7 +19,7 @@ class MessageTarget(str, Enum):
 
 
 class MessageType(str, Enum):
-    REQ = "mb_req"
+    REQUEST = "request"
     CONTROL = "control"
     MB_MSG = "mb_msg"
     SIGNAL = "signal"
@@ -33,12 +33,7 @@ class MessageVerb(str, Enum):
     FLASH_TX_START = "flash_tx_start"
     FLASH_TX_STOP = "flash_tx_stop"
     SCAN_IND_OFF = "scan_ind_off"
-    RELOAD_HEADER = "reload_header"
-    RELOAD_BLOG_LIST = "reload_blog_list"
-    RELOAD_BLOG_INFO = "reload_blog_info"
-    RELOAD_POST_LIST = "reload_post_list"
-    RELOAD_POST_CONTENT = "reload_post_content"
-    RELOAD_PROGRESS = "reload_progress"
+    RELOAD_UI = "reload_ui"
 
     # To BACKEND - REQ
     FETCH_LISTING = "fetch_listing"
@@ -95,6 +90,7 @@ class MessageParameter(str, Enum):
     BLOG = 'blog'
     POST_ID = 'post_id'
     MB_MSG = 'mb_msg'
+    UI_AREA = 'ui_area'
 
 
 class UnifiedMessage:
@@ -112,7 +108,6 @@ class UnifiedMessage:
         "typ",
         "verb",
         "operator",
-        "value",
         "source",
         "destination",
         "params",
@@ -167,7 +162,7 @@ class UnifiedMessage:
         return self.destination
 
     def get_param(self, parameter: MessageParameter):
-        return self.params[parameter]
+        return self.params[parameter.value]
 
     def get_params(self) -> {}:
         return self.params

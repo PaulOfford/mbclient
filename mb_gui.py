@@ -11,7 +11,7 @@ from _version import __version__
 from status import Status
 from settings import Settings
 from db_table import DbTable
-from message_q import UnifiedMessage, MessageTarget, MessageType, MessageVerb, MessageOperator
+from message_q import UnifiedMessage, UiArea, MessageTarget, MessageType, MessageVerb, MessageOperator, MessageParameter
 from mb_fonts import MbFonts
 
 logger = logging.getLogger(__name__)
@@ -270,7 +270,7 @@ class GuiHeader:
             m = UnifiedMessage()
             m.set_many(
                 target=MessageTarget.BACKEND,
-                typ=MessageType.CONTROL,
+                typ=MessageType.REQUEST,
                 verb=MessageVerb.SCAN,
                 destination="@MB"
             )
@@ -520,7 +520,7 @@ class GuiBlogList(GuiTable):
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND,
-            typ=MessageType.REQ,
+            typ=MessageType.REQUEST,
             verb=MessageVerb.GET_LISTING,
             operator=MessageOperator.LATEST,
             destination=self.db_values[self.clicked_row]['blog'],
@@ -534,7 +534,7 @@ class GuiBlogList(GuiTable):
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND,
-            typ=MessageType.CONTROL,
+            typ=MessageType.REQUEST,
             verb=MessageVerb.SCAN,
             destination=self.db_values[self.clicked_row]['blog']
         )
@@ -547,7 +547,7 @@ class GuiBlogList(GuiTable):
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND,
-            typ=MessageType.CONTROL,
+            typ=MessageType.REQUEST,
             verb=MessageVerb.GET_BLOG_INFO,
             destination=self.db_values[self.clicked_row]['blog']
         )
@@ -714,7 +714,7 @@ class GuiPostListBox(GuiTable):
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND,
-            typ=MessageType.REQ,
+            typ=MessageType.REQUEST,
             verb=MessageVerb.FETCH_POST,
             operator=MessageOperator.EQ,
             destination=self.db_values[row]['blog'],
@@ -728,7 +728,7 @@ class GuiPostListBox(GuiTable):
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND,
-            typ=MessageType.REQ,
+            typ=MessageType.REQUEST,
             verb=MessageVerb.FETCH_LISTING,
             operator=MessageOperator.MORE,
             destination=self.db_values[self.clicked_row]['blog'],
@@ -742,7 +742,7 @@ class GuiPostListBox(GuiTable):
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND,
-            typ=MessageType.REQ,
+            typ=MessageType.REQUEST,
             verb=MessageVerb.GET_LISTING,
             operator=MessageOperator.EQ,
             destination=self.db_values[self.clicked_row]['blog'],
@@ -756,7 +756,7 @@ class GuiPostListBox(GuiTable):
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND,
-            typ=MessageType.REQ,
+            typ=MessageType.REQUEST,
             verb=MessageVerb.GET_POST,
             operator=MessageOperator.EQ,
             destination=self.db_values[self.clicked_row]['blog'],
@@ -806,7 +806,7 @@ class GuiPostContent:
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND,
-            typ=MessageType.REQ,
+            typ=MessageType.REQUEST,
             verb=MessageVerb.GET_POST,
             operator=MessageOperator.EQ,
             destination=blog,
@@ -1080,6 +1080,28 @@ class GuiMain:
 
         return
 
+    def verb_reload_ui(self, m: UnifiedMessage) -> None:
+        
+        if m.get_param(MessageParameter.UI_AREA) == UiArea.BLOG_LIST:
+            self.blog_list.reload()
+
+        elif m.get_param(MessageParameter.UI_AREA) == UiArea.HEADER:
+            self.header.reload()
+
+        elif m.get_param(MessageParameter.UI_AREA) == UiArea.BLOG_INFO:
+            self.blog_info.reload()
+        
+        elif m.get_param(MessageParameter.UI_AREA) == UiArea.POST_LIST:
+            self.post_list.reload()
+        
+        elif m.get_param(MessageParameter.UI_AREA) == UiArea.POST_CONTENT:
+            self.post_content.reload()
+        
+        elif m.get_param(MessageParameter.UI_AREA) == UiArea.PROGRESS:
+            self.progress.reload()
+        
+        return
+
     def process_updates(self):
 
         try:
@@ -1100,23 +1122,8 @@ class GuiMain:
                     elif m.get_verb() == MessageVerb.FLASH_TX_STOP:
                         self.header.flash_tx_stop()
 
-                    elif m.get_verb() == MessageVerb.RELOAD_HEADER:
-                        self.header.reload()
-
-                    elif m.get_verb() == MessageVerb.RELOAD_BLOG_LIST:
-                        self.blog_list.reload()
-
-                    elif m.get_verb() == MessageVerb.RELOAD_BLOG_INFO:
-                        self.blog_info.reload()
-
-                    elif m.get_verb() == MessageVerb.RELOAD_POST_LIST:
-                        self.post_list.reload()
-
-                    elif m.get_verb() == MessageVerb.RELOAD_POST_CONTENT:
-                        self.post_content.reload()
-
-                    elif m.get_verb() == MessageVerb.RELOAD_PROGRESS:
-                        self.progress.reload()
+                    elif m.get_verb() == MessageVerb.RELOAD_UI:
+                        self.verb_reload_ui(m)
 
             self.b2f_q.task_done()
 

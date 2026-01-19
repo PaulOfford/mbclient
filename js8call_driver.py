@@ -139,14 +139,14 @@ class Js8CallDriver:
         pass
 
     def process_mb_msg(self, message: UnifiedMessage):
-        req_msg = f"{message.get_destination()} {message.get_params()}"
+        req_msg = f"{message.get_destination()} {message.get_param(MessageParameter.MB_MSG)}"
         self.js8call_api.send('TX.SEND_MESSAGE', req_msg)
 
     def process_control(self, message: UnifiedMessage):
         if message.get_verb() == MessageVerb.SHUTDOWN:
             exit(0)
         elif message.get_verb() == MessageVerb.SET_FREQ:
-            self.set_radio_frequency(int(message.get_param(MessageParameter.FREQUENCY)))
+            self.set_radio_frequency(message.get_param(MessageParameter.FREQUENCY))
         elif message.get_verb() == MessageVerb.GET_FREQ:
             self.js8call_api.send('RIG.GET_FREQ', '')
         elif message.get_verb() == MessageVerb.GET_OFFSET:
@@ -183,7 +183,7 @@ class Js8CallDriver:
         # Drain any queued burst without blocking.
         while True:
             try:
-                comms_tx = self.comms_tx_q.get_nowait()
+                comms_tx = self.comms_tx_q.get(timeout=timeout)
             except queue.Empty:
                 break
             try:
@@ -250,7 +250,7 @@ class Js8CallDriver:
                     messages = self.js8call_api.listen()
 
                 if 0 < self.rx_ind_timeout < time.time():
-                    # self.signal_frontend(MessageVerb.FLASH_RX_STOP)
+                    self.signal_frontend(MessageVerb.FLASH_RX_STOP)
                     self.rx_ind_timeout = 0
 
                 for message in messages:
@@ -259,7 +259,7 @@ class Js8CallDriver:
                     value = message.get('value', '')
                     params = message.get('params', {})
 
-                    # self.signal_frontend(MessageVerb.FLASH_RX_START)
+                    self.signal_frontend(MessageVerb.FLASH_RX_START)
                     self.rx_ind_timeout = time.time() + self.flash_duration
 
                     if not js8call_msg_type:
@@ -272,7 +272,7 @@ class Js8CallDriver:
                             verb = MessageVerb.FLASH_TX_STOP
 
                         logger.debug(f"Received {verb}")
-                        # self.signal_frontend(verb)
+                        self.signal_frontend(verb)
 
                     elif js8call_msg_type == 'STATION.CALLSIGN':
                         logger.debug(f"Received {value}")

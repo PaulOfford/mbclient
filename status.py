@@ -81,7 +81,7 @@ class Status:
     def get_selected_blog_name() -> str:
         post_table = DbTable('blog')
         db_values = post_table.select(
-            where='is_selected = 1',
+            where="is_selected = 1",
             hdr_list=['blog']
         )
 
@@ -94,7 +94,7 @@ class Status:
     def get_selected_blog_frequency() -> int:
         post_table = DbTable('blog')
         db_values = post_table.select(
-            where='is_selected = 1',
+            where="is_selected = 1",
             hdr_list=['frequency']
         )
 
@@ -107,7 +107,7 @@ class Status:
     def get_selected_post(blog: str) -> int:
         post_table = DbTable('post')
         db_values = post_table.select(
-            where=f'blog={blog}, is_selected = 1',
+            where=f"blog='{blog}' AND is_selected = 1",
             hdr_list=['post_id']
         )
 
