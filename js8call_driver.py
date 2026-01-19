@@ -57,8 +57,7 @@ class Js8CallApi:
             exit(1)
 
     def listen(self):
-        # the following block of code provides a socket recv with a 10-second timeout
-        # we need this so that we call the @MB announcement code periodically
+        # the following block of code provides a socket recv with a 0.5-second timeout
         messages = []
         self.sock.setblocking(False)
         ready = select.select([self.sock], [], [], 0.5)

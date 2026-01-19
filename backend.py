@@ -559,7 +559,7 @@ class BeProcessor:
     def verb_get_listing(self, m: UnifiedMessage):
 
         if m.get_operator() == MessageOperator.LATEST:
-            mb_cmd = 'E'
+            mb_cmd = 'E~'
         else:
             mb_cmd = self.get_listing_command(post_id_list=self.get_post_id_list(m))
 
