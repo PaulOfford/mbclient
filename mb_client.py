@@ -13,14 +13,8 @@ from js8call_driver import Js8CallDriver
 setup_logging(logging.INFO)   # DEBUG or INFO
 logger = logging.getLogger(__name__)
 
-MAX_QUEUE_SIZE = 20
-
 
 class MbClient:
-    f2b_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages from the frontend to the backend
-    b2f_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages to the frontend from the backend
-    comms_tx_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages from the backend to the comms driver
-    comms_rx_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages to the backend from the comms driver
     be_t = None  # thread anchor
     comms_t = None  # thread anchor
 
@@ -28,16 +22,16 @@ class MbClient:
 
     def __init__(self):
         # start backend thread
-        backend = Backend(self.f2b_q, self.b2f_q, self.comms_tx_q, self.comms_rx_q)
+        backend = Backend()
         self.be_t = threading.Thread(target=backend.backend_loop)
         self.be_t.start()
 
-        comms = Js8CallDriver(self.comms_tx_q, self.comms_rx_q)
+        comms = Js8CallDriver()
         self.comms_t = threading.Thread(target=comms.run_comms)
         self.comms_t.start()
 
     def start_gui(self):
-        self.main = GuiMain(f2b_q=self.f2b_q, b2f_q=self.b2f_q)
+        self.main = GuiMain()
 
         self.comms_t.join(1)  # wait for up to one second for the comms thread to exit
         self.be_t.join(1)  # wait for up to one second for the backend thread to exit

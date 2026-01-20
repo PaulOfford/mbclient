@@ -5,13 +5,14 @@ import tkinter as tk
 from tkinter import ttk, Event, EventType
 import locale
 import functools as ft
-from queue import Empty, Queue
+from queue import Empty
 import logging
 from _version import __version__
 from status import Status
 from settings import Settings
 from db_table import DbTable
-from message_q import GuiMessage
+from message_q import f2b_q, b2f_q, UnifiedMessage, UiArea, \
+    MessageTarget, MessageType, MessageVerb, MessageOperator, MessageParameter
 from mb_fonts import MbFonts
 
 logger = logging.getLogger(__name__)
@@ -132,7 +133,6 @@ class ScrollableFrame(ttk.Frame):
 class GuiHeader:
 
     use_gmt: bool = True
-    f2b_q: Queue = None
     gui_fonts = None
     freq_text = None
     offset_text = None
@@ -149,9 +149,8 @@ class GuiHeader:
     scan_duration: float = 120.0
     scan_timeout: float = 0.0
 
-    def __init__(self, header_frame, f2b_q: Queue):
+    def __init__(self, header_frame):
         settings = Settings()
-        self.f2b_q = f2b_q
 
         self.use_gmt = settings.use_gmt
         self.gui_fonts = MbFonts(settings.font_size)
@@ -247,7 +246,7 @@ class GuiHeader:
         )
         self.rx_indicator.pack(side='right')
 
-        self.reload_header()
+        self.reload()
 
     def clock_tick(self, curtime=''):  # used for the header clock
         if self.use_gmt:
@@ -266,17 +265,16 @@ class GuiHeader:
 
     def run_scan(self):
         if self.scan_timeout == 0:  # only do this if we are not in a scan period
-            status = Status()
 
-            req = GuiMessage()
-            req.set_cmd('Q')
-            req.set_blog('@MB')
-            req.set_station('@MB')
-            req.set_frequency(status.radio_frequency)
-            req.set_op('latest')
-            req.set_ts()
-            self.f2b_q.put(req)
-            logger.debug(req)
+            m = UnifiedMessage()
+            m.set_many(
+                target=MessageTarget.BACKEND,
+                typ=MessageType.REQUEST,
+                verb=MessageVerb.SCAN,
+                params={MessageParameter.DESTINATION: "@MB"}
+            )
+            f2b_q.put(m)
+            logger.debug(m)
 
             self.scan_btn.configure(bg='#ff2222')
             self.scan_timeout = time.time() + self.scan_duration
@@ -295,7 +293,7 @@ class GuiHeader:
             limit=1, hdr_list=field
         )
         locale.setlocale(locale.LC_ALL, 'fr')
-        freq_str = locale.format_string("%d", db_values[0]['radio_frequency'], grouping=True)
+        freq_str = locale.format_string("%d", int(db_values[0]['radio_frequency']), grouping=True)
         locale.setlocale(locale.LC_ALL, 'en_GB')
 
         self.freq_text.set(freq_str)
@@ -332,7 +330,7 @@ class GuiHeader:
     def flash_rx_stop(self):
         self.rx_indicator.configure(bg='#22ff23')
 
-    def reload_header(self):
+    def reload(self):
         self.set_frequency()
         self.set_offset()
         self.set_callsign()
@@ -374,9 +372,9 @@ class GuiTable:
 
         return value
 
-    def __init__(self, frame, column_defs, max_rows: int, select_method, hdr_click_method):
+    def __init__(self, frame, column_definitions, max_rows: int, select_method, hdr_click_method):
         self.gui_fonts = MbFonts(Settings().font_size)
-        self.table_headers = column_defs
+        self.table_headers = column_definitions
         self.select_cb = select_method
         self.hdr_click_cb = hdr_click_method
 
@@ -481,7 +479,6 @@ class GuiTable:
         pass
 
 
-
 class GuiBlogList(GuiTable):
     blog_list_headers = [
         {'db_col': 'blog', 'type': 'Text', 'suffix': '', 'width': 10,
@@ -504,55 +501,62 @@ class GuiBlogList(GuiTable):
     blog_list_pop_up = None  # pop up widget
     clicked_row = None  # holds the db_values row number that has been right-clicked
 
-    def __init__(self, frame, f2b_q: Queue):
+    def __init__(self, frame):
         # ToDo: this frame needs horizontal and vertical scroll bars
-        self.f2b_q = f2b_q
         super().__init__(
             frame, self.blog_list_headers, Settings().max_blogs, self.cb_row_select, self.cb_hdr_click
         )
 
         # set up the pop up menu
         self.blog_list_pop_up = tk.Menu(frame, tearoff=False)
-        self.blog_list_pop_up.add_command(label='Get recent', command=self.list_recent)
+        self.blog_list_pop_up.add_command(label='List latest', command=self.list_latest)
         self.blog_list_pop_up.add_command(label='Refresh', command=self.check_for_latest)
         self.blog_list_pop_up.add_command(label='Get info', command=self.get_blog_info)
 
     # list_recent causes MbClient to update the Post List with the five most recent posts
-    def list_recent(self):
-        req = GuiMessage()
-        req.set_cmd('E')
-        req.set_blog(self.db_values[self.clicked_row]['blog'])
-        req.set_station(self.db_values[self.clicked_row]['station'])
-        req.set_frequency(self.db_values[self.clicked_row]['frequency'])
-        req.set_op('recent')
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+    def list_latest(self):
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.REQUEST,
+            verb=MessageVerb.GET_LISTING,
+            params={
+                MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog'],
+                MessageParameter.OPERATOR: MessageOperator.LATEST
+            }
+        )
+        f2b_q.put(m)
+
+        return
 
     # check_for_latest causes MbClient to request an @MB announcement
     def check_for_latest(self):
-        req = GuiMessage()
-        req.set_cmd('Q')
-        req.set_blog(self.db_values[self.clicked_row]['blog'])
-        req.set_station(self.db_values[self.clicked_row]['station'])
-        req.set_frequency(self.db_values[self.clicked_row]['frequency'])
-        req.set_op('latest')
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.REQUEST,
+            verb=MessageVerb.SCAN,
+            params={MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog']}
+        )
+        f2b_q.put(m)
+        logger.debug(m)
+
+        return
 
     def get_blog_info(self):
-        req = GuiMessage()
-        req.set_cmd('I')
-        req.set_blog(self.db_values[self.clicked_row]['blog'])
-        req.set_station(self.db_values[self.clicked_row]['station'])
-        req.set_frequency(self.db_values[self.clicked_row]['frequency'])
-        req.set_op('latest')
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.REQUEST,
+            verb=MessageVerb.GET_BLOG_INFO,
+            params={MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog']}
+        )
+        f2b_q.put(m)
+        logger.debug(m)
 
-    def reload_blog_list(self):
+        return
+
+    def reload(self):
         blog_table = DbTable('blog')
 
         fields = []
@@ -569,14 +573,20 @@ class GuiBlogList(GuiTable):
 
     # noinspection PyGlobalUndefined
     def cb_row_select(self, row, event):
-        req = GuiMessage()
-        req.set_cmd('S')
-        req.set_blog(self.db_values[row]['blog'])
-        req.set_station(self.db_values[row]['blog'])
-        req.set_frequency(self.db_values[row]['frequency'])
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.CONTROL,
+            verb=MessageVerb.CHG_BLOG,
+            params={
+                MessageParameter.OPERATOR: MessageOperator.EQ,
+                MessageParameter.BLOG: self.db_values[row]['blog'],
+                MessageParameter.FREQUENCY: self.db_values[row]['frequency']
+            }
+        )
+        f2b_q.put(m)
+
+        return
 
     def popup_cb(self, row, event):
         self.clicked_row = row
@@ -617,13 +627,15 @@ class GuiBlogInfo:
         v.config(command=self.blog_info_box.yview)
         self.blog_info_box.pack(fill='both', expand=1, anchor='ne')
 
-    def reload_blog_info_box(self):
+    def reload(self):
         status = Status()
         info_string = ""
 
         blog_table = DbTable('blog')
         db_values = blog_table.select(
-            where=f"blog='{status.selected_blog}' AND frequency={status.radio_frequency} AND info IS NOT NULL",
+            where=f"blog='{status.get_selected_blog_name()}' " +
+                  f"AND frequency={status.get_selected_blog_frequency()} " +
+                  f"AND info IS NOT NULL",
             limit=1,
             hdr_list=['info']
         )
@@ -659,24 +671,23 @@ class GuiPostListBox(GuiTable):
 
     db_values = None  # data returned from the blog table query
     post_list_pop_up = None
-    clicked_row = None  # holds the db_values row number that has been right-clicked
+    clicked_row = 1  # holds the db_values row number that has been right-clicked
 
-    def __init__(self, frame: tk.Frame, f2b_q: Queue):
+    def __init__(self, frame: tk.Frame):
         settings = Settings()
 
         # ToDo: this frame needs horizontal and vertical scroll bars
-        self.f2b_q = f2b_q
 
         super().__init__(
             frame, self.post_list_headers, settings.max_posts, self.cb_row_select, self.cb_hdr_click
         )
         # set up the pop up menu
         self.post_list_pop_up = tk.Menu(frame, tearoff=False)
-        self.post_list_pop_up.add_command(label='Get more posts', command=self.get_more)
-        self.post_list_pop_up.add_command(label='Refresh listing', command=self.refresh_listing)
-        self.post_list_pop_up.add_command(label='Refresh content', command=self.refresh_content)
+        self.post_list_pop_up.add_command(label='List more posts', command=self.list_more)
+        self.post_list_pop_up.add_command(label='Refresh this listing', command=self.refresh_listing)
+        self.post_list_pop_up.add_command(label='Refresh this post', command=self.refresh_content)
 
-    def reload_post_list(self):
+    def reload(self):
         status = Status()
         # settings = Settings()
 
@@ -687,7 +698,7 @@ class GuiPostListBox(GuiTable):
             fields.append(field['db_col'])
 
         self.db_values = post_table.select(
-            where=f"blog='{status.selected_blog}'",
+            where=f"blog='{status.get_selected_blog_name()}'",
             order_by='post_id', desc=True,
             limit=Settings().max_posts,
             hdr_list=fields
@@ -702,57 +713,68 @@ class GuiPostListBox(GuiTable):
         self.post_list_pop_up.tk_popup(event.x_root, event.y_root)
 
     def cb_row_select(self, row, event):
-        status = Status()
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.REQUEST,
+            verb=MessageVerb.FETCH_POST,
+            params={
+                MessageParameter.DESTINATION: self.db_values[row]['blog'],
+                MessageParameter.OPERATOR: MessageOperator.EQ,
+                MessageParameter.POST_ID: self.db_values[row]['post_id']
+            }
+        )
+        f2b_q.put(m)
 
-        req = GuiMessage()
-        req.set_cmd('F')
-        req.set_blog(status.selected_blog)
-        req.set_post_id(self.db_values[row]['post_id'])
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        return
 
-    def get_more(self):
-        status = Status()
+    def list_more(self):
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.REQUEST,
+            verb=MessageVerb.FETCH_LISTING,
+            params={
+                MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog'],
+                'post_id': f"{self.db_values[self.clicked_row]['post_id']}",
+                MessageParameter.OPERATOR: MessageOperator.MORE
+            }
+        )
+        f2b_q.put(m)
 
-        req = GuiMessage()
-        req.set_cmd('E')  # we need get listing data
-        req.set_blog(self.db_values[self.clicked_row]['blog'])
-        req.set_post_id(self.db_values[self.clicked_row]['post_id'])
-        req.set_station(status.selected_station)
-        req.set_frequency(status.radio_frequency)
-        req.set_op('more')
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        return
 
     def refresh_listing(self):
-        status = Status()
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.REQUEST,
+            verb=MessageVerb.GET_LISTING,
+            params={
+                MessageParameter.OPERATOR: MessageOperator.EQ,
+                MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog'],
+                MessageParameter.POST_ID: self.db_values[self.clicked_row]['post_id']
+            }
+        )
+        f2b_q.put(m)
 
-        req = GuiMessage()
-        req.set_cmd('D')  # we need get listing data but not use the cache
-        req.set_blog(self.db_values[self.clicked_row]['blog'])
-        req.set_post_id(self.db_values[self.clicked_row]['post_id'])
-        req.set_station(status.selected_station)
-        req.set_frequency(status.radio_frequency)
-        req.set_op('eq')
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        return
 
     def refresh_content(self):
-        status = Status()
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.REQUEST,
+            verb=MessageVerb.GET_POST,
+            params={
+                MessageParameter.OPERATOR: MessageOperator.EQ,
+                MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog'],
+                MessageParameter.POST_ID: f"{self.db_values[self.clicked_row]['post_id']}"
+            }
+        )
+        f2b_q.put(m)
 
-        req = GuiMessage()
-        req.set_cmd('G')
-        req.set_blog(self.db_values[self.clicked_row]['blog'])
-        req.set_post_id(self.db_values[self.clicked_row]['post_id'])
-        req.set_station(status.selected_station)
-        req.set_frequency(status.radio_frequency)
-        req.set_op('eq')
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        return
 
     def cb_hdr_click(self, col, event):
         pass
@@ -765,9 +787,8 @@ class GuiPostContent:
     post_box = None
     post_cols = ['qso_date', 'post_id', 'post_date', 'title', 'body', 'is_selected']
 
-    def __init__(self, frame: tk.Frame, f2b_q: Queue):
+    def __init__(self, frame: tk.Frame):
         self.gui_fonts = MbFonts(Settings().font_size)
-        self.f2b_q = f2b_q
 
         post_content_hdr = tk.Label(
             frame,
@@ -788,34 +809,40 @@ class GuiPostContent:
         )
         self.post_box.pack(fill='both', expand=1, anchor='ne')
 
-        self.reload_post_content()
+        self.reload()
 
-    def get_post(self, blog: str, frequency: int, post_id: int):
+    def get_post(self, blog: str, post_id: int):
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.REQUEST,
+            verb=MessageVerb.GET_POST,
+            params={
+                MessageParameter.OPERATOR: MessageOperator.EQ,
+                MessageParameter.DESTINATION: blog,
+                MessageParameter.POST_ID: post_id
+            }
+        )
+        f2b_q.put(m)
 
-        req = GuiMessage()
-
-        req.set_blog(blog)
-        req.set_frequency(frequency)
-        req.set_cli_input(f'G {post_id}')
-        req.set_cmd('G')
-        req.set_op('eq')
-        req.set_post_id(post_id)
-        req.set_post_date(0)
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        return
 
     def get_post_cb(self, event):
         status = Status()
-        self.get_post(status.selected_blog, status.radio_frequency, status.selected_post)
+        self.get_post(
+            blog=status.get_selected_blog_name(),
+            post_id=status.get_selected_post(status.get_selected_blog_name())
+        )
 
-    def reload_post_content(self):
+    def reload(self):
         status = Status()
-        post_string = f"{status.selected_post}"
+        post_string = f"{status.get_selected_blog_name()}"
 
         post_table = DbTable('post')
+
         db_values = post_table.select_latest(
-            where=f"blog='{status.selected_blog}' AND post_id={status.selected_post}",
+            where=f"blog='{status.get_selected_blog_name()}' " +
+                  f"AND post_id={status.get_selected_post(status.get_selected_blog_name())}",
             order_by='post_id',
             limit=1,
             hdr_list=self.post_cols
@@ -895,7 +922,7 @@ class GuiProgress:
         self.progress_box.bind('<Enter>', self.focus_in)
         self.progress_box.bind('<Leave>', self.focus_out)
 
-    def reload_progress_box(self):
+    def reload(self):
 
         progress_table = DbTable('progress')
         db_values = progress_table.select(
@@ -911,7 +938,7 @@ class GuiProgress:
 
             q_date = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(r['qso_date']))
 
-            progress_string += f"\n{q_date} {r['blog']} {r['message']}"
+            progress_string += f"\n{q_date} {r['message']}"
 
             self.progress_box.insert(tk.END, progress_string)
             self.progress_box.see(tk.END)
@@ -922,9 +949,6 @@ class GuiProgress:
 
 class GuiMain:
 
-    f2b_q = None
-    b2f_q = None
-
     last_check_for_updates = 0
     header = None
     main = None
@@ -934,9 +958,7 @@ class GuiMain:
 
     stop = False  # used to flag the termination of this thread
 
-    def __init__(self, f2b_q: Queue, b2f_q: Queue):
-        self.f2b_q = f2b_q
-        self.b2f_q = b2f_q
+    def __init__(self):
 
         window_title = "Microblog Client " + __version__
         root.title(window_title)
@@ -979,7 +1001,7 @@ class GuiMain:
 
         frame_hdr = tk.Frame(frame_container, background="black", height=100, pady=10)
         frame_hdr.pack(fill='x', side='top', anchor='n')
-        self.header = GuiHeader(header_frame=frame_hdr, f2b_q=self.f2b_q)  # populate the header
+        self.header = GuiHeader(header_frame=frame_hdr)  # populate the header
 
         frame_main = tk.Frame(frame_container, pady=4)
         frame_main.pack(fill='both', expand=1, side='top', anchor='n', padx=4)
@@ -1002,7 +1024,7 @@ class GuiMain:
         frame_blog_list = tk.Frame(frame_left, bg='white', padx=4, pady=4)
         frame_blog_list.pack(side='top', fill='both', expand=1)
 
-        self.blog_list = GuiBlogList(frame_blog_list, f2b_q)
+        self.blog_list = GuiBlogList(frame_blog_list)
 
         # Blog Information area
         frame_blog_info = tk.Frame(frame_left, bg='white', padx=4, pady=4)
@@ -1014,23 +1036,20 @@ class GuiMain:
         frame_post_list = tk.Frame(frame_mid, bg='white', padx=4, pady=4)
         frame_post_list.pack(side='top', fill='both', expand=1)
 
-        self.post_list = GuiPostListBox(frame_post_list, f2b_q)
+        self.post_list = GuiPostListBox(frame_post_list)
 
         # Latest Posts area
         frame_post_content = tk.Frame(frame_right, bg='white')
         frame_post_content.pack(side='top', fill='both', expand=1)
 
-        self.post_content = GuiPostContent(frame_post_content, f2b_q)
+        self.post_content = GuiPostContent(frame_post_content)
 
         # Latest Progress area
         frame_progress = tk.Frame(frame_right, bg='white')
         frame_progress.pack(side='bottom', fill='both', expand=1)
 
         self.progress = GuiProgress(frame_progress)
-        self.reload_blog_list()
-        self.reload_post_list_box()
-        self.reload_post_content()
-        self.reload_progress_box()
+        self.reload_all_ui_areas()
 
         root.after(200, self.process_updates)  # type: ignore[arg-type]
 
@@ -1039,71 +1058,84 @@ class GuiMain:
 
         root.mainloop()
 
-    def status_check(self):
-        # we have had a message from the backend -> check for updated sections
-        status = Status()
-
-        if status.hdr_updated > status.last_checked:
-            self.header.reload_header()
-
-        if status.blog_updated > status.last_checked:
-            self.reload_blog_list()
-            logger.debug("reload_blog_list()")
-
-        if status.post_list_updated > status.last_checked:
-            self.reload_post_list_box()
-
-        if status.post_updated > status.last_checked:
-            self.reload_post_content()
-
-        if status.progress_updated > status.last_checked:
-            self.reload_progress_box()
-
-        status.update_last_checked()
-
     def client_shutdown(self):
-        be_sig = GuiMessage()
-        be_sig.set_cmd('X')
-        be_sig.set_cli_input('MB Client Shutdown')
-        be_sig.set_op('exit')
-        self.f2b_q.put(be_sig)
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.CONTROL,
+            verb=MessageVerb.SHUTDOWN
+        )
+        f2b_q.put(m)
 
+        # ToDo: I don't think we should do the following here
         root.destroy()
-
         self.stop = True
 
-    def set_frequency(self, freq):
-        req = GuiMessage()
-        req.set_cmd('S')
-        req.set_frequency(freq)
-        req.set_ts()
-        self.f2b_q.put(req)
-        logger.debug(req)
+        return
 
-        pass
+    @staticmethod
+    def set_frequency(frequency):
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.BACKEND,
+            typ=MessageType.CONTROL,
+            verb=MessageVerb.CHG_RADIO_FREQUENCY,
+            params={
+                MessageParameter.OPERATOR: MessageOperator.EQ,
+                MessageParameter.FREQUENCY: frequency
+            }
+        )
+        f2b_q.put(m)
+
+        return
+
+    def verb_reload_ui(self, m: UnifiedMessage) -> None:
+        
+        if m.get_param(MessageParameter.UI_AREA) == UiArea.BLOG_LIST:
+            self.blog_list.reload()
+
+        elif m.get_param(MessageParameter.UI_AREA) == UiArea.HEADER:
+            self.header.reload()
+
+        elif m.get_param(MessageParameter.UI_AREA) == UiArea.BLOG_INFO:
+            self.blog_info.reload()
+        
+        elif m.get_param(MessageParameter.UI_AREA) == UiArea.POST_LIST:
+            self.post_list.reload()
+        
+        elif m.get_param(MessageParameter.UI_AREA) == UiArea.POST_CONTENT:
+            self.post_content.reload()
+        
+        elif m.get_param(MessageParameter.UI_AREA) == UiArea.PROGRESS:
+            self.progress.reload()
+        
+        return
 
     def process_updates(self):
 
         try:
-            msg: GuiMessage = self.b2f_q.get(block=False)  # if no msg waiting, this will throw an exception
+            m: UnifiedMessage = b2f_q.get(block=False)  # if no msg waiting, this will throw an exception
 
-            if msg.get_op() == 'flash_rx_start':
-                self.header.flash_rx_start()
+            if m.get_target() == MessageTarget.FRONTEND:
+                if m.get_typ() == MessageType.SIGNAL:
 
-            elif msg.get_op() == 'flash_rx_stop':
-                self.header.flash_rx_stop()
+                    if m.get_verb() == MessageVerb.FLASH_RX_START:
+                        self.header.flash_rx_start()
 
-            elif msg.get_op() == 'ptt_on':
-                self.header.flash_tx_start()
+                    elif m.get_verb() == MessageVerb.FLASH_RX_STOP:
+                        self.header.flash_rx_stop()
 
-            elif msg.get_op() == 'ptt_off':
-                self.header.flash_tx_stop()
+                    elif m.get_verb() == MessageVerb.FLASH_TX_START:
+                        self.header.flash_tx_start()
 
-            else:
-                logger.debug(f"{msg.cmd} {msg.param}")
-                self.status_check()
+                    elif m.get_verb() == MessageVerb.FLASH_TX_STOP:
+                        self.header.flash_tx_stop()
 
-            self.b2f_q.task_done()
+                    elif m.get_verb() == MessageVerb.RELOAD_UI:
+                        self.verb_reload_ui(m)
+
+            b2f_q.task_done()
+
         except Empty:
             pass
 
@@ -1112,15 +1144,9 @@ class GuiMain:
 
         root.after(200, self.process_updates)  # type: ignore[arg-type]
 
-    def reload_blog_list(self):
-        self.blog_list.reload_blog_list()
-        self.blog_info.reload_blog_info_box()
-
-    def reload_post_list_box(self):
-        self.post_list.reload_post_list()
-
-    def reload_post_content(self):
-        self.post_content.reload_post_content()
-
-    def reload_progress_box(self):
-        self.progress.reload_progress_box()
+    def reload_all_ui_areas(self):
+        self.blog_list.reload()
+        self.blog_info.reload()
+        self.post_list.reload()
+        self.post_content.reload()
+        self.progress.reload()

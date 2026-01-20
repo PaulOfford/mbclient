@@ -5,8 +5,10 @@ import logging
 
 from status import Status
 from settings import Settings
-from message_q import CommsMessage, GuiMessage
+from message_q import f2b_q, b2f_q, b2c_q, c2b_q, UiArea, UnifiedMessage,\
+    MessageTarget, MessageType, MessageVerb, MessageOperator, MessageParameter
 from db_table import DbTable
+from general_functions import add_progress_m, reload_ui_areas
 
 logger = logging.getLogger(__name__)
 
@@ -34,50 +36,12 @@ def compress_date(post_epoch: int) -> str:
         return ''
 
 
-def add_progress(progress_msg: str):
-    status = Status()
-    progress_table = DbTable('progress')
+class BlogInstance:
 
-    progress_table.insert(
-        row={
-            'qso_date': time.time(),
-            'blog': status.selected_blog,
-            'station': status.selected_station,
-            'frequency': status.radio_frequency,
-            'offset': status.offset,
-            'message': progress_msg
-        }
-    )
-    status.set_progress_updated()
-
-
-class Blog:
-
-    name = ''
-
-    def __init__(self, blog_name):
-        self.name = blog_name
-
-
-class BlogInstance(Blog):
-
-    station = None
-
-    def __init__(self, blog_name, blog_station):
-        super().__init__(
-            blog_name
-        )
-        self.station = blog_station
-
-
-class BlogInstanceFQ(BlogInstance):
-
-    freq = None
-    snr = None
-    latest_post_id = None
-    latest_post_date = None
-    last_seen = None
-    is_selected = None
+    latest_post_id: int = None
+    latest_post_date: int = None
+    last_seen: int = None
+    selected: int = None
 
     blog_field = [
         'blog',
@@ -90,95 +54,327 @@ class BlogInstanceFQ(BlogInstance):
         'is_selected'
     ]
 
-    def __init__(self, blog_name: str, blog_station: str, blog_freq: int):
-        super().__init__(blog_name, blog_station)
-        self.freq = blog_freq
+    def __init__(self, name: str, freq: int):
 
         blog_table = DbTable('blog')
         results = blog_table.select(
-            where=f"blog='{self.name}' AND station='{self.station}' AND frequency={self.freq}",
+            where=f"blog='{name}' AND frequency={freq}",
             limit=1, hdr_list=self.blog_field
         )
         if len(results) > 0:
-            self.snr = results[0]['snr']
-            self.latest_post_id = results[0]['latest_post_id']
-            self.latest_post_date = results[0]['latest_post_date']
-            self.last_seen = results[0]['last_seen_date']
-            self.is_selected = results[0]['is_selected']
+            result = results[0]
+            self.snr = result['snr']
+            self.latest_post_id = result['latest_post_id']
+            self.latest_post_date = result['latest_post_date']
+            self.last_seen = result['last_seen_date']
+            self.selected = result['is_selected']
+
+        return
 
     def get_latest_post_details(self):
         return self.latest_post_id, self.latest_post_date
 
-    def get_last_seen(self):
+    def get_last_seen(self) -> int:
         return self.last_seen
+
+    def is_selected(self) -> bool:
+        if self.selected > 0:
+            return True
+        else:
+            return False
 
 
 class ServerMsgProcessors:
 
+    listing_extractor = r"^([+-])([EL])([\d,]*)~\n*([\S\s]+)"
+    post_extractor = r"^([+-])(G)(\d+)~\n*([\S\s]+)"
+    weather_extractor = r"^([+-])(WX)~\n*([\S\s]+)"
+    info_extractor = r"^(INFO) +([\S\s]+)"
+
+    announce_extractor = r"^(\d+) +(\d{6})"
+    announce_extractor_old = r"^([A-Z,0-9/]+) +(\d+) +(\d{4}-\d{2}-\d{2})"
+
     qso_fields = ['qso_date', 'blog', 'station', 'directed_to', 'frequency',
                   'offset', 'cmd', 'post_id', 'post_date', 'title', 'body']
 
-    mb_status = None
-    qso_date = 0
-    blog = ''
-    station = ''
-    directed_to = ''
-    frequency = 0
-    offset = 0
-    snr = 0
-    cmd = ''
-    post_id = 0
-    post_date = 0
-    title = ''
-    body = ''
-
-    rsp = ''
-
     # we use __init__ to preload some metadata we will need to create a qso entry
-    def __init__(self, js8_msg: CommsMessage, b2f_q: queue.Queue):
-        self.b2f_q = b2f_q
-        self.mb_status = Status()
-        self.qso_date = js8_msg.get_ts()
-        self.station = js8_msg.get_source()
-        self.directed_to = js8_msg.get_destination()
-        self.frequency = js8_msg.get_frequency()
-        self.offset = js8_msg.get_offset()
-        self.snr = js8_msg.get_snr()
+    def __init__(self):
+        pass
 
-    def signal_reload(self, ui_area):
+    def process_rx_message(self, m: UnifiedMessage):
+
+        if m.get_typ() == MessageType.MB_MSG:
+            if m.get_verb() == MessageVerb.INFORM:
+                self.process_inform(m)
+            elif m.get_verb() == MessageVerb.ANNOUNCE:
+                self.process_announcement(m)
+
+        elif m.get_typ() == MessageType.SIGNAL:
+            if m.get_verb() == MessageVerb.NOTE_CALLSIGN:
+                self.process_note_callsign(m)
+            elif m.get_verb() == MessageVerb.NOTE_FREQ:
+                self.process_note_freq(m)
+            elif m.get_verb() == MessageVerb.NOTE_OFFSET:
+                self.process_note_offset(m)
+
+    def process_inform(self, m: UnifiedMessage):
+
         status = Status()
-        if ui_area == 'header':
-            status.set_hdr_updated()
-        elif ui_area == 'blog':
-            status.set_blog_updated()
-        elif ui_area == 'post_list':
-            status.set_post_list_updated()
-        elif ui_area == 'post_content':
-            status.set_post_updated()
-        elif ui_area == 'progress':
-            status.set_progress_updated()
 
-        notify_msg = GuiMessage()
+        inform_patterns = [self.listing_extractor, self.post_extractor, self.weather_extractor, self.info_extractor]
 
-        notify_msg.set_ts()
-        notify_msg.set_req_ts(0)
-        notify_msg.set_cmd('Notify')
-        notify_msg.set_blog('')
-        notify_msg.set_station('')
-        notify_msg.set_frequency(0)
-        notify_msg.set_post_id(0)
-        notify_msg.set_post_date(0)
-        notify_msg.set_op('reload')
-        notify_msg.set_param(ui_area)
-        notify_msg.set_rc(0)
-        self.b2f_q.put(notify_msg)
+        for reg_ex in inform_patterns:
+            # try to match the request
+            result = re.findall(reg_ex, m.get_param(MessageParameter.MB_MSG))
+
+            if len(result) == 0:
+                continue  # We haven't matched the message from the mb server.
+
+            else:
+                # the result is a list of tuples
+                result = list(result[0])  # pull the 1st result out of the list and convert to a list
+
+                # process if the result was positive
+                if result[0] == '+':
+                    mb_cmd = result[1]  # The cmd we sent to the microblog server to get this information
+
+                    if mb_cmd == 'G':
+                        self.process_post(
+                            destination=m.get_param(MessageParameter.DESTINATION),
+                            blog=m.get_param(MessageParameter.SOURCE),
+                            post_id=result[2],
+                            body=result[3]
+                        )
+                        self.signal_reload(UiArea.POST_CONTENT)
+
+                    elif mb_cmd == 'E' or mb_cmd == 'L':
+                        destination, cmd, blog, post_range, lines = self.parse_listing(m)
+                        self.process_listing(
+                            destination=destination,
+                            cmd=cmd,
+                            blog=blog,
+                            post_range=post_range,
+                            lines=lines
+                        )
+                        self.signal_reload(UiArea.POST_LIST)
+
+                elif result[0] == 'INFO':
+                    self.process_info(
+                        blog=m.get_param(MessageParameter.SOURCE),
+                        frequency=status.radio_frequency,
+                        blog_info=result[1]
+                    )
+                self.signal_reload(UiArea.BLOG_INFO)
+
+                break
+
         return
 
-    def update_blog_list(self, blog: str, station: str, freq: int, post_id: int, post_date: float = 0):
+    def process_announcement(self, m: UnifiedMessage) -> None:
+        # we need to support two formats of announcement
+        # old:  blog_name post_id date_time
+        # new:  post_id date_time
+
+        announcement_patterns = [self.announce_extractor, self.announce_extractor_old]
+
+        for entry in announcement_patterns:
+            # try to match the request
+            result = re.findall(entry, m.get_param(MessageParameter.MB_MSG))
+
+            if len(result) > 0:
+                is_valid = False
+                post_id = 0
+                post_date = 0
+
+                result = list(result[0])  # Dereference to match from the first group
+
+                if len(result) == 2:
+                    # We have a new style announcement
+                    post_id = int(result[0])
+                    post_date = time.mktime(time.strptime(result[1] + " GMT", "%y%m%d %Z"))
+                    is_valid = True
+
+                elif len(result) == 3:
+                    # We have an old style announcement
+                    post_id = int(result[1])
+                    post_date = time.mktime(time.strptime(result[2] + " GMT", "%Y-%m-%d %Z"))
+                    is_valid = True
+
+                if is_valid:
+                    # We have a valid announcement
+                    self.update_blog_list(
+                        blog=m.get_param(MessageParameter.SOURCE),
+                        post_id=post_id,
+                        post_date=post_date
+                    )
+                    self.signal_reload(UiArea.BLOG_LIST)
+
+        return
+
+    def process_listing(self, destination: str, cmd: str, blog: str, post_range: str, lines: []):
+        status = Status()
+        post_table = DbTable('post')
+        qso_date = time.time()
+
+        for line in lines:
+
+            # if we already have an entry for this post we only want to replace it
+            # if this listing was directed_to this station
+            db_values = post_table.select(
+                where=f"blog='{blog}' AND post_id={line['post_id']}",
+                hdr_list=['body', 'is_selected']
+            )
+
+            if len(db_values) == 0:
+                # Delete any existing entry and create a new one
+                post_table.delete(
+                    where=f"blog='{blog}' AND post_id={line['post_id']}"
+                )
+
+                row = {
+                    'qso_date': qso_date,
+                    'blog': blog, 'station': blog,
+                    'directed_to': destination,
+                    'frequency': status.radio_frequency, 'offset': status.offset,
+                    'cmd': cmd + post_range,
+                    'post_id': line['post_id'], 'post_date': line['post_date'], 'title': line['title'], 'body': '',
+                    'is_selected': 0
+                }
+                post_table.insert(row)
+
+            elif destination == status.callsign:
+                # Delete any existing entry and create a new one
+                post_table.delete(
+                    where=f"blog='{blog}' AND post_id={line['post_id']}"
+                )
+
+                row = {
+                    'qso_date': qso_date, 'blog': blog, 'station': blog,
+                    'directed_to': destination,
+                    'frequency': status.radio_frequency, 'offset': status.offset,
+                    'cmd': cmd,
+                    'post_id': line['post_id'], 'post_date': line['post_date'], 'title': line['title'],
+                    'body': db_values[0]['body'], 'is_selected': db_values[0]['is_selected']
+                }
+                post_table.insert(row)
+
+            self.update_blog_list(blog, line['post_id'], line['post_date'])
+
+        self.signal_reload(UiArea.POST_LIST)
+        self.signal_reload(UiArea.POST_CONTENT)
+
+    @staticmethod
+    def process_post(destination: str, blog: str, post_id: int, body: str):
+
+        status = Status()
+
+        post_table = DbTable('post')
+
+        # do we have the title for this blog
+
+        db_values = post_table.select(
+            where=f"blog='{blog}' AND post_id={post_id}",
+            limit=1,
+            hdr_list=['post_id']
+        )
+
+        if len(db_values) > 0:
+            post_table.update(
+                value_dictionary={'body': body},
+                where=f"blog='{blog}' AND post_id={post_id}"
+            )
+            # signal post table update
+            reload_ui_areas(UiArea.POST_CONTENT)
+
+        else:
+            post_table.insert(
+                row={
+                    'qso_date': 0,
+                    'blog': blog,
+                    'station': blog,
+                    'directed_to': destination,
+                    'frequency': status.radio_frequency,
+                    'offset': status.offset,
+                    'cmd': 'G',
+                    'post_id': post_id,
+                    'post_date': 0.0,
+                    'title': f"** {body[:20]}",
+                    'body': body,
+                    'is_selected': 0
+                   },
+            )
+            # signal post table update
+            reload_ui_areas(UiArea.POST_LIST)
+
+    def process_weather(self, m: UnifiedMessage):
+        # ToDo:  Maybe we should add this to the Blog Info window since it relates to the blog server location
+        pass
+
+    @staticmethod
+    def process_info(blog: str, frequency: int, blog_info: str):
+        # Push the data into the database
+        blog_table = DbTable('blog')
+
+        blog_table.update(
+            value_dictionary={'info': blog_info},
+            where=f"blog='{blog}' AND frequency={frequency}"
+        )
+        # signal post table update
+        reload_ui_areas(UiArea.BLOG_INFO)
+
+    def parse_listing(self, m: UnifiedMessage) -> tuple[str, str, str, str, list[dict]]:
+
+        result = re.findall(self.listing_extractor, m.get_param(MessageParameter.MB_MSG))
+        result = list(result[0])  # pull the 1st result out of the list and convert to a list
+
+        cmd: str = result[1]
+        post_range: str = result[2]
+        body: str = result[3]
+
+        entries: list[dict] = []  # Will be used to hold a list of dictionaries
+        # [{'post_id': 123, 'post_date': 1768637136, 'title': 'Fred goes to town' }, ...]
+
+        lines = body.split('\n')  # this is the list output
+        for line in lines:
+
+            if line == 'NO POSTS FOUND':
+                entries.append({'post_id': -1, 'post_date': 0, 'title': 'NO POSTS FOUND'})
+                break
+
+            if cmd == 'E':
+                details = re.findall(r"(\d+) - (\d{4}-\d{2}-\d{2}) - ([\S\s]+)", line)
+
+                if len(details) > 0:
+                    post_id = int(details[0][0])
+                    post_date = time.mktime(time.strptime(details[0][1], "%Y-%m-%d"))
+                    title = details[0][2]
+                    entries.append({'post_id': post_id, 'post_date': post_date, 'title': title})
+                else:
+                    logger.info(f"Received extended listing is too corrupt to interpret: {line}")
+                    continue
+
+            else:
+                details = re.findall(r"(\d+) - ([\S\s]+)", line)
+
+                if len(details[0]) > 0:
+                    post_id = int(details[0][0])
+                    post_date = 0
+                    title = details[0][1]
+                    entries.append({'post_id': post_id, 'post_date': post_date, 'title': title})
+                else:
+                    logger.info(f"Received listing is too corrupt to interpret: {line}")
+                    continue
+
+        # process_listing needs destination: str, cmd: str, blog: str, post_range: str, lines: []
+        return m.get_param(MessageParameter.DESTINATION), cmd, m.get_param(MessageParameter.SOURCE), post_range, entries
+
+    def update_blog_list(self, blog: str, post_id: int, post_date: int) -> None:
+        status = Status()
+
         # do we have a blog entry for this blog at this station
         blog_table = DbTable('blog')
         results = blog_table.select(
-            where=f"blog='{blog}' AND station='{station}' AND frequency={freq}",
+            where=f"blog='{blog}' AND frequency={status.radio_frequency}",
             limit=1, hdr_list=['latest_post_id', 'latest_post_date']
         )
         if len(results) > 0:
@@ -197,260 +393,43 @@ class ServerMsgProcessors:
                         'latest_post_date': post_date,
                         'last_seen_date': time.time()
                     },
-                    where=f"blog='{blog}' AND station='{station}' AND frequency={freq}"
+                    where=f"blog='{blog}' AND frequency={status.radio_frequency}"
                 )
             else:
                 blog_table.update(
                     value_dictionary={
                         'last_seen_date': time.time()
                     },
-                    where=f"blog='{blog}' AND station='{station}' AND frequency={freq}"
+                    where=f"blog='{blog}' AND frequency={status.radio_frequency}"
                 )
         else:
             # no existing blog entry so create one
             blog_table.insert(
-                row={'blog': blog, 'station': station, 'frequency': freq,
-                     'snr': self.snr, 'latest_post_id': post_id,
+                row={'blog': blog, 'station': blog, 'frequency': status.radio_frequency,
+                     'snr': 0, 'latest_post_id': post_id,
                      'latest_post_date': post_date, 'last_seen_date': time.time(),
                      'is_selected': 0, 'info': ''}
             )
-        self.signal_reload('blog')
+        self.signal_reload(UiArea.BLOG_LIST)
 
-    def process_announcement(self, req: list):
-        # we need to support two formats of announcement
-        # old:  callsign callsign blog_name post_id date_time
-        # new:  callsign callsign post_id date_time
-
+    def process_note_callsign(self, m: UnifiedMessage):
         status = Status()
+        status.set_callsign(m.get_param(MessageParameter.CALLSIGN))
+        self.signal_reload(UiArea.HEADER)
 
-        station = req[0]
-
-        # if req[2] is an integer it must be the new style announcement
-        try:
-            announcement_post_id = int(req[2])
-            blog = station
-            announcement_post_date = time.mktime(
-                time.strptime(
-                    "20" + req[3] + "-" + req[4] + "-" + req[5] + " GMT", "%Y-%m-%d %Z"
-                )
-            )
-
-        except ValueError:
-            # must be an old style announcement
-            blog = req[2]
-            announcement_post_id = int(req[3])
-            announcement_post_date = time.mktime(time.strptime(req[4] + " GMT", "%Y-%m-%d %Z"))
-
-        self.update_blog_list(blog, station, status.radio_frequency, announcement_post_id, announcement_post_date)
-
-    def process_listing(self, req: list, is_extended=False):
+    def process_note_freq(self, m: UnifiedMessage):
         status = Status()
-        # the req list has source station [0], destination station [1],
-        # + or - for good or bad response [2], the original command [3],
-        # a post_id or post_date or list of dates [4], and list entries separated by \n character [5]
+        status.set_radio_frequency(m.get_param(MessageParameter.FREQUENCY))
+        self.signal_reload(UiArea.HEADER)
 
-        post_table = DbTable('post')  # we'll need to put the listing info in the post table
-
-        directed_to = req[1]
-
-        # push the data into the database
-        rsp_lines = str(req[5]).split('\n')  # this is the list output
-        for line in rsp_lines:
-            if line == 'NO POSTS FOUND':
-                self.title = line
-            else:
-                if is_extended:
-                    details = re.findall(r"(\d+) - (\d{4}-\d{2}-\d{2}) - ([\S\s]+)", line)
-
-                    if len(details) > 0:
-                        self.post_id = int(details[0][0])
-                        self.post_date = time.mktime(time.strptime(details[0][1], "%Y-%m-%d"))
-                        self.title = details[0][2]
-                    else:
-                        logger.info(f"Received extended listing is too corrupt to interpret: {line}")
-                        continue
-
-                else:
-                    details = re.findall(r"(\d+) - ([\S\s]+)", line)
-
-                    if len(details[0]) > 0:
-                        self.post_id = int(details[0][0])
-                        self.title = details[0][1]
-                    else:
-                        logger.info(f"Received listing is too corrupt to interpret: {line}")
-                        continue
-
-            # if we already have an entry for this post we only want to replace it
-            # if this listing was directed_to this station
-
-            db_values = post_table.select(
-                where=f"blog='{self.blog}' AND post_id={self.post_id}",
-                hdr_list=['body', 'is_selected']
-            )
-
-            if len(db_values) == 0:
-                # Delete any existing entry and create a new one
-                post_table.delete(
-                    where=f"blog='{self.blog}' AND post_id={self.post_id}"
-                )
-
-                row = {
-                    'qso_date': self.qso_date, 'blog': self.blog, 'station': self.station,
-                    'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset,
-                    'cmd': self.cmd,
-                    'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title, 'body': '',
-                    'is_selected': 0
-                }
-                post_table.insert(row)
-
-            elif directed_to == status.callsign:
-                # Delete any existing entry and create a new one
-                post_table.delete(
-                    where=f"blog='{self.blog}' AND post_id={self.post_id}"
-                )
-
-                row = {
-                    'qso_date': self.qso_date, 'blog': self.blog, 'station': self.station,
-                    'directed_to': self.directed_to, 'frequency': self.frequency, 'offset': self.offset,
-                    'cmd': self.cmd,
-                    'post_id': self.post_id, 'post_date': self.post_date, 'title': self.title,
-                    'body': db_values[0]['body'], 'is_selected': db_values[0]['is_selected']
-                }
-                post_table.insert(row)
-
-            self.signal_reload('post_list')
-            self.signal_reload('post_content')
-            self.update_blog_list(self.blog, self.station, status.radio_frequency, self.post_id, self.post_date)
-
-    def process_extended(self, req: list):
-        self.process_listing(req, True)
-
-    def process_post(self, msg_fields: list):
+    def process_note_offset(self, m: UnifiedMessage):
         status = Status()
+        status.set_offset(m.get_param(MessageParameter.OFFSET))
+        self.signal_reload(UiArea.HEADER)
 
-        # push the data into the database
-        post_table = DbTable('post')
-
-        # do we have the title for this blog
-        self.post_id = int(msg_fields[4])
-        db_values = post_table.select(
-            where=f"blog='{self.blog}' AND post_id={self.post_id}",
-            limit=1,
-            hdr_list=['post_id']
-        )
-
-        if len(db_values) > 0:
-            post_table.update(
-                value_dictionary={'body': msg_fields[5]},
-                where=f"blog='{self.blog}' AND post_id={self.post_id}"
-            )
-            # signal post table update
-            status.set_post_updated()
-
-        else:
-            post_table.insert(
-                row={
-                    'qso_date': self.qso_date,
-                    'blog': status.selected_blog,
-                    'station': status.selected_station,
-                    'directed_to': '',
-                    'frequency': status.radio_frequency,
-                    'offset': status.offset,
-                    'cmd': 'G',
-                    'post_id': self.post_id,
-                    'post_date': 0.0,
-                    'title': f"** {msg_fields[5][:20]}",
-                    'body': msg_fields[5],
-                    'is_selected': 0
-                   },
-            )
-            # signal post table update
-            status.set_post_list_updated()
-
-    def process_weather(self, req: list):
-        req.insert(4, 0)  # insert a dummy post_id into the request
-        self.process_post(req)
-        pass
-
-    def process_info(self, msg_fields: list):
-        status = Status()
-        blog = msg_fields[0]
-        info = msg_fields[3]
-
-        # push the data into the database
-        blog_table = DbTable('blog')
-
-        # do we have the title for this blog
-        db_values = blog_table.select(
-            where=f"blog='{blog}' AND frequency={status.radio_frequency}",
-            limit=1,
-            hdr_list=['info']
-        )
-
-        if len(db_values) > 0:
-            blog_table.update(
-                value_dictionary={'info': info},
-                where=f"blog='{self.blog}' AND frequency={status.radio_frequency}"
-            )
-            # signal post table update
-            status.set_blog_updated()
-
-    def parse_rx_message(self, mb_rsp_string: str):
-        rsp_patterns = [
-            {'exp': r"^([A-Z,0-9/]+): +(@MB) +(\d+) +(\d{2})(\d{2})(\d{2})",
-             'proc': 'process_announcement'},  # new style announcement
-            {'exp': r"^([A-Z,0-9/]+): +(@MB) +([A-Z,0-9/]+) +(\d+) +(\d{4}-\d{2}-\d{2})",
-             'proc': 'process_announcement'},  # old style announcement
-            {'exp': r"^(\S+): +(\S+) +([+-])(L)([\d,]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
-            {'exp': r"^(\S+): +(\S+) +([+-])(L)([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
-            {'exp': r"^(\S+): +(\S+) +([+-])([LM][EG])([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_listing'},
-            {'exp': r"^(\S+): +(\S+) +([+-])(E)([\d,]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
-            {'exp': r"^(\S+): +(\S+) +([+-])(E)([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
-            {'exp': r"^(\S+): +(\S+) +([+-])([EF][EG])([\dABC]*)~\n*([\S\s]+)", 'proc': 'process_extended'},
-            {'exp': r"^(\S+): +(\S+) +([+-])(G)(\d+)~\n*([\S\s]+)", 'proc': 'process_post'},
-            {'exp': r"^(\S+): +(\S+) +([+-])(WX)~\n*([\S\s]+)", 'proc': 'process_weather'},
-            {'exp': r"^(\S+): +(\S+) +(INFO) +([\S\s]+)", 'proc': 'process_info'},
-        ]
-        for entry in rsp_patterns:
-            # try to match the request
-            result = re.findall(entry['exp'], mb_rsp_string)
-            if len(result) == 0:
-                continue
-            else:
-                # the result is a list of tuples
-                result = list(result[0])  # pull the 1st result out of the list and convert to a list
-                self.station = result[0]
-                # ToDo: the following line must be changed once we implement the blog namespace
-                self.blog = result[0]
-                # process if the result was positive
-                if result[2] == '+':
-                    self.cmd = f"{result[2]}{result[3]}{result[4]}~"
-                    logger.info(self.cmd)
-                    add_progress(self.cmd)
-                    getattr(ServerMsgProcessors, entry['proc'])(self, result)
-
-                elif result[1] == '@MB':
-                    getattr(ServerMsgProcessors, entry['proc'])(self, result)
-                    try:
-                        progress_msg = f"{result[1]} {result[2]} {result[3]}{result[4]}{result[5]}"
-                    except ValueError:
-                        progress_msg = f"{result[1]} {result[2]} {result[3]}"
-                    logger.info(progress_msg)
-                    add_progress(progress_msg)
-
-                elif result[2] == 'INFO':
-                    getattr(ServerMsgProcessors, entry['proc'])(self, result)
-                    progress_msg = f"{result[1]} {result[2]} {result[3]}"
-                    logger.info(progress_msg)
-                    add_progress(progress_msg)
-
-                else:
-                    self.mb_status.reload_status()
-                    if result[1] == self.mb_status.callsign:  # we only need to show an error if this rsp was for us
-                        error_msg = f"{result[2]}{result[3]}{result[4]}~"
-                        logger.info(error_msg)
-                        add_progress(error_msg)
-                break
+    @staticmethod
+    def signal_reload(ui_area):
+        reload_ui_areas(ui_area)
 
 
 class BeProcessor:
@@ -460,79 +439,15 @@ class BeProcessor:
         'offset', 'cmd', 'post_id', 'post_date', 'title', 'body'
     ]
 
-    f2b_q = None
-    b2f_q = None
-    comms_tx_q = None
-    comms_rx_q = None
+    def __init__(self, ):
+        pass
 
-    def __init__(self, f2b_q: queue.Queue, b2f_q: queue.Queue, comms_tx_q: queue.Queue, comms_rx_q: queue.Queue):
-        self.f2b_q = f2b_q
-        self.b2f_q = b2f_q
-        self.comms_tx_q = comms_tx_q
-        self.comms_rx_q = comms_rx_q
+    # ---- functions related to fetch and get listing ----
 
-    def signal_reload(self, ui_area):
-        status = Status()
-        if ui_area == 'header':
-            status.set_hdr_updated()
-        elif ui_area == 'blog':
-            status.set_blog_updated()
-        elif ui_area == 'post_list':
-            status.set_post_list_updated()
-        elif ui_area == 'post':
-            status.set_post_updated()
-
-        notify_msg = GuiMessage()
-
-        notify_msg.set_ts()
-        notify_msg.set_req_ts(0)
-        notify_msg.set_cmd('Notify')
-        notify_msg.set_blog('')
-        notify_msg.set_station('')
-        notify_msg.set_frequency(0)
-        notify_msg.set_post_id(0)
-        notify_msg.set_post_date(0)
-        notify_msg.set_op('reload')
-        notify_msg.set_param(ui_area)
-        notify_msg.set_rc(0)
-        self.b2f_q.put(notify_msg)
-        return
-
-    # when we call this function, the post_id_list must contain post_ids in numerical order
-    def get_post_from_server(self, req: GuiMessage):
-        status = Status()  # we'll need status data a bit later
-
-        # form a request to get the posts in the svr_request_list
-        payload = f"G{req.get_post_id()}~"
-        logger.debug('comms: send: ' + str(payload))
-        mblog_api_req = CommsMessage(
-            ts=time.time(),
-            direction='tx',
-            source=status.callsign,
-            destination=req.get_blog(),
-            snr=0,
-            blog=req.get_blog(),
-            typ='mb_req',
-            target='mb_service',
-            obj='service',
-            payload=str(payload),
-        )
-        self.comms_tx_q.put(mblog_api_req)
-
-        return
-
-    def get_list_via_cache(self, req: GuiMessage, post_id_list: list) -> None:
-        blog = req.get_blog()
-        station = req.get_station()
-
-        svr_request_list = []  # this is a list of post_ids we will need to request from the server
-
-        range_start = post_id_list[0]
-        range_end = post_id_list[len(post_id_list) - 1]
-
+    def listing_is_in_cache(self, blog, post_id) -> bool:
         # form a sql WHERE clause based on command
         where_clause = f"blog='{blog}'"
-        where_clause += f" AND post_id>={range_start} and post_id<={range_end}"
+        where_clause += f" AND post_id={post_id}"
         where_clause += " AND title<>'' and post_date>0"
 
         post_table = DbTable('post')
@@ -543,110 +458,87 @@ class BeProcessor:
             hdr_list=self.post_fields
         )
 
-        found_post_id = False
-        for requested_post_id in post_id_list:
-            for row in db_values:
-                if requested_post_id == int(row['post_id']):
-                    found_post_id = True
-                    break
-
-            if not found_post_id:
-                svr_request_list.append(requested_post_id)
-
-            found_post_id = False
-
-        if len(svr_request_list) > 0:
-            # we need to send a request to the server
-            posts_needed = ''
-            for post in svr_request_list:
-                if len(posts_needed) > 0:
-                    posts_needed += ','
-                posts_needed += str(post)
-
-            # form a request to get the posts in the svr_request_list
-            status = Status()
-
-            payload = f"E{posts_needed}~"
-            logger.debug('comms: send: ' + str(payload))
-            mblog_api_req = CommsMessage(
-                ts=time.time(),
-                direction='tx',
-                source=status.callsign,
-                destination=station,
-                snr=0,
-                blog=blog,
-                typ='mb_req',
-                target='mb_service',
-                obj='service',
-                payload=str(payload),
-            )
-            self.comms_tx_q.put(mblog_api_req)
-
-        return
-
-    def process_list_cmd(self, req: GuiMessage):
-        settings = Settings()
-
-        post_ids = []
-
-        if req.get_op() == 'eq':
-            post_ids.append(req.get_post_id())
-
-        elif req.get_op() == 'gt':
-            for i in range(settings.max_listing):
-                post_ids.append(req.get_post_id() + 1 + i)
-
-        elif req.get_op() == 'recent':
-            # get the latest post id for this blog
-            blog_obj = BlogInstanceFQ(req.get_blog(), req.get_blog(), req.get_frequency())
-            latest_post_id, latest_post_date = blog_obj.get_latest_post_details()
-
-            starting_post_id = max(latest_post_id - settings.max_listing + 1, 1)
-
-            for i in range(starting_post_id, latest_post_id + 1):
-                post_ids.append(i)
-
-        elif req.get_op() == 'more':
-            starting_post_id = max(req.get_post_id() - settings.max_listing, 1)
-
-            for i in range(starting_post_id, req.get_post_id()):
-                post_ids.append(i)
-
-        if len(post_ids) > 0:
-            if req.get_cmd() == 'E':
-                # do we have any of the information in the cache
-                self.get_list_via_cache(req, post_ids)
-            elif req.get_cmd() == 'D':
-                # get the listing info from the server
-                status = Status()
-
-                payload = f"E{req.get_post_id()}~"
-                logger.debug('comms: send: ' + str(payload))
-                mblog_api_req = CommsMessage(
-                    ts=time.time(),
-                    direction='tx',
-                    source=status.callsign,
-                    destination=req.get_station(),
-                    snr=0,
-                    blog=req.get_blog(),
-                    typ='mb_req',
-                    target='mb_service',
-                    obj='service',
-                    payload=str(payload),
-                )
-                self.comms_tx_q.put(mblog_api_req)
-
-        # get the frontend to reload the Post List
-        self.signal_reload('post_list')
-        return
-
-    def process_extended_cmd(self, req: GuiMessage):
-        self.process_list_cmd(req)
+        return len(db_values) > 0
 
     @staticmethod
-    def process_fetch_cmd(req: GuiMessage) -> None:
-        blog = req.get_blog()
-        post_id = req.get_post_id()
+    def get_post_id_list(m: UnifiedMessage):
+        settings = Settings()
+
+        post_list = []
+
+        if m.get_param(MessageParameter.OPERATOR) == MessageOperator.EQ:
+            post_id = m.get_param(MessageParameter.POST_ID)
+            post_list.append(post_id)
+
+        elif m.get_param(MessageParameter.OPERATOR) == MessageOperator.LATEST:
+            pass  # do nothing as we want to just send E~
+
+        elif m.get_param(MessageParameter.OPERATOR) == MessageOperator.MORE:
+            post_id = m.get_param(MessageParameter.POST_ID)
+            starting_post_id = max(int(post_id) - settings.max_listing, 1)
+            for i in range(starting_post_id, int(post_id)):
+                post_list.append(i)
+
+        return post_list
+
+    @staticmethod
+    def get_listing_command(post_id_list: []) -> str:
+
+        if len(post_id_list) > 0:
+            post_list_string = ','.join(map(str, post_id_list))
+        else:
+            post_list_string = ''
+
+        # get the listing info from the server
+        mb_cmd = f"E{post_list_string}~"
+
+        return mb_cmd
+
+    def verb_fetch_listing(self, m: UnifiedMessage):
+        blog = m.get_param(MessageParameter.DESTINATION)
+        post_id_list = self.get_post_id_list(m)
+
+        # if we don't get a list we should bail here
+        if len(post_id_list) == 0:
+            return
+
+        svr_request_list = []  # this is a list of post_ids we will need to request from the server
+
+        for post_id in post_id_list:
+            if self.listing_is_in_cache(blog, post_id):
+                continue
+            else:
+                svr_request_list.append(post_id)
+
+        if len(svr_request_list) == 0:
+            return
+
+        # we need to send a request to the server
+        # form a request to get the posts in the svr_request_list
+        self.mb_msg_send(
+            destination=m.get_param(MessageParameter.DESTINATION),
+            mb_cmd=self.get_listing_command(svr_request_list)
+        )
+
+        return
+
+    def verb_get_listing(self, m: UnifiedMessage):
+
+        if m.get_param(MessageParameter.OPERATOR) == MessageOperator.LATEST:
+            mb_cmd = 'E~'
+        else:
+            mb_cmd = self.get_listing_command(post_id_list=self.get_post_id_list(m))
+
+        self.mb_msg_send(destination=m.get_param(MessageParameter.DESTINATION), mb_cmd=mb_cmd)
+
+        return
+
+    # ---- functions related to the remaining mb messages ----
+
+    @staticmethod
+    def verb_fetch_post(m: UnifiedMessage) -> None:
+        blog = m.get_param(MessageParameter.DESTINATION)
+        post_id = int(m.get_param(MessageParameter.POST_ID))
 
         # set this as the selected post
         post_table = DbTable('post')
@@ -659,88 +551,33 @@ class BeProcessor:
             value_dictionary={'is_selected': 1}
         )
 
-        # ToDo: we know the current post from the post table entry with is_selected set - we don't need another record
-        status = Status()
-        status.set_current_post(post_id)
+        return
+
+    def verb_get_post(self, m: UnifiedMessage) -> None:
+        mb_cmd = f"G{m.get_param(MessageParameter.POST_ID)}~"
+        self.mb_msg_send(destination=m.get_param(MessageParameter.DESTINATION), mb_cmd=mb_cmd)
+        return
+
+    def verb_get_weather(self, m: UnifiedMessage) -> None:
+        self.mb_msg_send(destination=m.get_param(MessageParameter.DESTINATION), mb_cmd="WX~")
 
         return
 
-    def process_refresh_cmd(self, req: GuiMessage):
-        post_id = req.get_post_id()
-        # remove the post from the cache
-        post_table = DbTable('post')
-        where_clause = f"blog='{req.get_blog()}' AND post_id={post_id} AND body IS NOT NULL"
-        post_table.delete(where=where_clause)
+    def verb_get_blog_info(self, m: UnifiedMessage) -> None:
+        logger.debug("comms: send: INFO?")
+        self.mb_msg_send(destination=m.get_param(MessageParameter.DESTINATION), mb_cmd="INFO?")
 
-        # now we've deleted the cache entry, we can process as though it were a GET
-        req.cmd = 'G'
-        self.process_fetch_cmd(req)
         return
 
-    def process_query_cmd(self, req: GuiMessage):
-        status = Status()
+    def verb_scan(self, m: UnifiedMessage) -> None:
+        self.mb_msg_send(destination=m.get_param(MessageParameter.DESTINATION), mb_cmd="Q")
 
-        payload = f"{req.get_cmd()}"
-        logger.debug('comms: send: ' + str(payload))
-
-        mblog_api_req = CommsMessage(
-            ts=time.time(),
-            direction='tx',
-            source=status.callsign,
-            destination='@MB',
-            snr=0,
-            blog='@MB',
-            typ='mb_req',
-            target='mb_service',
-            obj='service',
-            payload=str(payload),
-        )
-        self.comms_tx_q.put(mblog_api_req)
         return
 
-    def process_info_cmd(self, req: GuiMessage):
-        status = Status()
+    # ---- functions related to control ----
 
-        payload = "INFO?"
-        logger.debug('comms: send: ' + str(payload))
-
-        mblog_api_req = CommsMessage(
-            ts=time.time(),
-            direction='tx',
-            source=status.callsign,
-            destination=req.get_blog(),
-            snr=0,
-            blog=req.get_blog(),
-            typ='mb_req',
-            target='mb_service',
-            obj='service',
-            payload=str(payload),
-        )
-        self.comms_tx_q.put(mblog_api_req)
-        return
-
-    def process_weather_cmd(self, req: GuiMessage):
-        status = Status()
-
-        payload = "WX~"
-        logger.debug('comms: send: ' + str(payload))
-
-        mblog_api_req = CommsMessage(
-            ts=time.time(),
-            direction='tx',
-            source=status.callsign,
-            destination=req.get_station(),
-            snr=0,
-            blog=req.get_blog(),
-            typ='mb_req',
-            target='mb_service',
-            obj='service',
-            payload=str(payload),
-        )
-        self.comms_tx_q.put(mblog_api_req)
-        return
-
-    def set_hdr_freq(self, frequency: int):
+    @staticmethod
+    def set_hdr_freq(frequency: int):
         s = DbTable('status')
         s.update(
             where=None, value_dictionary={
@@ -748,266 +585,240 @@ class BeProcessor:
                 'user_frequency': frequency
             }
         )
+        reload_ui_areas(UiArea.HEADER)
 
-        self.signal_reload('header')
-
-    def set_hdr_offset(self, offset: int):
+    @staticmethod
+    def set_hdr_offset(offset: int):
         s = DbTable('status')
         s.update(
             where=None, value_dictionary={
                 'offset': offset
             }
         )
+        reload_ui_areas(UiArea.HEADER)
 
-        self.signal_reload('header')
+    def set_rig_frequency(self, frequency: int):
+        m = UnifiedMessage()
+        m.set_many(
+            target=MessageTarget.COMMS,
+            typ=MessageType.CONTROL,
+            verb=MessageVerb.SET_FREQ,
+            params={MessageParameter.FREQUENCY: frequency}
+        )
+        self.send_to_comms(m)
 
-    def set_rig_frequency(self, freq):
-        # signal to the comms driver that the frequency must be changed
-        comms_sig = CommsMessage.control_set(time.time(), 'radio_frequency', freq)
-        self.comms_tx_q.put(comms_sig)
-
-    def set_hdr_callsign(self, callsign: str):
+    @staticmethod
+    def set_hdr_callsign(callsign: str):
         s = DbTable('status')
         s.update(
             where=None, value_dictionary={
                 'callsign': callsign
             }
         )
+        reload_ui_areas(UiArea.HEADER)
 
-        self.signal_reload('header')
+    def mb_msg_send(self, destination: str, mb_cmd: str):
 
-    def select_blog(self, req: GuiMessage):
+        m = UnifiedMessage(
+            target=MessageTarget.COMMS,
+            typ=MessageType.MB_MSG,
+            verb=MessageVerb.SEND,
+            params={
+                MessageParameter.DESTINATION: destination,
+                MessageParameter.MB_MSG: mb_cmd
+            }
+        )
 
-        blog = req.get_blog()
-        station = req.get_station()
-        frequency = req.get_frequency()
+        logger.info(f"Sending to COMMS: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}")
+
+        self.send_to_comms(m)
+
+        return
+
+    @staticmethod
+    def select_blog(m: UnifiedMessage):
+
+        # Blog selector is in param field 'blog': blog_name, 'frequency':blog_frequency
+
+        blog = m.get_param(MessageParameter.BLOG)
+        frequency = m.get_param(MessageParameter.FREQUENCY)
 
         if len(blog) > 0:
-            if len(station) > 0:
-                s = DbTable('status')
-                s.update(
-                    where=None, value_dictionary={
-                        'selected_blog': blog,
-                        'selected_station': station,
-                        'radio_frequency': frequency,
-                        'user_frequency': frequency
-                    }
-                )
+            s = DbTable('status')
+            s.update(
+                where=None, value_dictionary={
+                    'selected_blog': blog,
+                    'user_frequency': frequency
+                }
+            )
 
-                # update the selected row
-                b = DbTable('blog')
-                b.update(where=None, value_dictionary={'is_selected': 0})
-                b.update(where=f"blog='{blog}' AND station='{station}' AND frequency={frequency}",
-                         value_dictionary={'is_selected': 1})
+            # update the selected row
+            b = DbTable('blog')
+            b.update(where=None, value_dictionary={'is_selected': 0})
+            b.update(where=f"blog='{blog}' AND frequency={frequency}",
+                     value_dictionary={'is_selected': 1})
 
-                s.update(
-                    where=None,
-                    value_dictionary={
-                        'hdr_updated': time.time(),
-                        'progress_updated': time.time(),
-                        'blog_updated': time.time()
-                    }
-                )
+            s.update(
+                where=None,
+                value_dictionary={
+                    'hdr_updated': time.time(),
+                    'progress_updated': time.time(),
+                    'blog_updated': time.time()
+                }
+            )
 
-                # signal to the comms driver that the frequency must be changed
-                self.set_rig_frequency(frequency)
+        reload_ui_areas(UiArea.BLOG_LIST)
+        reload_ui_areas(UiArea.BLOG_INFO,)
 
-                # send OK back to the frontend
-                rsp = GuiMessage()
-                rsp.clone_msg(req)
-                rsp.set_blog(blog)
-                rsp.set_rc(0)
-                self.b2f_q.put(rsp)
+    def verb_chg_blog(self, m: UnifiedMessage) -> None:
+        if m.get_verb() == MessageVerb.CHG_BLOG:
+            self.select_blog(m)
+            reload_ui_areas(UiArea.BLOG_LIST,)
 
-    def process_set_cmd(self, req: GuiMessage):
+            return
 
-        if len(req.get_blog()) > 0:
-            self.select_blog(req)
-        elif req.get_frequency() > 0:
-            self.set_rig_frequency(req.get_frequency())
+    def verb_chg_radio_frequency(self, m: UnifiedMessage) -> None:
+        status = Status()
 
-    def process_config_cmd(self, msg: GuiMessage):
-        pass
+        self.set_rig_frequency(m.get_param(MessageParameter.FREQUENCY))
+        reload_ui_areas(UiArea.HEADER,)
+        status.set_radio_frequency(m.get_param(MessageParameter.FREQUENCY))
 
-    def process_scan_cmd(self, msg: GuiMessage):
-        pass
+        return
 
-    def preprocess(self, msg_object: GuiMessage):
-        command = msg_object.get_cmd()
-        msg_prefix = "Received command from the frontend: "
+    @staticmethod
+    def verb_chg_user_frequency(m: UnifiedMessage) -> None:
+        status = Status()
+        status.set_user_frequency(m.get_param(MessageParameter.FREQUENCY))
 
-        if command == 'X':
-            # we have to give the comms interface a kick to get its thread to shut down
-            comms_sig = CommsMessage.control_set(time.time(), 'exit', '')
-            self.comms_tx_q.put(comms_sig)
+        return
 
-            logger.info(f"{msg_prefix}{command}")
-            add_progress(command)
+    @staticmethod
+    def send_to_comms(m: UnifiedMessage):
+        logger.info(f"Sending to COMMS: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}")
+        b2c_q.put(m)
+
+    def type_process_request(self, m: UnifiedMessage):
+
+        if m.get_verb() == MessageVerb.FETCH_LISTING:
+            # Get full list details via the cache
+            add_progress_m(m)
+            self.verb_fetch_listing(m)
+
+        elif m.get_verb() == MessageVerb.GET_LISTING:
+            # Get full list details not using the cache
+            add_progress_m(m)
+            self.verb_get_listing(m)
+
+        elif m.get_verb() == MessageVerb.FETCH_POST:
+            # Fetch post(s)
+            add_progress_m(m)
+            self.verb_fetch_post(m)
+
+        elif m.get_verb() == MessageVerb.GET_POST:
+            # Get post(s)
+            add_progress_m(m)
+            self.verb_get_post(m)
+
+        elif m.get_verb() == MessageVerb.SCAN:
+            # Get information from the server
+            add_progress_m(m)
+            self.verb_scan(m)
+
+        elif m.get_verb() == MessageVerb.GET_BLOG_INFO:
+            # Get information from the server
+            add_progress_m(m)
+            self.verb_get_blog_info(m)
+
+        elif m.get_verb() == MessageVerb.GET_WEATHER:
+            # Request a weather report - results in G0~ to the server
+            add_progress_m(m)
+            self.verb_get_weather(m)
+
+        return
+
+    def type_process_control(self, m: UnifiedMessage):
+        command = m.get_verb()
+
+        if command == MessageVerb.SHUTDOWN:
+            m = UnifiedMessage()
+            m.set_many(target=MessageTarget.COMMS, typ=MessageType.CONTROL, verb=MessageVerb.SHUTDOWN)
+            self.send_to_comms(m)
+            add_progress_m(m)
             exit(0)
 
-        elif command == 'L':
-            # Get abbreviated list
-            process_msg = f"{command}{msg_object.get_op()}{msg_object.get_post_id()}~"
-            logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
-            self.process_list_cmd(msg_object)
-
-        elif command == 'D':
-            # Get full list details not using the cache
-            process_msg = f"{command}{msg_object.get_op()}{msg_object.get_post_id()}~"
-            logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
-            self.process_extended_cmd(msg_object)
-
-        elif command == 'E':
-            # Get full list details using the cache
-            process_msg = f"{command}{msg_object.get_op()}{msg_object.get_post_id()}~"
-            logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
-            self.process_extended_cmd(msg_object)
-
-        elif command == 'F':
-            # Fetch post(s)
-            process_msg = f"{command}{msg_object.get_post_id()}~"
-            logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
-            self.process_fetch_cmd(msg_object)
-            self.signal_reload('post')
-
-        elif command == 'G':
-            # Get post(s)
-            process_msg = f"{command}{msg_object.get_post_id()}~"
-            logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
-            self.get_post_from_server(msg_object)
-
-        elif command == 'R':
-            # Refresh a post (results in sending a Get to the server)
-            process_msg = f"{command}{msg_object.get_post_id()}~"
-            logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
-            self.process_refresh_cmd(msg_object)
-
-        elif command == 'I':
-            # Get information from the server
-            process_msg = f"INFO?"
-            logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
-            self.process_info_cmd(msg_object)
-
-        elif command == 'S':
+        elif command == MessageVerb.CHG_BLOG:
             # Switch to a blog (internal - no server command is sent)
-            process_msg = f"{command}"
-            logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
-            self.process_set_cmd(msg_object)
+            add_progress_m(m)
+            self.verb_chg_blog(m)
 
-        elif command == 'C':
-            # Change the config - not implemented
-            process_msg = f"{command}"
-            logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
-            self.process_config_cmd(msg_object)
+        elif command == MessageVerb.CHG_RADIO_FREQUENCY:
+            # Switch to a blog (internal - no server command is sent)
+            add_progress_m(m)
+            self.verb_chg_radio_frequency(m)
 
-        elif command == 'P':
-            # Initiate a Scan - not implemented
-            process_msg = f"{command}"
-            logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
-            self.process_scan_cmd(msg_object)
+        elif command == MessageVerb.CHG_USER_FREQUENCY:
+            # Switch to a blog (internal - no server command is sent)
+            add_progress_m(m)
+            self.verb_chg_user_frequency(m)
 
-        elif command == 'Q':
-            # Query command to elicit an announcement from all MB servers
-            process_msg = f"{command}"
-            logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
-            self.process_query_cmd(msg_object)
+        return
 
-        elif command == 'WX':
-            # Request a weather report - results in G0~ to the server
-            process_msg = f"{command}"
-            logger.info(f"{msg_prefix}{process_msg}")
-            add_progress(process_msg)
-            self.process_weather_cmd(msg_object)
+    def preprocess(self, m: UnifiedMessage):
+        if m.get_target() == MessageTarget.BACKEND:
+            if m.get_typ() == MessageType.REQUEST:
+                self.type_process_request(m)
+            elif m.get_typ() == MessageType.CONTROL:
+                self.type_process_control(m)
+            reload_ui_areas(UiArea.POST_LIST,)
+            reload_ui_areas(UiArea.POST_CONTENT,)
 
-        self.signal_reload('post_list')
-        self.signal_reload('post')
-
-    def process_mb_rsp(self, comms_msg: CommsMessage):
-        processor = ServerMsgProcessors(comms_msg, self.b2f_q)
-        # check to see if this is a listing, extended listing or post and process accordingly
-        processor.parse_rx_message(comms_msg.get_payload())
-
-        self.signal_reload('post_list')
-
-    def process_mb_notify(self, comms_msg: CommsMessage):
-        # ToDo: we should only insert an entry in qso if we don't have an entry already
-        processor = ServerMsgProcessors(comms_msg, self.b2f_q)
-        # check to see if this is a listing, extended listing or post and process accordingly
-        processor.parse_rx_message(comms_msg.get_payload())
-
-        self.signal_reload('blog')
-        pass
-
-    def process_status_radio_frequency(self, comms_msg: CommsMessage):
-        self.set_hdr_freq(comms_msg.get_frequency())
-
-    def process_status_offset(self, comms_msg: CommsMessage):
-        self.set_hdr_offset(comms_msg.get_offset())
-
-    def process_status_callsign(self, comms_msg: CommsMessage):
-        self.set_hdr_callsign(comms_msg.get_payload())
-
-    def process_comms_rx(self, comms_msg: CommsMessage):
-        if comms_msg.get_target() == 'frontend':
-            notify_msg = GuiMessage()
-
-            notify_msg.set_ts()
-            notify_msg.set_req_ts(0)
-            notify_msg.set_cmd('Notify')
-            notify_msg.set_blog('')
-            notify_msg.set_station('')
-            notify_msg.set_frequency(0)
-            notify_msg.set_post_id(0)
-            notify_msg.set_post_date(0)
-            notify_msg.set_op(comms_msg.get_payload())
-            notify_msg.set_param('')
-            notify_msg.set_rc(0)
-            self.b2f_q.put(notify_msg)
-
-        elif comms_msg.get_typ() == 'mb_rsp':
-            self.process_mb_rsp(comms_msg)
-        elif comms_msg.get_typ() == 'mb_notify':
-            self.process_mb_notify(comms_msg)
-        elif comms_msg.get_typ() == 'control' and comms_msg.get_target() == 'status'\
-                and comms_msg.get_obj() == 'radio_frequency':
-            self.process_status_radio_frequency(comms_msg)
-        elif comms_msg.get_typ() == 'control' and comms_msg.get_target() == 'status'\
-                and comms_msg.get_obj() == 'offset':
-            self.process_status_offset(comms_msg)
-        elif comms_msg.get_typ() == 'control' and comms_msg.get_target() == 'status'\
-                and comms_msg.get_obj() == 'callsign':
-            self.process_status_callsign(comms_msg)
-
-        pass
+        elif m.get_target() == MessageTarget.COMMS:
+            # Pass through the message
+            self.send_to_comms(m)
 
     def check_for_msg(self):
         # check for messages from the frontend
         try:
-            fe_msg: GuiMessage = self.f2b_q.get(block=False)
-            if fe_msg:
-                logger.debug(fe_msg.get_cmd())
-                self.preprocess(fe_msg)
-                self.f2b_q.task_done()
+            m: UnifiedMessage = f2b_q.get(block=False)
+            if m:
+                logger.info(f"Received from FRONTEND: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}")
+                self.preprocess(m)
+                f2b_q.task_done()
+
         except queue.Empty:
             pass  # nothing on the queue - do nothing
 
         # check for messages from the comms driver
         try:
-            comms_rx: CommsMessage = self.comms_rx_q.get(block=True, timeout=0.1)  # if no msg waiting, throw an except
-            logger.debug(comms_rx.get_payload())
-            self.process_comms_rx(comms_rx)
-            self.comms_rx_q.task_done()
+            m: UnifiedMessage = c2b_q.get(block=True, timeout=0.1)  # if no msg waiting, throw an except
+
+            if m.get_typ() != MessageType.SIGNAL:
+                logger.info(
+                    f"Received from COMMS: " +
+                    f"{m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}"
+                )
+
+            if m.get_target() == MessageTarget.FRONTEND:
+                # pass message through to the front end
+                log_message = f"Sending to FRONTEND: " \
+                        f"{m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}"
+
+                # When at INFO level of logging, we don't want to log all the SIGNALS from COMMS
+                if m.get_typ() != MessageType.SIGNAL:
+                    logger.info(log_message)
+                else:
+                    logger.debug(log_message)
+
+                b2f_q.put(m)
+
+            elif m.get_target() == MessageTarget.BACKEND:
+                processor = ServerMsgProcessors()
+                processor.process_rx_message(m)
+
+            # Even if this message is not for the FRONTEND or BACKEND we must take it off the queue
+            c2b_q.task_done()
+
         except queue.Empty:
             pass
 
@@ -1016,8 +827,8 @@ class Backend:
 
     proc = None  # for backend processor
 
-    def __init__(self, f2b_q: queue.Queue, b2f_q: queue.Queue, comms_tx_q: queue.Queue, comms_rx_q: queue.Queue):
-        self.proc = BeProcessor(f2b_q, b2f_q, comms_tx_q, comms_rx_q)
+    def __init__(self):
+        self.proc = BeProcessor()
         pass
 
     def backend_loop(self):

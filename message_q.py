@@ -1,132 +1,112 @@
 from __future__ import annotations
 
 import time
+from enum import Enum
+from queue import Queue
+
+MAX_QUEUE_SIZE = 20
+
+f2b_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages from the frontend to the backend
+b2f_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages to the frontend from the backend
+b2c_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages from the backend to the comms driver
+c2b_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages to the backend from the comms driver
 
 
-class GuiMessage:
-    """Message sent between GUI and backend.
-
-    NOTE: This class historically used class attributes for defaults; we now
-    initialise instance state in __init__ to avoid accidental shared state.
-    """
-
-    __slots__ = (
-        "ts",
-        "req_ts",
-        "cli_input",
-        "cmd",
-        "blog",
-        "station",
-        "frequency",
-        "post_id",
-        "post_date",
-        "op",
-        "param",
-        "rc",
-    )
-
-    def __init__(self):
-        self.ts = 0.0
-        self.req_ts = 0.0
-        self.cli_input = ""
-        self.cmd = ""
-        self.blog = ""
-        self.station = ""
-        self.frequency = 0
-        self.post_id = 0
-        self.post_date = 0
-        self.op = ""
-        self.param = ""
-        self.rc = 0
-
-    def set_ts(self):
-        self.ts = time.time()
-
-    def set_req_ts(self, value: float):
-        self.req_ts = value
-
-    def set_cli_input(self, value: str):
-        self.cli_input = value
-
-    def set_cmd(self, value: str):
-        self.cmd = value
-
-    def set_blog(self, value: str):
-        self.blog = value
-
-    def set_station(self, value: str):
-        self.station = value
-
-    def set_frequency(self, value: int):
-        self.frequency = value
-
-    def set_post_id(self, value: int):
-        self.post_id = value
-
-    def set_post_date(self, value: int):
-        self.post_date = value
-
-    def set_op(self, value: str):
-        self.op = value
-
-    def set_param(self, value: str):
-        self.param = value
-
-    def set_rc(self, value: int):
-        self.rc = value
-
-    def get_ts(self) -> float:
-        return self.ts
-
-    def get_req_ts(self) -> float:
-        return self.req_ts
-
-    def get_cli_input(self) -> str:
-        return self.cli_input
-
-    def get_cmd(self) -> str:
-        return self.cmd
-
-    def get_blog(self) -> str:
-        return self.blog
-
-    def get_station(self) -> str:
-        return self.station
-
-    def get_frequency(self) -> int:
-        return self.frequency
-
-    def get_post_id(self) -> int:
-        return self.post_id
-
-    def get_post_date(self) -> int:
-        return self.post_date
-
-    def get_op(self) -> str:
-        return self.op
-
-    def get_param(self) -> str:
-        return self.param
-
-    def get_rc(self) -> int:
-        return self.rc
-
-    def clone_msg(self, donor: "GuiMessage"):
-        self.set_ts()
-        self.set_req_ts(donor.get_ts())
-        self.set_cli_input(donor.get_cli_input())
-        self.set_cmd(donor.get_cmd())
-        self.set_blog(donor.get_blog())
-        self.set_station(donor.get_station())
-        self.set_frequency(donor.get_frequency())
-        self.set_post_id(donor.get_post_id())
-        self.set_post_date(donor.get_post_date())
-        self.set_op(donor.get_op())
-        self.set_param(donor.get_param())
-        self.set_rc(donor.get_rc())
+class UiArea(str, Enum):
+    HEADER = "header"
+    BLOG_LIST = "blog_list"
+    BLOG_INFO = "blog_info"
+    POST_LIST = "post_list"
+    POST_CONTENT = "post_content"
+    PROGRESS = "progress"
 
 
-class CommsMessage:
+class MessageTarget(str, Enum):
+    FRONTEND = "frontend"
+    BACKEND = "backend"
+    COMMS = "comms"
+    NONE = "none"  # A value has not yet been assigned
+
+
+class MessageType(str, Enum):
+    REQUEST = "request"
+    CONTROL = "control"
+    MB_MSG = "mb_msg"
+    SIGNAL = "signal"
+    NONE = "none"  # A value has not yet been assigned
+
+
+class MessageVerb(str, Enum):
+    # To FRONTEND - SIGNAL
+    FLASH_RX_START = "flash_rx_start"
+    FLASH_RX_STOP = "flash_rx_stop"
+    FLASH_TX_START = "flash_tx_start"
+    FLASH_TX_STOP = "flash_tx_stop"
+    SCAN_IND_OFF = "scan_ind_off"
+    RELOAD_UI = "reload_ui"
+
+    # To BACKEND - REQ
+    FETCH_LISTING = "fetch_listing"
+    GET_LISTING = "get_listing"
+    FETCH_POST = "fetch_post"
+    GET_POST = "get_post"
+    GET_BLOG_INFO = "get_blog_info"
+    GET_WEATHER = "get_weather"
+
+    # To BACKEND - CONTROL
+    SCAN = "scan"
+    CHG_RADIO_FREQUENCY = "chg_radio_frequency"
+    CHG_USER_FREQUENCY = "chg_user_frequency"
+    CHG_BLOG = "chg_blog"
+    SHUTDOWN = "shutdown"
+
+    # To BACKEND - MB_MSG
+    INFORM = "inform"
+    ANNOUNCE = "announce"
+
+    # To BACKEND - SIGNAL
+    NOTE_FREQ = "note_freq"
+    NOTE_OFFSET = "note_offset"
+    NOTE_CALLSIGN = "note_callsign"
+
+    # To COMMS - MB_MSG
+    SEND = "send"
+
+    # To COMMS - CONTROL
+    SET_FREQ = "set_freq"
+    GET_FREQ = "get_freq"
+    GET_OFFSET = "get_offset"
+    GET_CALLSIGN = "get_callsign"
+    NO_OP = "no_op"
+    # SHUTDOWN = "shutdown"
+
+    NONE = "none"  # A value has not yet been assigned
+
+
+class MessageOperator(str, Enum):
+    NULL = ''
+    EQ = 'eq'
+    GT = 'gt'
+    LT = 'lt'
+    LATEST = 'latest'
+    MORE = 'more'
+    NONE = "none"  # A value has not yet been assigned
+
+
+class MessageParameter(str, Enum):
+    SOURCE = 'source'  # The callsign of the station that sent the message.
+    DESTINATION = 'destination'  # The callsign of the station that the message is going or @MB for announcements.
+    CALLSIGN = 'callsign'  # The callsign of the station that is running this software
+    FREQUENCY = 'frequency'
+    OFFSET = 'offset'
+    BLOG = 'blog'
+    POST_ID = 'post_id'
+    MB_MSG = 'mb_msg'
+    UI_AREA = 'ui_area'
+    OPERATOR = 'operator'
+
+
+class UnifiedMessage:
     """Message used for transport to/from the comms layer.
 
     Efficiency improvements:
@@ -138,37 +118,21 @@ class CommsMessage:
 
     __slots__ = (
         "ts",
-        "req_ts",
-        "direction",
-        "blog",
-        "source",
-        "destination",
-        "frequency",
-        "offset",
-        "snr",
-        "typ",
+        "priority",
         "target",
-        "obj",
-        "payload",
-        "rc",
+        "typ",
+        "verb",
+        "params",
     )
 
     def __init__(self, **kwargs):
         # Defaults
-        self.ts = 0.0
-        self.req_ts = 0.0
-        self.direction = ""
-        self.blog = ""
-        self.source = ""
-        self.destination = ""
-        self.frequency = 0
-        self.offset = 0
-        self.snr = 0
-        self.typ = ""
-        self.target = ""
-        self.obj = ""
-        self.payload = ""
-        self.rc = 0
+        self.ts: float = time.time()
+        self.priority: int = 1
+        self.target: MessageTarget = MessageTarget.NONE
+        self.typ: MessageType = MessageType.NONE
+        self.verb: MessageVerb = MessageVerb.NONE
+        self.params: {} = {}
 
         if kwargs:
             self.set_many(**kwargs)
@@ -178,155 +142,30 @@ class CommsMessage:
         """Bulk-assign fields in one Python call.
 
         Example:
-            m.set_many(ts=..., direction='rx', typ='control', target='status', obj='offset', payload='123')
+            m.set_many(target=MessageTarget.BACKEND, typ=MessageType.MB_MSG, verb=MessageVerb.INFORM ...)
         """
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    # ---- factories for common message shapes ----
-    @classmethod
-    def signal_frontend(cls, ts: float, obj: str, payload: str) -> "CommsMessage":
-        return cls(
-            ts=ts,
-            direction="rx",
-            typ="signal",
-            target="frontend",
-            obj=obj,
-            payload=payload,
-        )
-
-    @classmethod
-    def control_status(
-        cls, ts: float, obj: str, payload: str, *, frequency: int = 0, offset: int = 0
-    ) -> "CommsMessage":
-        return cls(
-            ts=ts,
-            direction="rx",
-            typ="control",
-            target="status",
-            obj=obj,
-            payload=payload,
-            frequency=frequency,
-            offset=offset,
-        )
-
-    @classmethod
-    def control_set(cls, ts: float, obj: str, payload: str) -> "CommsMessage":
-        return cls(
-            ts=ts,
-            direction="tx",
-            typ="control",
-            target="set",
-            obj=obj,
-            payload=payload,
-        )
-
-    @classmethod
-    def mb_rx(
-        cls,
-        ts: float,
-        source: str,
-        destination: str,
-        *,
-        frequency: int,
-        snr: int,
-        typ: str,
-        payload: str,
-    ) -> "CommsMessage":
-        return cls(
-            ts=ts,
-            direction="rx",
-            source=source,
-            destination=destination,
-            frequency=frequency,
-            snr=snr,
-            typ=typ,
-            target="mb_client",
-            obj="receiver",
-            payload=payload,
-        )
-
-    # ---- existing setters/getters (kept for compatibility) ----
-    def set_ts(self, ts: float):
-        self.ts = ts
-
-    def set_req_ts(self, ts: float):
-        self.req_ts = ts
-
-    def set_direction(self, direction: str):
-        self.direction = direction
-
-    def set_source(self, source: str):
-        self.source = source
-
-    def set_destination(self, destination: str):
-        self.destination = destination
-
-    def set_frequency(self, frequency: int):
-        self.frequency = frequency
-
-    def set_offset(self, offset: int):
-        self.offset = offset
-
-    def set_snr(self, snr: int):
-        self.snr = snr
-
-    def set_blog(self, blog: str):
-        self.blog = blog
-
-    def set_typ(self, typ: str):
-        self.typ = typ
-
-    def set_target(self, target: str):
-        self.target = target
-
-    def set_obj(self, obj: str):
-        self.obj = obj
-
-    def set_payload(self, payload: str):
-        self.payload = payload
-
-    def set_rc(self, rc: int):
-        self.rc = rc
+    # Getters
 
     def get_ts(self) -> float:
         return self.ts
 
-    def get_req_ts(self) -> float:
-        return self.req_ts
+    def get_priority(self) -> int:
+        return self.priority
 
-    def get_direction(self) -> str:
-        return self.direction
-
-    def get_source(self) -> str:
-        return self.source
-
-    def get_destination(self) -> str:
-        return self.destination
-
-    def get_frequency(self) -> int:
-        return self.frequency
-
-    def get_offset(self) -> int:
-        return self.offset
-
-    def get_snr(self) -> int:
-        return self.snr
-
-    def get_blog(self) -> str:
-        return self.blog
-
-    def get_typ(self) -> str:
-        return self.typ
-
-    def get_target(self) -> str:
+    def get_target(self) -> MessageTarget:
         return self.target
 
-    def get_obj(self) -> str:
-        return self.obj
+    def get_typ(self) -> MessageType:
+        return self.typ
 
-    def get_payload(self) -> str:
-        return self.payload
+    def get_verb(self) -> MessageVerb:
+        return self.verb
 
-    def get_rc(self) -> int:
-        return self.rc
+    def get_param(self, parameter: MessageParameter):
+        return self.params[parameter.value]
+
+    def get_params(self) -> {}:
+        return self.params
