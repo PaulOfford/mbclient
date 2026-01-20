@@ -56,12 +56,12 @@ def reload_ui_areas(ui_area: str, b2f_q: queue.Queue):
 
     m.set_many(
         target=MessageTarget.FRONTEND, typ=MessageType.SIGNAL,
-        verb=MessageVerb.RELOAD_UI, operator=MessageOperator.EQ,
+        verb=MessageVerb.RELOAD_UI,
         params={MessageParameter.UI_AREA: ui_area}
     )
 
     logger.info(
-        f"Sending to FRONTEND: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_operator()}|{m.get_params()}"
+        f"Sending to FRONTEND: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}"
     )
     b2f_q.put(m)
 
@@ -172,8 +172,8 @@ class ServerMsgProcessors:
 
                     if mb_cmd == 'G':
                         self.process_post(
-                            destination=m.get_destination(),
-                            blog=m.get_source(),
+                            destination=m.get_param(MessageParameter.DESTINATION),
+                            blog=m.get_param(MessageParameter.SOURCE),
                             post_id=result[2],
                             body=result[3]
                         )
@@ -192,7 +192,7 @@ class ServerMsgProcessors:
 
                 elif result[0] == 'INFO':
                     self.process_info(
-                        blog=m.get_source(),
+                        blog=m.get_param(MessageParameter.SOURCE),
                         frequency=status.radio_frequency,
                         blog_info=result[1]
                     )
@@ -235,7 +235,7 @@ class ServerMsgProcessors:
                 if is_valid:
                     # We have a valid announcement
                     self.update_blog_list(
-                        blog=m.get_source(),
+                        blog=m.get_param(MessageParameter.SOURCE),
                         post_id=post_id,
                         post_date=post_date
                     )
@@ -396,7 +396,7 @@ class ServerMsgProcessors:
                     continue
 
         # process_listing needs destination: str, cmd: str, blog: str, post_range: str, lines: []
-        return m.get_destination(), cmd, m.get_source(), post_range, entries
+        return m.get_param(MessageParameter.DESTINATION), cmd, m.get_param(MessageParameter.SOURCE), post_range, entries
 
     def update_blog_list(self, blog: str, post_id: int, post_date: int) -> None:
         status = Status()
@@ -503,14 +503,14 @@ class BeProcessor:
 
         post_list = []
 
-        if m.get_operator() == MessageOperator.EQ:
+        if m.get_param(MessageParameter.OPERATOR) == MessageOperator.EQ:
             post_id = m.get_param(MessageParameter.POST_ID)
             post_list.append(post_id)
 
-        elif m.get_operator() == MessageOperator.LATEST:
+        elif m.get_param(MessageParameter.OPERATOR) == MessageOperator.LATEST:
             pass  # do nothing as we want to just send E~
 
-        elif m.get_operator() == MessageOperator.MORE:
+        elif m.get_param(MessageParameter.OPERATOR) == MessageOperator.MORE:
             post_id = m.get_param(MessageParameter.POST_ID)
             starting_post_id = max(int(post_id) - settings.max_listing, 1)
             for i in range(starting_post_id, int(post_id)):
@@ -532,7 +532,7 @@ class BeProcessor:
         return mb_cmd
 
     def verb_fetch_listing(self, m: UnifiedMessage):
-        blog = m.get_destination()
+        blog = m.get_param(MessageParameter.DESTINATION)
         post_id_list = self.get_post_id_list(m)
 
         # if we don't get a list we should bail here
@@ -552,18 +552,21 @@ class BeProcessor:
 
         # we need to send a request to the server
         # form a request to get the posts in the svr_request_list
-        self.mb_msg_send(destination=m.get_destination(), mb_cmd=self.get_listing_command(svr_request_list))
+        self.mb_msg_send(
+            destination=m.get_param(MessageParameter.DESTINATION),
+            mb_cmd=self.get_listing_command(svr_request_list)
+        )
 
         return
 
     def verb_get_listing(self, m: UnifiedMessage):
 
-        if m.get_operator() == MessageOperator.LATEST:
+        if m.get_param(MessageParameter.OPERATOR) == MessageOperator.LATEST:
             mb_cmd = 'E~'
         else:
             mb_cmd = self.get_listing_command(post_id_list=self.get_post_id_list(m))
 
-        self.mb_msg_send(destination=m.get_destination(), mb_cmd=mb_cmd)
+        self.mb_msg_send(destination=m.get_param(MessageParameter.DESTINATION), mb_cmd=mb_cmd)
 
         return
 
@@ -571,7 +574,7 @@ class BeProcessor:
 
     @staticmethod
     def verb_fetch_post(m: UnifiedMessage) -> None:
-        blog = m.get_destination()
+        blog = m.get_param(MessageParameter.DESTINATION)
         post_id = int(m.get_param(MessageParameter.POST_ID))
 
         # set this as the selected post
@@ -589,22 +592,22 @@ class BeProcessor:
 
     def verb_get_post(self, m: UnifiedMessage) -> None:
         mb_cmd = f"G{m.get_param(MessageParameter.POST_ID)}~"
-        self.mb_msg_send(destination=m.get_destination(), mb_cmd=mb_cmd)
+        self.mb_msg_send(destination=m.get_param(MessageParameter.DESTINATION), mb_cmd=mb_cmd)
         return
 
     def verb_get_weather(self, m: UnifiedMessage) -> None:
-        self.mb_msg_send(destination=m.get_destination(), mb_cmd="WX~")
+        self.mb_msg_send(destination=m.get_param(MessageParameter.DESTINATION), mb_cmd="WX~")
 
         return
 
     def verb_get_blog_info(self, m: UnifiedMessage) -> None:
         logger.debug("comms: send: INFO?")
-        self.mb_msg_send(destination=m.get_destination(), mb_cmd="INFO?")
+        self.mb_msg_send(destination=m.get_param(MessageParameter.DESTINATION), mb_cmd="INFO?")
 
         return
 
     def verb_scan(self, m: UnifiedMessage) -> None:
-        self.mb_msg_send(destination=m.get_destination(), mb_cmd="Q")
+        self.mb_msg_send(destination=m.get_param(MessageParameter.DESTINATION), mb_cmd="Q")
 
         return
 
@@ -654,9 +657,10 @@ class BeProcessor:
             target=MessageTarget.COMMS,
             typ=MessageType.MB_MSG,
             verb=MessageVerb.SEND,
-            operator=MessageOperator.EQ,
-            destination=destination,
-            params={MessageParameter.MB_MSG: mb_cmd}
+            params={
+                MessageParameter.DESTINATION: destination,
+                MessageParameter.MB_MSG: mb_cmd
+            }
         )
 
         logger.info(f"Sending to COMMS: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}")
@@ -730,25 +734,25 @@ class BeProcessor:
 
         if m.get_verb() == MessageVerb.FETCH_LISTING:
             # Get full list details via the cache
-            process_msg = f"{m.get_verb()} {m.get_operator()} {m.get_params()}~"
+            process_msg = f"{m.get_verb()} {m.get_param(MessageParameter.OPERATOR)} {m.get_params()}~"
             add_progress(process_msg, self.b2f_q)
             self.verb_fetch_listing(m)
 
         elif m.get_verb() == MessageVerb.GET_LISTING:
             # Get full list details not using the cache
-            process_msg = f"{m.get_verb()} {m.get_operator()} {m.get_params()}~"
+            process_msg = f"{m.get_verb()} {m.get_param(MessageParameter.OPERATOR)} {m.get_params()}~"
             add_progress(process_msg, self.b2f_q)
             self.verb_get_listing(m)
 
         elif m.get_verb() == MessageVerb.FETCH_POST:
             # Fetch post(s)
-            process_msg = f"{m.get_verb()} {m.get_operator()} {m.get_params()}~"
+            process_msg = f"{m.get_verb()} {m.get_param(MessageParameter.OPERATOR)} {m.get_params()}~"
             add_progress(process_msg, self.b2f_q)
             self.verb_fetch_post(m)
 
         elif m.get_verb() == MessageVerb.GET_POST:
             # Get post(s)
-            process_msg = f"{m.get_verb()} {m.get_operator()} {m.get_params()}~"
+            process_msg = f"{m.get_verb()} {m.get_param(MessageParameter.OPERATOR)} {m.get_params()}~"
             add_progress(process_msg, self.b2f_q)
             self.verb_get_post(m)
 
@@ -834,13 +838,13 @@ class BeProcessor:
             if m.get_typ() != MessageType.SIGNAL:
                 logger.info(
                     f"Received from COMMS: " +
-                    f"{m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_operator()}|{m.get_params()}"
+                    f"{m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}"
                 )
 
             if m.get_target() == MessageTarget.FRONTEND:
                 # pass message through to the front end
                 log_message = f"Sending to FRONTEND: " \
-                        f"{m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_operator()}|{m.get_params()}"
+                        f"{m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}"
 
                 # When at INFO level of logging, we don't want to log all the SIGNALS from COMMS
                 if m.get_typ() != MessageType.SIGNAL:

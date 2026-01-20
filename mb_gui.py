@@ -272,7 +272,7 @@ class GuiHeader:
                 target=MessageTarget.BACKEND,
                 typ=MessageType.REQUEST,
                 verb=MessageVerb.SCAN,
-                destination="@MB"
+                params={MessageParameter.DESTINATION: "@MB"}
             )
             self.f2b_q.put(m)
             logger.debug(m)
@@ -522,8 +522,10 @@ class GuiBlogList(GuiTable):
             target=MessageTarget.BACKEND,
             typ=MessageType.REQUEST,
             verb=MessageVerb.GET_LISTING,
-            operator=MessageOperator.LATEST,
-            destination=self.db_values[self.clicked_row]['blog'],
+            params={
+                MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog'],
+                MessageParameter.OPERATOR: MessageOperator.LATEST
+            }
         )
         self.f2b_q.put(m)
 
@@ -536,7 +538,7 @@ class GuiBlogList(GuiTable):
             target=MessageTarget.BACKEND,
             typ=MessageType.REQUEST,
             verb=MessageVerb.SCAN,
-            destination=self.db_values[self.clicked_row]['blog']
+            params={MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog']}
         )
         self.f2b_q.put(m)
         logger.debug(m)
@@ -549,7 +551,7 @@ class GuiBlogList(GuiTable):
             target=MessageTarget.BACKEND,
             typ=MessageType.REQUEST,
             verb=MessageVerb.GET_BLOG_INFO,
-            destination=self.db_values[self.clicked_row]['blog']
+            params = {MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog']}
         )
         self.f2b_q.put(m)
         logger.debug(m)
@@ -578,8 +580,11 @@ class GuiBlogList(GuiTable):
             target=MessageTarget.BACKEND,
             typ=MessageType.CONTROL,
             verb=MessageVerb.CHG_BLOG,
-            operator=MessageOperator.EQ,
-            params={'blog': self.db_values[row]['blog'], 'frequency': self.db_values[row]['frequency']}
+            params={
+                MessageParameter.OPERATOR: MessageOperator.EQ,
+                MessageParameter.BLOG: self.db_values[row]['blog'],
+                MessageParameter.FREQUENCY: self.db_values[row]['frequency']
+            }
         )
         self.f2b_q.put(m)
 
@@ -716,9 +721,11 @@ class GuiPostListBox(GuiTable):
             target=MessageTarget.BACKEND,
             typ=MessageType.REQUEST,
             verb=MessageVerb.FETCH_POST,
-            operator=MessageOperator.EQ,
-            destination=self.db_values[row]['blog'],
-            params={'post_id': self.db_values[row]['post_id']}
+            params={
+                MessageParameter.DESTINATION: self.db_values[row]['blog'],
+                MessageParameter.OPERATOR: MessageOperator.EQ,
+                MessageParameter.POST_ID: self.db_values[row]['post_id']
+            }
         )
         self.f2b_q.put(m)
 
@@ -730,9 +737,11 @@ class GuiPostListBox(GuiTable):
             target=MessageTarget.BACKEND,
             typ=MessageType.REQUEST,
             verb=MessageVerb.FETCH_LISTING,
-            operator=MessageOperator.MORE,
-            destination=self.db_values[self.clicked_row]['blog'],
-            params={'post_id': f"{self.db_values[self.clicked_row]['post_id']}"}
+            params={
+                MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog'],
+                'post_id': f"{self.db_values[self.clicked_row]['post_id']}",
+                MessageParameter.OPERATOR: MessageOperator.MORE
+            }
         )
         self.f2b_q.put(m)
 
@@ -744,9 +753,11 @@ class GuiPostListBox(GuiTable):
             target=MessageTarget.BACKEND,
             typ=MessageType.REQUEST,
             verb=MessageVerb.GET_LISTING,
-            operator=MessageOperator.EQ,
-            destination=self.db_values[self.clicked_row]['blog'],
-            params={'post_id': self.db_values[self.clicked_row]['post_id']}
+            params={
+                MessageParameter.OPERATOR: MessageOperator.EQ,
+                MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog'],
+                MessageParameter.POST_ID: self.db_values[self.clicked_row]['post_id']
+            }
         )
         self.f2b_q.put(m)
 
@@ -758,9 +769,11 @@ class GuiPostListBox(GuiTable):
             target=MessageTarget.BACKEND,
             typ=MessageType.REQUEST,
             verb=MessageVerb.GET_POST,
-            operator=MessageOperator.EQ,
-            destination=self.db_values[self.clicked_row]['blog'],
-            params={'post_id': f"{self.db_values[self.clicked_row]['post_id']}"}
+            params={
+                MessageParameter.OPERATOR: MessageOperator.EQ,
+                MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog'],
+                MessageParameter.POST_ID: f"{self.db_values[self.clicked_row]['post_id']}"
+            }
         )
         self.f2b_q.put(m)
 
@@ -808,9 +821,11 @@ class GuiPostContent:
             target=MessageTarget.BACKEND,
             typ=MessageType.REQUEST,
             verb=MessageVerb.GET_POST,
-            operator=MessageOperator.EQ,
-            destination=blog,
-            params={'post_id': post_id}
+            params={
+                MessageParameter.OPERATOR: MessageOperator.EQ,
+                MessageParameter.DESTINATION: blog,
+                MessageParameter.POST_ID: post_id
+            }
         )
         self.f2b_q.put(m)
 
@@ -1073,8 +1088,10 @@ class GuiMain:
             target=MessageTarget.BACKEND,
             typ=MessageType.CONTROL,
             verb=MessageVerb.CHG_RADIO_FREQUENCY,
-            operator=MessageOperator.EQ,
-            params={'frequency': frequency}
+            params={
+                MessageParameter.OPERATOR: MessageOperator.EQ,
+                MessageParameter.FREQUENCY: frequency
+            }
         )
         self.f2b_q.put(m)
 

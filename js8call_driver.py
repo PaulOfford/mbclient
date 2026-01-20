@@ -138,7 +138,7 @@ class Js8CallDriver:
         pass
 
     def process_mb_msg(self, message: UnifiedMessage):
-        req_msg = f"{message.get_destination()} {message.get_param(MessageParameter.MB_MSG)}"
+        req_msg = f"{message.get_param(MessageParameter.DESTINATION)} {message.get_param(MessageParameter.MB_MSG)}"
         self.js8call_api.send('TX.SEND_MESSAGE', req_msg)
 
     def process_control(self, message: UnifiedMessage):
@@ -203,7 +203,10 @@ class Js8CallDriver:
         #   NOTE_FREQ, NOTE_OFFSET, NOTE_CALLSIGN
         m = UnifiedMessage()
         m.set_many(
-            target=MessageTarget.BACKEND, typ=MessageType.SIGNAL, verb=verb, operator=MessageOperator.EQ, params=param
+            target=MessageTarget.BACKEND,
+            typ=MessageType.SIGNAL,
+            verb=verb,
+            params=param
         )
         self.comms_rx_q.put(m)
 
@@ -212,8 +215,12 @@ class Js8CallDriver:
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND, typ=MessageType.MB_MSG, verb=MessageVerb.INFORM,
-            source=source, destination=destination,
-            params={MessageParameter.MB_MSG: mb_message, MessageParameter.FREQUENCY: frequency}
+            params={
+                MessageParameter.SOURCE: source,
+                MessageParameter.DESTINATION: destination,
+                MessageParameter.MB_MSG: mb_message,
+                MessageParameter.FREQUENCY: frequency
+            }
         )
         self.comms_rx_q.put(m)
 
@@ -222,8 +229,12 @@ class Js8CallDriver:
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND, typ=MessageType.MB_MSG, verb=MessageVerb.ANNOUNCE,
-            source=source, destination=destination,
-            params={MessageParameter.MB_MSG: mb_message, MessageParameter.FREQUENCY: frequency}
+            params={
+                MessageParameter.SOURCE: source,
+                MessageParameter.DESTINATION: destination,
+                MessageParameter.MB_MSG: mb_message,
+                MessageParameter.FREQUENCY: frequency
+            }
         )
         self.comms_rx_q.put(m)
 

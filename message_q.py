@@ -2,6 +2,8 @@ from __future__ import annotations
 from enum import Enum
 
 
+
+
 class UiArea(str, Enum):
     HEADER = "header"
     BLOG_LIST = "blog_list"
@@ -84,13 +86,16 @@ class MessageOperator(str, Enum):
 
 
 class MessageParameter(str, Enum):
-    CALLSIGN = 'callsign'
+    SOURCE = 'source'  # The callsign of the station that sent the message.
+    DESTINATION = 'destination'  # The callsign of the station that the message is going or @MB for announcements.
+    CALLSIGN = 'callsign'  # The callsign of the station that is running this software
     FREQUENCY = 'frequency'
     OFFSET = 'offset'
     BLOG = 'blog'
     POST_ID = 'post_id'
     MB_MSG = 'mb_msg'
     UI_AREA = 'ui_area'
+    OPERATOR = 'operator'
 
 
 class UnifiedMessage:
@@ -104,23 +109,21 @@ class UnifiedMessage:
     """
 
     __slots__ = (
+        "ts",
+        "priority",
         "target",
         "typ",
         "verb",
-        "operator",
-        "source",
-        "destination",
         "params",
     )
 
     def __init__(self, **kwargs):
         # Defaults
+        self.ts: float = 0
+        self.priority: int = 1
         self.target: MessageTarget = MessageTarget.NONE
         self.typ: MessageType = MessageType.NONE
         self.verb: MessageVerb = MessageVerb.NONE
-        self.operator: MessageOperator = MessageOperator.NONE
-        self.source: str = ""
-        self.destination: str = ""
         self.params: {} = {}
 
         if kwargs:
@@ -138,6 +141,12 @@ class UnifiedMessage:
 
     # Getters
 
+    def get_ts(self) -> float:
+        return self.ts
+
+    def get_priority(self) -> int:
+        return self.priority
+
     def get_target(self) -> MessageTarget:
         return self.target
 
@@ -146,20 +155,6 @@ class UnifiedMessage:
 
     def get_verb(self) -> MessageVerb:
         return self.verb
-
-    def get_operator(self) -> MessageOperator:
-        return self.operator
-
-    def get_source(self) -> str:
-        """Get the callsign of the station that sent the message.
-        """
-        return self.source
-
-    def get_destination(self) -> str:
-        """Get the callsign of the station that the message is going to.
-            The destination can also be @MB for announcements.
-        """
-        return self.destination
 
     def get_param(self, parameter: MessageParameter):
         return self.params[parameter.value]
