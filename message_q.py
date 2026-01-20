@@ -1,7 +1,15 @@
 from __future__ import annotations
+
+import time
 from enum import Enum
+from queue import Queue
 
+MAX_QUEUE_SIZE = 20
 
+f2b_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages from the frontend to the backend
+b2f_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages to the frontend from the backend
+b2c_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages from the backend to the comms driver
+c2b_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages to the backend from the comms driver
 
 
 class UiArea(str, Enum):
@@ -119,7 +127,7 @@ class UnifiedMessage:
 
     def __init__(self, **kwargs):
         # Defaults
-        self.ts: float = 0
+        self.ts: float = time.time()
         self.priority: int = 1
         self.target: MessageTarget = MessageTarget.NONE
         self.typ: MessageType = MessageType.NONE

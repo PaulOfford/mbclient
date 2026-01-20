@@ -1,16 +1,12 @@
-# USE OF THIS PROGRAM
-# This is proof of concept program code and is freely available for experimentation.  You can change and
-# reuse any portion of the program code without restriction.  The author(s) accept no responsibility for
-# damage to equipment, corruption of data or consequential loss caused by this program code or any variant
-# of it.  The author(s) accept no responsibility for violation of any radio or amateur radio regulations
-# resulting from the use of the program code.
 import re
 from socket import socket, AF_INET, SOCK_STREAM
 import queue
-
 import logging
+
+from general_functions import add_progress_m
 from status import Status
-from message_q import UnifiedMessage, MessageType, MessageTarget, MessageVerb, MessageOperator, MessageParameter
+from message_q import b2c_q, c2b_q, UnifiedMessage,\
+    MessageType, MessageTarget, MessageVerb, MessageParameter
 from client_mocking import js8call_mock_listen
 
 import json
@@ -118,16 +114,11 @@ class Js8CallDriver:
 
     status = None
     request = None
-    comms_tx_q = None
-    comms_rx_q = None
-
     rx_ind_timeout: float = 0.0
     flash_duration = 0.5
 
-    def __init__(self, comms_tx_q: queue.Queue, comms_rx_q: queue.Queue):
+    def __init__(self):
         self.status = Status()
-        self.comms_tx_q = comms_tx_q
-        self.comms_rx_q = comms_rx_q
         self.js8call_api = Js8CallApi()
         self.js8call_api.connect()
 
@@ -169,36 +160,39 @@ class Js8CallDriver:
         Uses a short blocking wait (reduces CPU) and then drains any burst.
         """
         try:
-            comms_tx: UnifiedMessage = self.comms_tx_q.get(timeout=timeout)
+            comms_tx: UnifiedMessage = b2c_q.get(timeout=timeout)
         except queue.Empty:
             return
 
         try:
             logger.debug(f"js8drv: debug: {comms_tx.get_params()}")
             self.process_comms_tx(comms_tx)
+            add_progress_m(comms_tx)
         finally:
-            self.comms_tx_q.task_done()
+            b2c_q.task_done()
 
         # Drain any queued burst without blocking.
         while True:
             try:
-                comms_tx = self.comms_tx_q.get(timeout=timeout)
+                comms_tx = b2c_q.get(timeout=timeout)
             except queue.Empty:
                 break
             try:
                 logger.debug(comms_tx.get_params())
                 self.process_comms_tx(comms_tx)
             finally:
-                self.comms_tx_q.task_done()
+                b2c_q.task_done()
 
-    def signal_frontend(self, verb: MessageVerb):
+    @staticmethod
+    def signal_frontend(verb: MessageVerb):
         # These are the signa verbs we can send to the FRONTEND:
         #   FLASH_RX_START, FLASH_RX_STOP, FLASH_TX_START, FLASH_TX_STOP, SCAN_OFF
         m = UnifiedMessage()
         m.set_many(target=MessageTarget.FRONTEND, typ=MessageType.SIGNAL, verb=verb)
-        self.comms_rx_q.put(m)
+        c2b_q.put(m)
 
-    def signal_backend(self, verb: MessageVerb, param):
+    @staticmethod
+    def signal_backend(verb: MessageVerb, param):
         # These are the signal verbs we can send to the FRONTEND:
         #   NOTE_FREQ, NOTE_OFFSET, NOTE_CALLSIGN
         m = UnifiedMessage()
@@ -208,9 +202,10 @@ class Js8CallDriver:
             verb=verb,
             params=param
         )
-        self.comms_rx_q.put(m)
+        c2b_q.put(m)
 
-    def inform_backend(self, source: str, frequency: int, destination: str, mb_message: str):
+    @staticmethod
+    def inform_backend(source: str, frequency: int, destination: str, mb_message: str):
         # This is where we send an inbound microblog message to the backend
         m = UnifiedMessage()
         m.set_many(
@@ -222,9 +217,11 @@ class Js8CallDriver:
                 MessageParameter.FREQUENCY: frequency
             }
         )
-        self.comms_rx_q.put(m)
+        c2b_q.put(m)
+        add_progress_m(m)
 
-    def announce_to_backend(self, source: str, frequency: int, destination: str, mb_message: str):
+    @staticmethod
+    def announce_to_backend(source: str, frequency: int, destination: str, mb_message: str):
         # This is where we send an inbound microblog message to the backend
         m = UnifiedMessage()
         m.set_many(
@@ -236,7 +233,8 @@ class Js8CallDriver:
                 MessageParameter.FREQUENCY: frequency
             }
         )
-        self.comms_rx_q.put(m)
+        c2b_q.put(m)
+        add_progress_m(m)
 
     def run_comms(self):
 

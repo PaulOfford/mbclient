@@ -5,13 +5,14 @@ import tkinter as tk
 from tkinter import ttk, Event, EventType
 import locale
 import functools as ft
-from queue import Empty, Queue
+from queue import Empty
 import logging
 from _version import __version__
 from status import Status
 from settings import Settings
 from db_table import DbTable
-from message_q import UnifiedMessage, UiArea, MessageTarget, MessageType, MessageVerb, MessageOperator, MessageParameter
+from message_q import f2b_q, b2f_q, UnifiedMessage, UiArea, \
+    MessageTarget, MessageType, MessageVerb, MessageOperator, MessageParameter
 from mb_fonts import MbFonts
 
 logger = logging.getLogger(__name__)
@@ -132,7 +133,6 @@ class ScrollableFrame(ttk.Frame):
 class GuiHeader:
 
     use_gmt: bool = True
-    f2b_q: Queue = None
     gui_fonts = None
     freq_text = None
     offset_text = None
@@ -149,9 +149,8 @@ class GuiHeader:
     scan_duration: float = 120.0
     scan_timeout: float = 0.0
 
-    def __init__(self, header_frame, f2b_q: Queue):
+    def __init__(self, header_frame):
         settings = Settings()
-        self.f2b_q = f2b_q
 
         self.use_gmt = settings.use_gmt
         self.gui_fonts = MbFonts(settings.font_size)
@@ -274,7 +273,7 @@ class GuiHeader:
                 verb=MessageVerb.SCAN,
                 params={MessageParameter.DESTINATION: "@MB"}
             )
-            self.f2b_q.put(m)
+            f2b_q.put(m)
             logger.debug(m)
 
             self.scan_btn.configure(bg='#ff2222')
@@ -373,9 +372,9 @@ class GuiTable:
 
         return value
 
-    def __init__(self, frame, column_defs, max_rows: int, select_method, hdr_click_method):
+    def __init__(self, frame, column_definitions, max_rows: int, select_method, hdr_click_method):
         self.gui_fonts = MbFonts(Settings().font_size)
-        self.table_headers = column_defs
+        self.table_headers = column_definitions
         self.select_cb = select_method
         self.hdr_click_cb = hdr_click_method
 
@@ -502,9 +501,8 @@ class GuiBlogList(GuiTable):
     blog_list_pop_up = None  # pop up widget
     clicked_row = None  # holds the db_values row number that has been right-clicked
 
-    def __init__(self, frame, f2b_q: Queue):
+    def __init__(self, frame):
         # ToDo: this frame needs horizontal and vertical scroll bars
-        self.f2b_q = f2b_q
         super().__init__(
             frame, self.blog_list_headers, Settings().max_blogs, self.cb_row_select, self.cb_hdr_click
         )
@@ -527,7 +525,7 @@ class GuiBlogList(GuiTable):
                 MessageParameter.OPERATOR: MessageOperator.LATEST
             }
         )
-        self.f2b_q.put(m)
+        f2b_q.put(m)
 
         return
 
@@ -540,7 +538,7 @@ class GuiBlogList(GuiTable):
             verb=MessageVerb.SCAN,
             params={MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog']}
         )
-        self.f2b_q.put(m)
+        f2b_q.put(m)
         logger.debug(m)
 
         return
@@ -551,9 +549,9 @@ class GuiBlogList(GuiTable):
             target=MessageTarget.BACKEND,
             typ=MessageType.REQUEST,
             verb=MessageVerb.GET_BLOG_INFO,
-            params = {MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog']}
+            params={MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog']}
         )
-        self.f2b_q.put(m)
+        f2b_q.put(m)
         logger.debug(m)
 
         return
@@ -586,7 +584,7 @@ class GuiBlogList(GuiTable):
                 MessageParameter.FREQUENCY: self.db_values[row]['frequency']
             }
         )
-        self.f2b_q.put(m)
+        f2b_q.put(m)
 
         return
 
@@ -675,11 +673,10 @@ class GuiPostListBox(GuiTable):
     post_list_pop_up = None
     clicked_row = 1  # holds the db_values row number that has been right-clicked
 
-    def __init__(self, frame: tk.Frame, f2b_q: Queue):
+    def __init__(self, frame: tk.Frame):
         settings = Settings()
 
         # ToDo: this frame needs horizontal and vertical scroll bars
-        self.f2b_q = f2b_q
 
         super().__init__(
             frame, self.post_list_headers, settings.max_posts, self.cb_row_select, self.cb_hdr_click
@@ -687,7 +684,7 @@ class GuiPostListBox(GuiTable):
         # set up the pop up menu
         self.post_list_pop_up = tk.Menu(frame, tearoff=False)
         self.post_list_pop_up.add_command(label='List more posts', command=self.list_more)
-        self.post_list_pop_up.add_command(label='Refresh listing', command=self.refresh_listing)
+        self.post_list_pop_up.add_command(label='Refresh this listing', command=self.refresh_listing)
         self.post_list_pop_up.add_command(label='Refresh this post', command=self.refresh_content)
 
     def reload(self):
@@ -727,7 +724,7 @@ class GuiPostListBox(GuiTable):
                 MessageParameter.POST_ID: self.db_values[row]['post_id']
             }
         )
-        self.f2b_q.put(m)
+        f2b_q.put(m)
 
         return
 
@@ -743,7 +740,7 @@ class GuiPostListBox(GuiTable):
                 MessageParameter.OPERATOR: MessageOperator.MORE
             }
         )
-        self.f2b_q.put(m)
+        f2b_q.put(m)
 
         return
 
@@ -759,7 +756,7 @@ class GuiPostListBox(GuiTable):
                 MessageParameter.POST_ID: self.db_values[self.clicked_row]['post_id']
             }
         )
-        self.f2b_q.put(m)
+        f2b_q.put(m)
 
         return
 
@@ -775,7 +772,7 @@ class GuiPostListBox(GuiTable):
                 MessageParameter.POST_ID: f"{self.db_values[self.clicked_row]['post_id']}"
             }
         )
-        self.f2b_q.put(m)
+        f2b_q.put(m)
 
         return
 
@@ -790,9 +787,8 @@ class GuiPostContent:
     post_box = None
     post_cols = ['qso_date', 'post_id', 'post_date', 'title', 'body', 'is_selected']
 
-    def __init__(self, frame: tk.Frame, f2b_q: Queue):
+    def __init__(self, frame: tk.Frame):
         self.gui_fonts = MbFonts(Settings().font_size)
-        self.f2b_q = f2b_q
 
         post_content_hdr = tk.Label(
             frame,
@@ -827,7 +823,7 @@ class GuiPostContent:
                 MessageParameter.POST_ID: post_id
             }
         )
-        self.f2b_q.put(m)
+        f2b_q.put(m)
 
         return
 
@@ -942,7 +938,7 @@ class GuiProgress:
 
             q_date = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(r['qso_date']))
 
-            progress_string += f"\n{q_date} {r['blog']} {r['message']}"
+            progress_string += f"\n{q_date} {r['message']}"
 
             self.progress_box.insert(tk.END, progress_string)
             self.progress_box.see(tk.END)
@@ -953,9 +949,6 @@ class GuiProgress:
 
 class GuiMain:
 
-    f2b_q = None
-    b2f_q = None
-
     last_check_for_updates = 0
     header = None
     main = None
@@ -965,9 +958,7 @@ class GuiMain:
 
     stop = False  # used to flag the termination of this thread
 
-    def __init__(self, f2b_q: Queue, b2f_q: Queue):
-        self.f2b_q = f2b_q
-        self.b2f_q = b2f_q
+    def __init__(self):
 
         window_title = "Microblog Client " + __version__
         root.title(window_title)
@@ -1010,7 +1001,7 @@ class GuiMain:
 
         frame_hdr = tk.Frame(frame_container, background="black", height=100, pady=10)
         frame_hdr.pack(fill='x', side='top', anchor='n')
-        self.header = GuiHeader(header_frame=frame_hdr, f2b_q=self.f2b_q)  # populate the header
+        self.header = GuiHeader(header_frame=frame_hdr)  # populate the header
 
         frame_main = tk.Frame(frame_container, pady=4)
         frame_main.pack(fill='both', expand=1, side='top', anchor='n', padx=4)
@@ -1033,7 +1024,7 @@ class GuiMain:
         frame_blog_list = tk.Frame(frame_left, bg='white', padx=4, pady=4)
         frame_blog_list.pack(side='top', fill='both', expand=1)
 
-        self.blog_list = GuiBlogList(frame_blog_list, f2b_q)
+        self.blog_list = GuiBlogList(frame_blog_list)
 
         # Blog Information area
         frame_blog_info = tk.Frame(frame_left, bg='white', padx=4, pady=4)
@@ -1045,13 +1036,13 @@ class GuiMain:
         frame_post_list = tk.Frame(frame_mid, bg='white', padx=4, pady=4)
         frame_post_list.pack(side='top', fill='both', expand=1)
 
-        self.post_list = GuiPostListBox(frame_post_list, f2b_q)
+        self.post_list = GuiPostListBox(frame_post_list)
 
         # Latest Posts area
         frame_post_content = tk.Frame(frame_right, bg='white')
         frame_post_content.pack(side='top', fill='both', expand=1)
 
-        self.post_content = GuiPostContent(frame_post_content, f2b_q)
+        self.post_content = GuiPostContent(frame_post_content)
 
         # Latest Progress area
         frame_progress = tk.Frame(frame_right, bg='white')
@@ -1074,7 +1065,7 @@ class GuiMain:
             typ=MessageType.CONTROL,
             verb=MessageVerb.SHUTDOWN
         )
-        self.f2b_q.put(m)
+        f2b_q.put(m)
 
         # ToDo: I don't think we should do the following here
         root.destroy()
@@ -1082,7 +1073,8 @@ class GuiMain:
 
         return
 
-    def set_frequency(self, frequency):
+    @staticmethod
+    def set_frequency(frequency):
         m = UnifiedMessage()
         m.set_many(
             target=MessageTarget.BACKEND,
@@ -1093,7 +1085,7 @@ class GuiMain:
                 MessageParameter.FREQUENCY: frequency
             }
         )
-        self.f2b_q.put(m)
+        f2b_q.put(m)
 
         return
 
@@ -1122,7 +1114,7 @@ class GuiMain:
     def process_updates(self):
 
         try:
-            m: UnifiedMessage = self.b2f_q.get(block=False)  # if no msg waiting, this will throw an exception
+            m: UnifiedMessage = b2f_q.get(block=False)  # if no msg waiting, this will throw an exception
 
             if m.get_target() == MessageTarget.FRONTEND:
                 if m.get_typ() == MessageType.SIGNAL:
@@ -1142,7 +1134,7 @@ class GuiMain:
                     elif m.get_verb() == MessageVerb.RELOAD_UI:
                         self.verb_reload_ui(m)
 
-            self.b2f_q.task_done()
+            b2f_q.task_done()
 
         except Empty:
             pass
