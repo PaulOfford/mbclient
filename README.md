@@ -23,7 +23,7 @@ MbClient requires very little to run.  It needs:
   * Linux
   * macOS
 * JS8Call version 2.2 or later
-* Python 3.6 or later
+* Python 3.9 or later
 
 ** The build and test environment is Windows 11 and the default settings are set for this environment.  It hasn't been tested on Linux or macOS but it should work.
 
