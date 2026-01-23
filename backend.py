@@ -598,12 +598,11 @@ class BeProcessor:
         reload_ui_areas(UiArea.HEADER)
 
     def set_rig_frequency(self, frequency: int):
-        m = UnifiedMessage()
-        m.set_many(
-            target=MessageTarget.COMMS,
-            typ=MessageType.CONTROL,
-            verb=MessageVerb.SET_FREQ,
-            params={MessageParameter.FREQUENCY: frequency}
+        m = UnifiedMessage.create(
+            target="COMMS",
+            typ="CONTROL",
+            verb="SET_FREQ",
+            params={"frequency": frequency}
         )
         self.send_to_comms(m)
 
@@ -741,8 +740,7 @@ class BeProcessor:
         command = m.get_verb()
 
         if command == MessageVerb.SHUTDOWN:
-            m = UnifiedMessage()
-            m.set_many(target=MessageTarget.COMMS, typ=MessageType.CONTROL, verb=MessageVerb.SHUTDOWN)
+            m = UnifiedMessage.create(target="COMMS", typ="CONTROL", verb="SHUTDOWN")
             self.send_to_comms(m)
             add_progress_m(m)
             exit(0)

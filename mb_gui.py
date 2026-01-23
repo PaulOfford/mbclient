@@ -266,12 +266,11 @@ class GuiHeader:
     def run_scan(self):
         if self.scan_timeout == 0:  # only do this if we are not in a scan period
 
-            m = UnifiedMessage()
-            m.set_many(
-                target=MessageTarget.BACKEND,
-                typ=MessageType.REQUEST,
-                verb=MessageVerb.SCAN,
-                params={MessageParameter.DESTINATION: "@MB"}
+            m = UnifiedMessage.create(
+                target="BACKEND",
+                typ="REQUEST",
+                verb="SCAN",
+                params={"destination": "@MB"}
             )
             f2b_q.put(m)
             logger.debug(m)
@@ -515,14 +514,13 @@ class GuiBlogList(GuiTable):
 
     # list_recent causes MbClient to update the Post List with the five most recent posts
     def list_latest(self):
-        m = UnifiedMessage()
-        m.set_many(
-            target=MessageTarget.BACKEND,
-            typ=MessageType.REQUEST,
-            verb=MessageVerb.GET_LISTING,
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="REQUEST",
+            verb="GET_LISTING",
             params={
-                MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog'],
-                MessageParameter.OPERATOR: MessageOperator.LATEST
+                "destination": self.db_values[self.clicked_row]['blog'],
+                "operator": "LATEST"
             }
         )
         f2b_q.put(m)
@@ -531,12 +529,11 @@ class GuiBlogList(GuiTable):
 
     # check_for_latest causes MbClient to request an @MB announcement
     def check_for_latest(self):
-        m = UnifiedMessage()
-        m.set_many(
-            target=MessageTarget.BACKEND,
-            typ=MessageType.REQUEST,
-            verb=MessageVerb.SCAN,
-            params={MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog']}
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="REQUEST",
+            verb="SCAN",
+            params={"destination": self.db_values[self.clicked_row]['blog']}
         )
         f2b_q.put(m)
         logger.debug(m)
@@ -544,12 +541,11 @@ class GuiBlogList(GuiTable):
         return
 
     def get_blog_info(self):
-        m = UnifiedMessage()
-        m.set_many(
-            target=MessageTarget.BACKEND,
-            typ=MessageType.REQUEST,
-            verb=MessageVerb.GET_BLOG_INFO,
-            params={MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog']}
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="REQUEST",
+            verb="GET_BLOG_INFO",
+            params={"destination": self.db_values[self.clicked_row]['blog']}
         )
         f2b_q.put(m)
         logger.debug(m)
@@ -573,15 +569,14 @@ class GuiBlogList(GuiTable):
 
     # noinspection PyGlobalUndefined
     def cb_row_select(self, row, event):
-        m = UnifiedMessage()
-        m.set_many(
-            target=MessageTarget.BACKEND,
-            typ=MessageType.CONTROL,
-            verb=MessageVerb.CHG_BLOG,
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="CONTROL",
+            verb="CHG_BLOG",
             params={
-                MessageParameter.OPERATOR: MessageOperator.EQ,
-                MessageParameter.BLOG: self.db_values[row]['blog'],
-                MessageParameter.FREQUENCY: self.db_values[row]['frequency']
+                "operator": "EQ",
+                "blog": self.db_values[row]['blog'],
+                "frequency": self.db_values[row]['frequency']
             }
         )
         f2b_q.put(m)
@@ -713,15 +708,14 @@ class GuiPostListBox(GuiTable):
         self.post_list_pop_up.tk_popup(event.x_root, event.y_root)
 
     def cb_row_select(self, row, event):
-        m = UnifiedMessage()
-        m.set_many(
-            target=MessageTarget.BACKEND,
-            typ=MessageType.REQUEST,
-            verb=MessageVerb.FETCH_POST,
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="REQUEST",
+            verb="FETCH_POST",
             params={
-                MessageParameter.DESTINATION: self.db_values[row]['blog'],
-                MessageParameter.OPERATOR: MessageOperator.EQ,
-                MessageParameter.POST_ID: self.db_values[row]['post_id']
+                "destination": self.db_values[row]['blog'],
+                "operator": "EQ",
+                "post_id": self.db_values[row]['post_id']
             }
         )
         f2b_q.put(m)
@@ -729,15 +723,14 @@ class GuiPostListBox(GuiTable):
         return
 
     def list_more(self):
-        m = UnifiedMessage()
-        m.set_many(
-            target=MessageTarget.BACKEND,
-            typ=MessageType.REQUEST,
-            verb=MessageVerb.FETCH_LISTING,
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="REQUEST",
+            verb="FETCH_LISTING",
             params={
-                MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog'],
+                "destination": self.db_values[self.clicked_row]['blog'],
                 'post_id': f"{self.db_values[self.clicked_row]['post_id']}",
-                MessageParameter.OPERATOR: MessageOperator.MORE
+                "operator": "MORE"
             }
         )
         f2b_q.put(m)
@@ -745,15 +738,14 @@ class GuiPostListBox(GuiTable):
         return
 
     def refresh_listing(self):
-        m = UnifiedMessage()
-        m.set_many(
-            target=MessageTarget.BACKEND,
-            typ=MessageType.REQUEST,
-            verb=MessageVerb.GET_LISTING,
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="REQUEST",
+            verb="GET_LISTING",
             params={
-                MessageParameter.OPERATOR: MessageOperator.EQ,
-                MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog'],
-                MessageParameter.POST_ID: self.db_values[self.clicked_row]['post_id']
+                "operator": "EQ",
+                "destination": self.db_values[self.clicked_row]['blog'],
+                "post_id": self.db_values[self.clicked_row]['post_id']
             }
         )
         f2b_q.put(m)
@@ -761,15 +753,14 @@ class GuiPostListBox(GuiTable):
         return
 
     def refresh_content(self):
-        m = UnifiedMessage()
-        m.set_many(
-            target=MessageTarget.BACKEND,
-            typ=MessageType.REQUEST,
-            verb=MessageVerb.GET_POST,
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="REQUEST",
+            verb="GET_POST",
             params={
-                MessageParameter.OPERATOR: MessageOperator.EQ,
-                MessageParameter.DESTINATION: self.db_values[self.clicked_row]['blog'],
-                MessageParameter.POST_ID: f"{self.db_values[self.clicked_row]['post_id']}"
+                "operator": "EQ",
+                "destination": self.db_values[self.clicked_row]['blog'],
+                "post_id": f"{self.db_values[self.clicked_row]['post_id']}"
             }
         )
         f2b_q.put(m)
@@ -812,15 +803,14 @@ class GuiPostContent:
         self.reload()
 
     def get_post(self, blog: str, post_id: int):
-        m = UnifiedMessage()
-        m.set_many(
-            target=MessageTarget.BACKEND,
-            typ=MessageType.REQUEST,
-            verb=MessageVerb.GET_POST,
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="REQUEST",
+            verb="GET_POST",
             params={
-                MessageParameter.OPERATOR: MessageOperator.EQ,
-                MessageParameter.DESTINATION: blog,
-                MessageParameter.POST_ID: post_id
+                "operator": "EQ",
+                "destination": blog,
+                "post_id": post_id
             }
         )
         f2b_q.put(m)
@@ -1059,11 +1049,10 @@ class GuiMain:
         root.mainloop()
 
     def client_shutdown(self):
-        m = UnifiedMessage()
-        m.set_many(
-            target=MessageTarget.BACKEND,
-            typ=MessageType.CONTROL,
-            verb=MessageVerb.SHUTDOWN
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="CONTROL",
+            verb="SHUTDOWN"
         )
         f2b_q.put(m)
 
@@ -1075,14 +1064,13 @@ class GuiMain:
 
     @staticmethod
     def set_frequency(frequency):
-        m = UnifiedMessage()
-        m.set_many(
-            target=MessageTarget.BACKEND,
-            typ=MessageType.CONTROL,
-            verb=MessageVerb.CHG_RADIO_FREQUENCY,
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="CONTROL",
+            verb="CHG_RADIO_FREQUENCY",
             params={
-                MessageParameter.OPERATOR: MessageOperator.EQ,
-                MessageParameter.FREQUENCY: frequency
+                "operator": "EQ",
+                "frequency": frequency
             }
         )
         f2b_q.put(m)

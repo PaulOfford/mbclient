@@ -101,7 +101,7 @@ class Js8CallApi:
             # this avoids hamlib errors in JS8Call if the radio isn't connected
         else:
             mb_msg = (message + '\n').encode()
-            logger.debug('send: ' + str(mb_msg))
+            logger.debug('tx - ' + str(mb_msg))
             self.sock.send(mb_msg)   # newline suffix is required
 
     # def set_rig_freq(self, freq):
@@ -117,6 +117,8 @@ class Js8CallDriver:
     rx_ind_timeout: float = 0.0
     flash_duration = 0.5
 
+    tx_block_timeout: float = 0.0
+
     def __init__(self):
         self.status = Status()
         self.js8call_api = Js8CallApi()
@@ -130,6 +132,7 @@ class Js8CallDriver:
 
     def process_mb_msg(self, message: UnifiedMessage):
         req_msg = f"{message.get_param(MessageParameter.DESTINATION)} {message.get_param(MessageParameter.MB_MSG)}"
+        self.tx_block_timeout = time.time() + 15  # Block further sends
         self.js8call_api.send('TX.SEND_MESSAGE', req_msg)
 
     def process_control(self, message: UnifiedMessage):
@@ -159,46 +162,35 @@ class Js8CallDriver:
 
         Uses a short blocking wait (reduces CPU) and then drains any burst.
         """
+        if time.time() < self.tx_block_timeout:
+            return
+
         try:
             comms_tx: UnifiedMessage = b2c_q.get(timeout=timeout)
         except queue.Empty:
             return
 
         try:
-            logger.debug(f"js8drv: debug: {comms_tx.get_params()}")
+            logger.debug(f"Received from BACKEND: {comms_tx.get_params()}")
             self.process_comms_tx(comms_tx)
             add_progress_m(comms_tx)
         finally:
             b2c_q.task_done()
 
-        # Drain any queued burst without blocking.
-        while True:
-            try:
-                comms_tx = b2c_q.get(timeout=timeout)
-            except queue.Empty:
-                break
-            try:
-                logger.debug(comms_tx.get_params())
-                self.process_comms_tx(comms_tx)
-            finally:
-                b2c_q.task_done()
-
     @staticmethod
     def signal_frontend(verb: MessageVerb):
         # These are the signa verbs we can send to the FRONTEND:
         #   FLASH_RX_START, FLASH_RX_STOP, FLASH_TX_START, FLASH_TX_STOP, SCAN_OFF
-        m = UnifiedMessage()
-        m.set_many(target=MessageTarget.FRONTEND, typ=MessageType.SIGNAL, verb=verb)
+        m = UnifiedMessage.create(target="FRONTEND", typ="SIGNAL", verb=verb)
         c2b_q.put(m)
 
     @staticmethod
     def signal_backend(verb: MessageVerb, param):
         # These are the signal verbs we can send to the FRONTEND:
         #   NOTE_FREQ, NOTE_OFFSET, NOTE_CALLSIGN
-        m = UnifiedMessage()
-        m.set_many(
-            target=MessageTarget.BACKEND,
-            typ=MessageType.SIGNAL,
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="SIGNAL",
             verb=verb,
             params=param
         )
@@ -207,14 +199,13 @@ class Js8CallDriver:
     @staticmethod
     def inform_backend(source: str, frequency: int, destination: str, mb_message: str):
         # This is where we send an inbound microblog message to the backend
-        m = UnifiedMessage()
-        m.set_many(
-            target=MessageTarget.BACKEND, typ=MessageType.MB_MSG, verb=MessageVerb.INFORM,
+        m = UnifiedMessage.create(
+            target="BACKEND", typ="MB_MSG", verb="INFORM",
             params={
-                MessageParameter.SOURCE: source,
-                MessageParameter.DESTINATION: destination,
-                MessageParameter.MB_MSG: mb_message,
-                MessageParameter.FREQUENCY: frequency
+                "source": source,
+                "destination": destination,
+                "mb_msg": mb_message,
+                "frequency": frequency
             }
         )
         c2b_q.put(m)
@@ -223,14 +214,13 @@ class Js8CallDriver:
     @staticmethod
     def announce_to_backend(source: str, frequency: int, destination: str, mb_message: str):
         # This is where we send an inbound microblog message to the backend
-        m = UnifiedMessage()
-        m.set_many(
-            target=MessageTarget.BACKEND, typ=MessageType.MB_MSG, verb=MessageVerb.ANNOUNCE,
+        m = UnifiedMessage.create(
+            target="BACKEND", typ="MB_MSG", verb="ANNOUNCE",
             params={
-                MessageParameter.SOURCE: source,
-                MessageParameter.DESTINATION: destination,
-                MessageParameter.MB_MSG: mb_message,
-                MessageParameter.FREQUENCY: frequency
+                "source": source,
+                "destination": destination,
+                "mb_msg": mb_message,
+                "frequency": frequency
             }
         )
         c2b_q.put(m)
@@ -262,7 +252,6 @@ class Js8CallDriver:
                     self.rx_ind_timeout = 0
 
                 for message in messages:
-                    logger.debug('rx - ' + str(message))
                     js8call_msg_type = message.get('type', '')
                     value = message.get('value', '')
                     params = message.get('params', {})
@@ -278,17 +267,12 @@ class Js8CallDriver:
                             verb = MessageVerb.FLASH_TX_START
                         else:
                             verb = MessageVerb.FLASH_TX_STOP
-
-                        logger.debug(f"Received {verb}")
                         self.signal_frontend(verb)
 
                     elif js8call_msg_type == 'STATION.CALLSIGN':
-                        logger.debug(f"Received {value}")
                         self.signal_backend(MessageVerb.NOTE_CALLSIGN, {'callsign': value})
 
                     elif js8call_msg_type == 'RIG.FREQ' or js8call_msg_type == 'STATION.STATUS':
-                        logger.debug(f"Received {value}")
-
                         dial = int(params['DIAL'])
                         offset = int(params['OFFSET'])
 
@@ -299,8 +283,6 @@ class Js8CallDriver:
                         logger.debug('q_put: NOTE_OFFSET - ' + str(offset))
 
                     elif js8call_msg_type == 'RX.DIRECTED':
-                        logger.debug('rx - ' + str(message))
-
                         # We need to extract the source and destination
                         msg_elements = re.findall(r"^\S+: +\S+ +([\S\s]+)", value)
                         mb_message = msg_elements[0]
