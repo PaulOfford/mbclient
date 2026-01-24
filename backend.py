@@ -211,7 +211,7 @@ class ServerMsgProcessors:
 
         return
 
-    def process_listing(self, destination: str, cmd: str, blog: str, post_range: str, lines: []):
+    def process_listing(self, destination: str, cmd: str, blog: str, post_range: str, lines: list[dict]):
         status = Status()
         post_table = DbTable('post')
         qso_date = time.time()
@@ -336,13 +336,17 @@ class ServerMsgProcessors:
 
         lines = body.split('\n')  # this is the list output
         for line in lines:
+            stripped_line = line.strip()
 
-            if line == 'NO POSTS FOUND':
+            if len(stripped_line) == 0:
+                continue
+
+            if stripped_line == 'NO POSTS FOUND':
                 entries.append({'post_id': -1, 'post_date': 0, 'title': 'NO POSTS FOUND'})
                 break
 
             if cmd == 'E':
-                details = re.findall(r"(\d+) - (\d{4}-\d{2}-\d{2}) - ([\S\s]+)", line)
+                details = re.findall(r"(\d+) - (\d{4}-\d{2}-\d{2}) - ([\S\s]+)", stripped_line)
 
                 if len(details) > 0:
                     post_id = int(details[0][0])
@@ -482,7 +486,7 @@ class BeProcessor:
         return post_list
 
     @staticmethod
-    def get_listing_command(post_id_list: []) -> str:
+    def get_listing_command(post_id_list: list[int]) -> str:
 
         if len(post_id_list) > 0:
             post_list_string = ','.join(map(str, post_id_list))
@@ -598,12 +602,11 @@ class BeProcessor:
         reload_ui_areas(UiArea.HEADER)
 
     def set_rig_frequency(self, frequency: int):
-        m = UnifiedMessage()
-        m.set_many(
-            target=MessageTarget.COMMS,
-            typ=MessageType.CONTROL,
-            verb=MessageVerb.SET_FREQ,
-            params={MessageParameter.FREQUENCY: frequency}
+        m = UnifiedMessage.create(
+            target="COMMS",
+            typ="CONTROL",
+            verb="SET_FREQ",
+            params={"frequency": frequency}
         )
         self.send_to_comms(m)
 
@@ -741,8 +744,7 @@ class BeProcessor:
         command = m.get_verb()
 
         if command == MessageVerb.SHUTDOWN:
-            m = UnifiedMessage()
-            m.set_many(target=MessageTarget.COMMS, typ=MessageType.CONTROL, verb=MessageVerb.SHUTDOWN)
+            m = UnifiedMessage.create(target="COMMS", typ="CONTROL", verb="SHUTDOWN")
             self.send_to_comms(m)
             add_progress_m(m)
             exit(0)
