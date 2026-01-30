@@ -10,7 +10,7 @@ from mb_gui import GuiMain
 from backend import Backend
 from js8call_driver import Js8CallDriver
 
-setup_logging(logging.DEBUG)   # DEBUG or INFO
+setup_logging(logging.INFO)   # DEBUG or INFO
 logger = logging.getLogger(__name__)
 
 
