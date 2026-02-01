@@ -16,7 +16,7 @@ def reload_ui_areas(ui_area: str):
         params={MessageParameter.UI_AREA: ui_area}
     )
 
-    logger.info(
+    logger.debug(
         f"Sending to FRONTEND: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}"
     )
     b2f_q.put(m)
