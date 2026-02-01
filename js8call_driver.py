@@ -6,7 +6,7 @@ import logging
 from general_functions import add_progress_m
 from status import Status
 from message_q import b2c_q, c2b_q, UnifiedMessage,\
-    MessageType, MessageTarget, MessageVerb, MessageParameter
+    MessageType, MessageVerb, MessageParameter
 from client_mocking import js8call_mock_listen
 
 import json
@@ -117,8 +117,6 @@ class Js8CallDriver:
     rx_ind_timeout: float = 0.0
     flash_duration = 0.5
 
-    tx_block_timeout: float = 0.0
-
     def __init__(self):
         self.status = Status()
         self.js8call_api = Js8CallApi()
@@ -132,7 +130,6 @@ class Js8CallDriver:
 
     def process_mb_msg(self, message: UnifiedMessage):
         req_msg = f"{message.get_param(MessageParameter.DESTINATION)} {message.get_param(MessageParameter.MB_MSG)}"
-        self.tx_block_timeout = time.time() + 15  # Block further sends
         self.js8call_api.send('TX.SEND_MESSAGE', req_msg)
 
     def process_control(self, message: UnifiedMessage):
@@ -162,9 +159,6 @@ class Js8CallDriver:
 
         Uses a short blocking wait (reduces CPU) and then drains any burst.
         """
-        if time.time() < self.tx_block_timeout:
-            return
-
         try:
             comms_tx: UnifiedMessage = b2c_q.get(timeout=timeout)
         except queue.Empty:
