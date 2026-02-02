@@ -1,10 +1,8 @@
 import time
-from db_table import *
-
+from mbclient.db_table import *
 
 class Settings:
     db_file = None
-
     settings_cols = ['ts', 'name', 'val', 'typ']
     startup_width = None
     startup_height = None
@@ -12,9 +10,8 @@ class Settings:
     font_size = None
     max_posts = None
     max_blogs = None
-    max_listing = 5  # ToDo: put this in the database
+    max_listing = 5
     use_gmt = 1
-
     settings_table = None
 
     def __init__(self):
@@ -22,10 +19,7 @@ class Settings:
         self.reload_settings()
 
     def get_setting(self, name):
-        db_values = self.settings_table.select(
-            where=f"name='{name}'", order_by=None, desc=False, limit=1, hdr_list=self.settings_cols
-        )
-
+        db_values = self.settings_table.select(where=f"name='{name}'", order_by=None, desc=False, limit=1, hdr_list=self.settings_cols)
         if len(db_values) > 0:
             value_str = db_values[0]['val']
             data_type = db_values[0]['typ']
@@ -35,20 +29,16 @@ class Settings:
                 return float(value_str)
             elif data_type == 'text':
                 return value_str
-
         else:
             return 'unknown'
 
     def set_setting(self, name: str, value):
-        self.settings_table.update(
-            value_dictionary={'ts': time.time(), 'val': str(value)},
-            where=f"name='{name}'"
-        )
+        self.settings_table.update(value_dictionary={'ts': time.time(), 'val': str(value)}, where=f"name='{name}'")
 
     def reload_settings(self):
         self.startup_width = self.get_setting('startup_width')
         self.startup_height = self.get_setting('startup_height')
-        self.startup_dimensions = f"{self.startup_width}x{self.startup_height}"
+        self.startup_dimensions = f'{self.startup_width}x{self.startup_height}'
         self.font_size = self.get_setting('font_size')
         self.max_posts = self.get_setting('max_posts')
         self.max_blogs = self.get_setting('max_blogs')
