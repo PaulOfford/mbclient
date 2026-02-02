@@ -89,7 +89,7 @@ class ServerMsgProcessors:
     listing_extractor = r"^([+-])([EL])([\d,]*)~\n*([\S\s]+)"
     post_extractor = r"^([+-])(G)(\d+)~\n*([\S\s]+)"
     weather_extractor = r"^([+-])(WX)~\n*([\S\s]+)"
-    info_extractor = r"^(INFO) +([\S\s]+)"
+    info_extractor = r"^([+-])(I)~\n*([\S\s]+)"
 
     announce_extractor = r"^(\d+) +(\d{6})"
     announce_extractor_old = r"^([A-Z,0-9/]+) +(\d+) +(\d{4}-\d{2}-\d{2})"
@@ -158,13 +158,13 @@ class ServerMsgProcessors:
                         )
                         self.signal_reload(UiArea.POST_LIST)
 
-                elif result[0] == 'INFO':
-                    self.process_info(
-                        blog=m.get_param(MessageParameter.SOURCE),
-                        frequency=status.radio_frequency,
-                        blog_info=result[1]
-                    )
-                self.signal_reload(UiArea.BLOG_INFO)
+                    elif mb_cmd == 'I':
+                        self.process_info(
+                            blog=m.get_param(MessageParameter.SOURCE),
+                            frequency=status.radio_frequency,
+                            blog_info=result[2]
+                        )
+                        self.signal_reload(UiArea.BLOG_INFO)
 
                 break
 
@@ -568,8 +568,8 @@ class BeProcessor:
         return
 
     def verb_get_blog_info(self, m: UnifiedMessage) -> None:
-        logger.debug("comms: send: INFO?")
-        self.mb_msg_send(destination=m.get_param(MessageParameter.DESTINATION), mb_cmd="INFO?")
+        logger.debug("comms: send: I~")
+        self.mb_msg_send(destination=m.get_param(MessageParameter.DESTINATION), mb_cmd="I~")
 
         return
 
