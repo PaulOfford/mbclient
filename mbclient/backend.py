@@ -11,6 +11,10 @@ from mbclient.general_functions import add_progress_m, reload_ui_areas
 logger = logging.getLogger(__name__)
 
 
+class CommsDisconnect(Exception):
+    pass
+
+
 def compress_date(post_epoch: int) -> str:
     if post_epoch > 0:
         dt_string = time.strftime('%Y-%m-%d', time.gmtime(post_epoch))
@@ -80,6 +84,8 @@ class ServerMsgProcessors:
     info_extractor = '^([+-])(I)~\\n*([\\S\\s]+)'
     announce_extractor = '^(\\d+) +(\\d{6})'
     announce_extractor_old = '^([A-Z,0-9/]+) +(\\d+) +(\\d{4}-\\d{2}-\\d{2})'
+
+    is_connected: bool = True
 
     def __init__(self):
         pass
@@ -311,6 +317,9 @@ class ServerMsgProcessors:
             verb = MessageVerb.FLASH_RX_STOP
         signal_frontend(verb)
 
+    def process_note_disconnect(self):
+        self.is_connected = False
+
     def process_rx_message(self, m: UnifiedMessage):
         if m.get_typ() == MessageType.MB_MSG:
             if m.get_verb() == MessageVerb.INFORM:
@@ -328,6 +337,8 @@ class ServerMsgProcessors:
                 self.process_note_ptt(m)
             elif m.get_verb() == MessageVerb.NOTE_RX:
                 self.process_note_rx(m)
+            elif m.get_verb() == MessageVerb.NOTE_DISCONNECT:
+                self.process_note_disconnect()
 
 
 class BeProcessor:
@@ -335,6 +346,8 @@ class BeProcessor:
         'qso_date', 'blog', 'directed_to', 'frequency', 'offset',
         'cmd', 'post_id', 'post_date', 'title', 'body'
     ]
+
+    processor = ServerMsgProcessors()
 
     def __init__(self):
         pass
@@ -465,7 +478,7 @@ class BeProcessor:
             verb=MessageVerb.SEND,
             params={MessageParameter.DESTINATION: destination, MessageParameter.MB_MSG: mb_cmd}
         )
-        logger.info(f'Sending to COMMS: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}')
+        logger.debug(f'Sending to COMMS: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}')
         self.send_to_comms(m)
         return
 
@@ -500,8 +513,10 @@ class BeProcessor:
         status.set_user_frequency(m.get_param(MessageParameter.FREQUENCY))
         return
 
-    @staticmethod
-    def send_to_comms(m: UnifiedMessage):
+    def send_to_comms(self, m: UnifiedMessage):
+        if not self.processor.is_connected:
+            return  # We've lost comms
+
         if m.get_param(MessageParameter.MB_MSG):
             log_msg = m.get_param(MessageParameter.MB_MSG).split('\n')[0]
             logger.info(f"SEND -> {m.get_param(MessageParameter.DESTINATION)}: {log_msg}")
@@ -577,7 +592,7 @@ class BeProcessor:
         try:
             m: UnifiedMessage = f2b_q.get(block=False)
             if m:
-                logger.info(f'Received from FRONTEND: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}')
+                logger.debug(f'Received from FRONTEND: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}')
                 self.preprocess(m)
                 f2b_q.task_done()
         except queue.Empty:
@@ -585,19 +600,12 @@ class BeProcessor:
         try:
             m: UnifiedMessage = c2b_q.get(block=True, timeout=0.1)
             if m.get_typ() != MessageType.SIGNAL:
-                logger.info(
+                logger.debug(
                     f'Received from COMMS: ' + f'{m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}'
                 )
-            if m.get_target() == MessageTarget.FRONTEND:
-                log_message = f'Sending to FRONTEND: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}'
-                if m.get_typ() != MessageType.SIGNAL:
-                    logger.info(log_message)
-                else:
-                    logger.debug(log_message)
-                b2f_q.put(m)
-            elif m.get_target() == MessageTarget.BACKEND:
-                processor = ServerMsgProcessors()
-                processor.process_rx_message(m)
+
+            if m.get_target() == MessageTarget.BACKEND:
+                self.processor.process_rx_message(m)
             c2b_q.task_done()
         except queue.Empty:
             pass
