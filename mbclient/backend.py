@@ -478,17 +478,10 @@ class BeProcessor:
         blog = m.get_param(MessageParameter.BLOG)
         frequency = m.get_param(MessageParameter.FREQUENCY)
         if len(blog) > 0:
-            s = DbTable('status')
-            s.update(where=None, value_dictionary={'selected_blog': blog, 'user_frequency': frequency})
             b = DbTable('blog')
             b.update(where=None, value_dictionary={'is_selected': 0})
             b.update(where=f"blog='{blog}' AND frequency={frequency}", value_dictionary={'is_selected': 1})
-            s.update(
-                where=None,
-                value_dictionary={
-                    'hdr_updated': time.time(), 'progress_updated': time.time(), 'blog_updated': time.time()
-                }
-            )
+
         reload_ui_areas(UiArea.BLOG_LIST)
         reload_ui_areas(UiArea.BLOG_INFO)
 

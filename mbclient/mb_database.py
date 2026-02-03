@@ -88,26 +88,19 @@ class MbDatabase:
                 'INSERT INTO settings VALUES (:ts, :name, :val, :typ)',
                 {'ts': time.time(), 'name': 'max_listing', 'val': '5', 'typ': 'integer'}
             )
+
         logger.info('mb_database: Creating the status table')
         cursor.execute(
-            'CREATE TABLE status '
-            '(last_checked float, hdr_updated float, post_updated float, post_list_updated float, '
-            'progress_updated float, blog_updated float, radio_frequency integer, user_frequency integer, '
-            'offset integer, is_scanning integer, callsign text, selected_blog text, selected_station text, '
-            'selected_post integer)'
+            'CREATE TABLE status (radio_frequency integer, user_frequency integer, offset integer, callsign text)'
         )
         logger.info('mb_database: Loading default status values')
         with db:
             cursor.execute(
                 'INSERT INTO status VALUES '
-                '(:last_checked, :hdr_updated, :post_updated, :post_list_updated, :blog_updated, :progress_updated, '
-                ':radio_frequency, :user_frequency, :offset, :is_scanning, :callsign, :selected_blog, '
-                ':selected_station, :selected_post)', 
-                {'last_checked': 0, 'hdr_updated': 0, 'post_updated': 0, 'post_list_updated': 0, 'blog_updated': 0, 
-                 'progress_updated': 0, 'radio_frequency': 14078000, 'user_frequency': 14078000, 'offset': 1800, 
-                 'is_scanning': 0, 'callsign': 'Pending', 'selected_blog': 'M0PXO', 'selected_station': '', 
-                 'selected_post': 1}
+                '(:radio_frequency, :user_frequency, :offset, :callsign)',
+                {'radio_frequency': 14078000, 'user_frequency': 14078000, 'offset': 1800, 'callsign': ""}
             )
+
         logger.info('mb_database: Creating post table')
         cursor.execute(
             'CREATE TABLE post '
@@ -191,13 +184,7 @@ class MbDatabase:
             logger.info(f'mb_database: {sql_cmd}')
             cursor.execute(sql_cmd)
             last_post = cursor.fetchone()
-            sql_cmd = f'UPDATE status SET selected_post={last_post[0]}'
-            logger.info(f'mb_database: {sql_cmd}')
-            cursor.execute(sql_cmd)
             sql_cmd = f'UPDATE post SET is_selected=1 WHERE post_id={last_post[0]}'
-            logger.info(f'mb_database: {sql_cmd}')
-            cursor.execute(sql_cmd)
-            sql_cmd = f'UPDATE status SET progress_updated = 0'
             logger.info(f'mb_database: {sql_cmd}')
             cursor.execute(sql_cmd)
         return

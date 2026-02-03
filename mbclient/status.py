@@ -2,11 +2,10 @@ from mbclient.db_table import DbTable
 
 
 class Status:
-    status_cols = ['radio_frequency', 'user_frequency', 'offset', 'is_scanning', 'callsign']
+    status_cols = ['radio_frequency', 'user_frequency', 'offset', 'callsign']
     radio_frequency: int = 0
     user_frequency: int = 0
     offset: int = 0
-    is_scanning: bool = False
     callsign: str = ''
     selected_station: str = ''
 
@@ -20,7 +19,6 @@ class Status:
         self.radio_frequency = db_values['radio_frequency']
         self.user_frequency = db_values['user_frequency']
         self.offset = db_values['offset']
-        self.is_scanning = db_values['is_scanning']
         self.callsign = db_values['callsign']
 
     def set_callsign(self, callsign: str):
