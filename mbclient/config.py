@@ -65,6 +65,11 @@ class Settings:
     lst_limit: int
     replace_nl: bool
 
+    # Gui
+    scan_time: int
+    clock_tick_ms: int
+    process_wait_ms: int
+
     # Debug
     debug: bool
 
@@ -93,6 +98,11 @@ def load_settings() -> Settings:
             "lst_limit": "5",
             "replace_nl": "false",
         },
+        "gui": {
+            "scan_time": "120",
+            "clock_tick_ms": "200",
+            "process_wait_ms": "200"
+        },
         "debug": {
             "debug": "false",
         },
@@ -110,15 +120,25 @@ def load_settings() -> Settings:
     if path.exists():
         cfg.read(path, encoding="utf-8")
 
+    # Used by MbClient and MbServer
     host = _as_str(cfg, "server", "host", "127.0.0.1")
     port = _as_int(cfg, "server", "port", 2442)
     msg_terminator = _as_str(cfg, "server", "msg_terminator", "♢")
+
+    # Used by MbServer only
     announce = _as_bool(cfg, "server", "announce", True)
     mb_announcement_timer = _as_int(cfg, "server", "mb_announcement_timer", 60)
 
+    # Used by MbServer only
     lst_limit = _as_int(cfg, "posts", "lst_limit", 5)
     replace_nl = _as_bool(cfg, "posts", "replace_nl", False)
 
+    # Used by MbClient only
+    scan_time = _as_int(cfg, "gui", "scan_time", 120)
+    clock_tick_ms = _as_int(cfg, "gui", "clock_tick_ms", 200)
+    process_wait_ms = _as_int(cfg, "gui", "process_wait_ms", 200)
+
+    # Used by MbClient and MbServer
     debug = _as_bool(cfg, "debug", "debug", False)
 
     log_level = _parse_log_level(_as_str(cfg, "logging", "log_level", "INFO"), logging.INFO)
@@ -134,6 +154,9 @@ def load_settings() -> Settings:
         mb_announcement_timer=mb_announcement_timer,
         lst_limit=lst_limit,
         replace_nl=replace_nl,
+        scan_time=scan_time,
+        clock_tick_ms=clock_tick_ms,
+        process_wait_ms=process_wait_ms,
         debug=debug,
         log_level=log_level,
         log_to_file=log_to_file,
