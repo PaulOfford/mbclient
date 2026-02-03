@@ -45,7 +45,7 @@ class BlogInstance:
     last_seen: int = None
     selected: int = None
     blog_field = [
-        'blog', 'station', 'frequency', 'snr', 'latest_post_id', 'latest_post_date', 'last_seen_date', 'is_selected'
+        'blog', 'frequency', 'snr', 'latest_post_id', 'latest_post_date', 'last_seen_date', 'is_selected'
     ]
 
     def __init__(self, name: str, freq: int):
@@ -80,10 +80,6 @@ class ServerMsgProcessors:
     info_extractor = '^([+-])(I)~\\n*([\\S\\s]+)'
     announce_extractor = '^(\\d+) +(\\d{6})'
     announce_extractor_old = '^([A-Z,0-9/]+) +(\\d+) +(\\d{4}-\\d{2}-\\d{2})'
-    qso_fields = [
-        'qso_date', 'blog', 'station', 'directed_to', 'frequency',
-        'offset', 'cmd', 'post_id', 'post_date', 'title', 'body'
-    ]
 
     def __init__(self):
         pass
@@ -167,7 +163,7 @@ class ServerMsgProcessors:
             if len(db_values) == 0:
                 post_table.delete(where=f"blog='{blog}' AND post_id={line['post_id']}")
                 row = {
-                    'qso_date': qso_date, 'blog': blog, 'station': blog,
+                    'qso_date': qso_date, 'blog': blog,
                     'directed_to': destination, 'frequency': status.radio_frequency,
                     'offset': status.offset, 'cmd': cmd + post_range, 'post_id': line['post_id'],
                     'post_date': line['post_date'], 'title': line['title'], 'body': '', 'is_selected': 0
@@ -176,7 +172,7 @@ class ServerMsgProcessors:
             elif destination == status.callsign:
                 post_table.delete(where=f"blog='{blog}' AND post_id={line['post_id']}")
                 row = {
-                    'qso_date': qso_date, 'blog': blog, 'station': blog, 'directed_to': destination,
+                    'qso_date': qso_date, 'blog': blog, 'directed_to': destination,
                     'frequency': status.radio_frequency, 'offset': status.offset, 'cmd': cmd,
                     'post_id': line['post_id'], 'post_date': line['post_date'], 'title': line['title'],
                     'body': db_values[0]['body'], 'is_selected': db_values[0]['is_selected']
@@ -197,7 +193,7 @@ class ServerMsgProcessors:
         else:
             post_table.insert(
                 row={
-                    'qso_date': 0, 'blog': blog, 'station': blog, 'directed_to': destination,
+                    'qso_date': 0, 'blog': blog, 'directed_to': destination,
                     'frequency': status.radio_frequency, 'offset': status.offset, 'cmd': 'G',
                     'post_id': post_id, 'post_date': 0.0, 'title': f'** {body[:20]}', 'body': body, 'is_selected': 0
                 }
@@ -277,7 +273,7 @@ class ServerMsgProcessors:
             default_info = "To get Blog Information, right click on the blog list entry and choose Get info."
             blog_table.insert(
                 row={
-                    'blog': blog, 'station': blog, 'frequency': status.radio_frequency, 'snr': 0,
+                    'blog': blog, 'frequency': status.radio_frequency, 'snr': 0,
                     'latest_post_id': post_id, 'latest_post_date': post_date, 'last_seen_date': time.time(),
                     'info': default_info, 'is_selected': 0
                 }
@@ -336,7 +332,7 @@ class ServerMsgProcessors:
 
 class BeProcessor:
     post_fields = [
-        'qso_date', 'blog', 'station', 'directed_to', 'frequency', 'offset',
+        'qso_date', 'blog', 'directed_to', 'frequency', 'offset',
         'cmd', 'post_id', 'post_date', 'title', 'body'
     ]
 

@@ -7,7 +7,6 @@ class Status:
     user_frequency: int = 0
     offset: int = 0
     callsign: str = ''
-    selected_station: str = ''
 
     def __init__(self):
         self.reload_status()

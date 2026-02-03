@@ -1,6 +1,7 @@
 ALTER TABLE blogs ADD COLUMN info text;
 ALTER TABLE blogs RENAME TO blog;
 ALTER TABLE blog DROP COLUMN capabilities;
+ALTER TABLE blog DROP COLUMN station;
 DELETE FROM qso WHERE type='cmd' OR type='progress' OR type='post';
 DELETE FROM qso WHERE rowid NOT IN (select FIRST_VALUE(rowid) OVER (PARTITION BY blog, post_id ORDER BY blog, post_id, post_date DESC) FROM qso);
 DELETE FROM qso WHERE hex(title) LIKE '%E280%';
@@ -11,7 +12,7 @@ ALTER TABLE qso RENAME TO post;
 ALTER TABLE post DROP COLUMN rsp;
 ALTER TABLE post DROP COLUMN type;
 ALTER TABLE post ADD COLUMN is_selected integer;
-CREATE TABLE progress (qso_date integer, blog text, station text, frequency integer, offset integer, message text);
+CREATE TABLE progress (qso_date integer, blog text, frequency integer, offset integer, message text);
 DELETE FROM settings WHERE name='max_latest';
 UPDATE settings SET name = 'max_posts' WHERE name = 'max_qsos';
 ALTER TABLE status RENAME COLUMN blogs_updated to blog_updated;

@@ -54,7 +54,7 @@ class MbDatabase:
         logger.info('mb_database: Creating the progress table')
         cursor.execute(
             'CREATE TABLE progress '
-            '( qso_date integer, blog text, station text, frequency integer, offset integer, message text)'
+            '( qso_date integer, blog text, frequency integer, offset integer, message text)'
         )
         logger.info('mb_database: Creating the status table')
         cursor.execute('CREATE TABLE settings (ts float, name text, val text, typ text)')
@@ -104,18 +104,18 @@ class MbDatabase:
         logger.info('mb_database: Creating post table')
         cursor.execute(
             'CREATE TABLE post '
-            '(qso_date integer, blog text, station text, directed_to text, frequency integer, offset integer, '
+            '(qso_date integer, blog text, directed_to text, frequency integer, offset integer, '
             'cmd text, post_id integer, post_date integer, title text, body text, is_selected integer\n        )'
         )
         logger.info('mb_database: Creating blog table')
         cursor.execute(
             'CREATE TABLE blog '
-            '(blog text, station text, frequency integer, snr integer, latest_post_id integer, '
+            '(blog text, frequency integer, snr integer, latest_post_id integer, '
             'latest_post_date integer, last_seen_date integer, info text, is_selected integer)'
         )
         blog_list = [
             {
-                'blog': 'M0PXO', 'station': 'M0PXO', 'frequency': 14078000, 'snr': 1, 'latest_post_id': '1',
+                'blog': 'EA7QTH', 'frequency': 14078000, 'snr': 1, 'latest_post_id': '1',
                 'latest_post_date': '2026-01-05 17:10:00', 'last_seen_date': '2026-01-05 17:15:00',
                 'info': 'Sample server', 'is_selected': 1
             }
@@ -125,10 +125,10 @@ class MbDatabase:
             with db:
                 cursor.execute(
                     'INSERT INTO blog VALUES '
-                    '(:blog, :station, :frequency, :snr,:latest_post_id, :latest_post_date, '
+                    '(:blog, :frequency, :snr,:latest_post_id, :latest_post_date, '
                     ':last_seen_date, :info, :is_selected)',
                     {
-                        'blog': b['blog'], 'station': b['station'], 'frequency': b['frequency'], 'snr': b['snr'],
+                        'blog': b['blog'], 'frequency': b['frequency'], 'snr': b['snr'],
                         'latest_post_id': b['latest_post_id'],
                         'latest_post_date': iso_string_to_epoch(b['latest_post_date']),
                         'last_seen_date': iso_string_to_epoch(b['last_seen_date']),
@@ -137,7 +137,7 @@ class MbDatabase:
                 )
         welcome = [
             {
-                'qso_date': '2026-01-05 17:11:00', 'blog': 'M0PXO', 'station': 'M0PXO', 'directed_to': 'M7PJO',
+                'qso_date': '2026-01-05 17:11:00', 'blog': 'EA7QTH', 'directed_to': 'M7PJO',
                 'frequency': 14078000, 'offset': 1500, 'cmd': '', 'post_id': 1, 'post_date': '2026-01-05 17:10:00',
                 'title': 'Welcome to Microblogging',
                 'body': 'Microblogging is a way to share short pieces of information via JS8 over HF or VHF.',
@@ -149,10 +149,10 @@ class MbDatabase:
             with db:
                 cursor.execute(
                     'INSERT INTO post VALUES '
-                    '(:qso_date, :blog, :station, :directed_to, :frequency, :offset, :cmd, :post_id, '
+                    '(:qso_date, :blog, :directed_to, :frequency, :offset, :cmd, :post_id, '
                     ':post_date, :title, :body, :is_selected)',
                     {
-                        'qso_date': iso_string_to_epoch(q['qso_date']), 'blog': q['blog'], 'station': q['station'],
+                        'qso_date': iso_string_to_epoch(q['qso_date']), 'blog': q['blog'],
                         'directed_to': q['directed_to'], 'frequency': q['frequency'], 'offset': q['offset'],
                         'cmd': q['cmd'], 'post_id': q['post_id'], 'post_date': iso_string_to_epoch(q['post_date']),
                         'title': q['title'], 'body': q['body'], 'is_selected': q['is_selected']
