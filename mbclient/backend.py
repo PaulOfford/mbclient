@@ -29,6 +29,16 @@ def compress_date(post_epoch: int) -> str:
         return ''
 
 
+def signal_frontend(verb: MessageVerb):
+    m = UnifiedMessage.create(
+        priority=0,
+        target='FRONTEND',
+        typ='SIGNAL',
+        verb=verb
+    )
+    b2f_q.put(m)
+
+
 class BlogInstance:
     latest_post_id: int = None
     latest_post_date: int = None
@@ -78,19 +88,9 @@ class ServerMsgProcessors:
     def __init__(self):
         pass
 
-    def process_rx_message(self, m: UnifiedMessage):
-        if m.get_typ() == MessageType.MB_MSG:
-            if m.get_verb() == MessageVerb.INFORM:
-                self.process_inform(m)
-            elif m.get_verb() == MessageVerb.ANNOUNCE:
-                self.process_announcement(m)
-        elif m.get_typ() == MessageType.SIGNAL:
-            if m.get_verb() == MessageVerb.NOTE_CALLSIGN:
-                self.process_note_callsign(m)
-            elif m.get_verb() == MessageVerb.NOTE_FREQ:
-                self.process_note_freq(m)
-            elif m.get_verb() == MessageVerb.NOTE_OFFSET:
-                self.process_note_offset(m)
+    @staticmethod
+    def signal_reload(ui_area):
+        reload_ui_areas(ui_area)
 
     def process_inform(self, m: UnifiedMessage):
         status = Status()
@@ -274,11 +274,12 @@ class ServerMsgProcessors:
                     where=f"blog='{blog}' AND frequency={status.radio_frequency}"
                 )
         else:
+            default_info = "To get Blog Information, right click on the blog list entry and choose Get info."
             blog_table.insert(
                 row={
                     'blog': blog, 'station': blog, 'frequency': status.radio_frequency, 'snr': 0,
                     'latest_post_id': post_id, 'latest_post_date': post_date, 'last_seen_date': time.time(),
-                    'is_selected': 0, 'info': ''
+                    'info': default_info, 'is_selected': 0
                 }
             )
         self.signal_reload(UiArea.BLOG_LIST)
@@ -299,8 +300,38 @@ class ServerMsgProcessors:
         self.signal_reload(UiArea.HEADER)
 
     @staticmethod
-    def signal_reload(ui_area):
-        reload_ui_areas(ui_area)
+    def process_note_ptt(m: UnifiedMessage):
+        if m.get_param(MessageParameter.PTT):
+            verb = MessageVerb.FLASH_TX_START
+        else:
+            verb = MessageVerb.FLASH_TX_STOP
+        signal_frontend(verb)
+
+    @staticmethod
+    def process_note_rx(m: UnifiedMessage):
+        if m.get_param(MessageParameter.RX):
+            verb = MessageVerb.FLASH_RX_START
+        else:
+            verb = MessageVerb.FLASH_RX_STOP
+        signal_frontend(verb)
+
+    def process_rx_message(self, m: UnifiedMessage):
+        if m.get_typ() == MessageType.MB_MSG:
+            if m.get_verb() == MessageVerb.INFORM:
+                self.process_inform(m)
+            elif m.get_verb() == MessageVerb.ANNOUNCE:
+                self.process_announcement(m)
+        elif m.get_typ() == MessageType.SIGNAL:
+            if m.get_verb() == MessageVerb.NOTE_CALLSIGN:
+                self.process_note_callsign(m)
+            elif m.get_verb() == MessageVerb.NOTE_FREQ:
+                self.process_note_freq(m)
+            elif m.get_verb() == MessageVerb.NOTE_OFFSET:
+                self.process_note_offset(m)
+            elif m.get_verb() == MessageVerb.NOTE_PTT:
+                self.process_note_ptt(m)
+            elif m.get_verb() == MessageVerb.NOTE_RX:
+                self.process_note_rx(m)
 
 
 class BeProcessor:
@@ -415,7 +446,13 @@ class BeProcessor:
         reload_ui_areas(UiArea.HEADER)
 
     def set_rig_frequency(self, frequency: int):
-        m = UnifiedMessage.create(target='COMMS', typ='CONTROL', verb='SET_FREQ', params={'frequency': frequency})
+        m = UnifiedMessage.create(
+            priority=0,
+            target='COMMS',
+            typ='CONTROL',
+            verb='SET_FREQ',
+            params={'frequency': frequency}
+        )
         self.send_to_comms(m)
 
     @staticmethod
@@ -425,7 +462,8 @@ class BeProcessor:
         reload_ui_areas(UiArea.HEADER)
 
     def mb_msg_send(self, destination: str, mb_cmd: str):
-        m = UnifiedMessage(
+        m = UnifiedMessage.create(
+            priority=1,
             target=MessageTarget.COMMS,
             typ=MessageType.MB_MSG,
             verb=MessageVerb.SEND,
@@ -515,7 +553,12 @@ class BeProcessor:
     def type_process_control(self, m: UnifiedMessage):
         command = m.get_verb()
         if command == MessageVerb.SHUTDOWN:
-            m = UnifiedMessage.create(target='COMMS', typ='CONTROL', verb='SHUTDOWN')
+            m = UnifiedMessage.create(
+                priority=0,
+                target='COMMS',
+                typ='CONTROL',
+                verb='SHUTDOWN'
+            )
             self.send_to_comms(m)
             add_progress_m(m)
             exit(0)
