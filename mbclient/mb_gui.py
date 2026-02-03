@@ -11,17 +11,27 @@ from mbclient._version import __version__
 from mbclient.status import Status
 from mbclient.settings import Settings
 from mbclient.db_table import DbTable
-from mbclient.message_q import f2b_q, b2f_q, UnifiedMessage, UiArea, MessageTarget, MessageType, MessageVerb, MessageOperator, MessageParameter
+from mbclient.message_q import f2b_q, b2f_q, UnifiedMessage, UiArea,\
+    MessageTarget, MessageType, MessageVerb, MessageParameter
 from mbclient.mb_fonts import MbFonts
 logger = logging.getLogger(__name__)
 root = tk.Tk()
+
 
 def settings_window():
     sw = tk.Tk()
     sw.title('Settings')
     sw.geometry('400x320')
     settings = Settings()
-    label_list = [('startup_width', 'Window Startup Width:', 'entry', tk.IntVar(sw)), ('startup_height', 'Window Startup Height:', 'entry', tk.IntVar(sw)), ('font_size', 'Font Size:', 'entry', tk.IntVar(sw)), ('max_blogs', 'Max Blogs:', 'entry', tk.IntVar(sw)), ('max_posts', 'Max Posts:', 'entry', tk.IntVar(sw)), ('max_listing', 'Max Listing:', 'entry', tk.IntVar(sw)), ('use_gmt', 'Use GMT for Clock and Log:', 'checkbox', tk.IntVar(sw))]
+    label_list = [
+        ('startup_width', 'Window Startup Width:', 'entry', tk.IntVar(sw)),
+        ('startup_height', 'Window Startup Height:', 'entry', tk.IntVar(sw)),
+        ('font_size', 'Font Size:', 'entry', tk.IntVar(sw)),
+        ('max_blogs', 'Max Blogs:', 'entry', tk.IntVar(sw)),
+        ('max_posts', 'Max Posts:', 'entry', tk.IntVar(sw)),
+        ('max_listing', 'Max Listing:', 'entry', tk.IntVar(sw)),
+        ('use_gmt', 'Use GMT for Clock and Log:', 'checkbox', tk.IntVar(sw))
+    ]
     entry_list = []
     sw.columnconfigure(0, weight=1)
     sw.columnconfigure(2, weight=1)
@@ -59,6 +69,7 @@ def settings_window():
     tk.Button(sw_frame, text='Cancel', font='8', command=sw.destroy).grid(row=len(label_list) + 2, column=0)
     tk.Button(sw_frame, text='Save', font='8', command=save_entries).grid(row=len(label_list) + 2, column=1)
 
+
 class ScrollableFrame(ttk.Frame):
     canvas = None
     scrollable_frame = None
@@ -86,6 +97,7 @@ class ScrollableFrame(ttk.Frame):
         self.canvas.configure(yscrollcommand=scrollbar.set)
         self.canvas.pack(side='left', fill='both', expand=True)
         scrollbar.pack(side='right', fill='y')
+
 
 class GuiHeader:
     use_gmt: bool = True
@@ -116,15 +128,23 @@ class GuiHeader:
         frame_hdr_right.pack(expand=True, fill='y', side='left')
         frame_cell_1 = tk.Frame(frame_hdr_left, bg='black')
         frame_cell_1.pack(expand=True, fill='both')
-        hdr_freq = tk.Label(frame_cell_1, textvariable=self.freq_text, bg='black', fg='white', font=self.gui_fonts.font_freq, justify='center')
+        hdr_freq = tk.Label(
+            frame_cell_1, textvariable=self.freq_text, bg='black', fg='white',
+            font=self.gui_fonts.font_freq, justify='center'
+        )
         hdr_freq.pack()
         frame_cell_4 = tk.Frame(frame_hdr_left, bg='black')
         frame_cell_4.pack(expand=True, fill='both')
-        hdr_offset = tk.Label(frame_cell_4, textvariable=self.offset_text, bg='black', fg='white', font=self.gui_fonts.font_hdr, justify='center')
+        hdr_offset = tk.Label(
+            frame_cell_4, textvariable=self.offset_text, bg='black', fg='white',
+            font=self.gui_fonts.font_hdr, justify='center'
+        )
         hdr_offset.pack()
         frame_cell_2 = tk.Frame(frame_hdr_mid, bg='black')
         frame_cell_2.pack(expand=True, fill='both')
-        hdr_callsign = tk.Label(frame_cell_2, textvariable=self.callsign_text, bg='black', fg='white', font=self.gui_fonts.font_hdr)
+        hdr_callsign = tk.Label(
+            frame_cell_2, textvariable=self.callsign_text, bg='black', fg='white', font=self.gui_fonts.font_hdr
+        )
         hdr_callsign.pack()
         frame_cell_5 = tk.Frame(frame_hdr_mid, bg='black')
         frame_cell_5.pack(expand=True, fill='both')
@@ -132,13 +152,22 @@ class GuiHeader:
         self.clock_label.pack()
         frame_cell_3 = tk.Frame(frame_hdr_right, bg='black')
         frame_cell_3.pack(expand=True, fill='both')
-        self.scan_btn = tk.Button(frame_cell_3, text='Scan', font=self.gui_fonts.font_btn_bold, bg='#22ff23', height=1, width=18, relief='flat', command=self.run_scan)
+        self.scan_btn = tk.Button(
+            frame_cell_3, text='Scan', font=self.gui_fonts.font_btn_bold, bg='#22ff23',
+            height=1, width=18, relief='flat', command=self.run_scan
+        )
         self.scan_btn.pack()
         frame_cell_6 = tk.Frame(frame_hdr_right, bg='black')
         frame_cell_6.pack(expand=True, fill='both')
-        self.tx_indicator = tk.Button(frame_cell_6, text='Tx', font=self.gui_fonts.font_btn_bold, bg='#22ff23', height=1, width=4, relief='flat', command=self.run_scan)
+        self.tx_indicator = tk.Button(
+            frame_cell_6, text='Tx', font=self.gui_fonts.font_btn_bold, bg='#22ff23',
+            height=1, width=4, relief='flat', command=self.run_scan
+        )
         self.tx_indicator.pack(side='left')
-        self.rx_indicator = tk.Button(frame_cell_6, text='Rx', font=self.gui_fonts.font_btn_bold, bg='#22ff23', height=1, width=4, relief='flat', command=self.run_scan)
+        self.rx_indicator = tk.Button(
+            frame_cell_6, text='Rx', font=self.gui_fonts.font_btn_bold, bg='#22ff23',
+            height=1, width=4, relief='flat', command=self.run_scan
+        )
         self.rx_indicator.pack(side='right')
         self.reload()
 
@@ -206,6 +235,7 @@ class GuiHeader:
         self.set_offset()
         self.set_callsign()
 
+
 class GuiTable:
     gui_fonts = None
     table_data = None
@@ -252,7 +282,10 @@ class GuiTable:
             frame.columnconfigure(i, weight=1)
         for col, headers in enumerate(self.table_headers):
             if headers['label']:
-                headers['widget'] = tk.Text(frame_hdr, bg='white', font=self.gui_fonts.font_main_bold, relief='flat', width=self.table_headers[col]['width'], height=1, padx=10)
+                headers['widget'] = tk.Text(
+                    frame_hdr, bg='white', font=self.gui_fonts.font_main_bold, relief='flat',
+                    width=self.table_headers[col]['width'], height=1, padx=10
+                )
                 headers['widget'].grid(row=0, column=col)
                 headers['widget'].tag_configure('tag_all', justify=self.table_headers[col]['justify'])
                 headers['widget'].insert('1.0', self.table_headers[col]['label'])
@@ -262,7 +295,10 @@ class GuiTable:
         for row, _ in enumerate(self.table_data):
             for col, blog in enumerate(self.table_data[row]):
                 if self.table_headers[col]['label']:
-                    blog['widget'] = tk.Text(frame_body.scrollable_frame, bg='white', font=self.gui_fonts.font_main, relief='flat', width=self.table_headers[col]['width'], height=1, padx=10)
+                    blog['widget'] = tk.Text(
+                        frame_body.scrollable_frame, bg='white', font=self.gui_fonts.font_main, relief='flat',
+                        width=self.table_headers[col]['width'], height=1, padx=10
+                    )
                     blog['widget'].grid(column=col, row=row + 1)
         frame_hdr.pack(fill='both', expand=0, side='top', anchor='n', padx=4)
         frame_body.pack(fill='both', expand=1, side='top', anchor='n', padx=4)
@@ -298,8 +334,38 @@ class GuiTable:
         """Right-click popup callback (must be overridden by subclasses)."""
         pass
 
+
 class GuiBlogList(GuiTable):
-    blog_list_headers = [{'db_col': 'blog', 'type': 'Text', 'suffix': '', 'width': 10, 'label': 'Blog', 'widget': tk.Button(), 'justify': 'left'}, {'db_col': 'station', 'type': 'Text', 'suffix': '', 'width': 0, 'label': '', 'widget': tk.Button(), 'justify': 'left'}, {'db_col': 'frequency', 'type': 'Float', 'divisor': 1000000, 'suffix': '', 'width': 8, 'label': 'Freq\nMHz', 'widget': tk.Button(), 'justify': 'center'}, {'db_col': 'latest_post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 6, 'label': 'Latest', 'widget': tk.Button(), 'justify': 'center'}, {'db_col': 'latest_post_date', 'type': 'Date', 'suffix': '', 'width': 10, 'label': 'Date', 'widget': tk.Button(), 'justify': 'center'}, {'db_col': 'last_seen_date', 'type': 'DateTime', 'suffix': '', 'width': 15, 'label': 'Last Seen', 'widget': tk.Button(), 'justify': 'center'}, {'db_col': 'is_selected', 'db_type': 'Int', 'divisor': 1, 'suffix': '', 'width': 0, 'label': None, 'widget': tk.Button(), 'justify': 'center'}]
+    blog_list_headers = [
+        {
+            'db_col': 'blog', 'type': 'Text', 'suffix': '', 'width': 10,
+            'label': 'Blog', 'widget': tk.Button(), 'justify': 'left'
+        },
+        {
+            'db_col': 'station', 'type': 'Text', 'suffix': '', 'width': 0,
+            'label': '', 'widget': tk.Button(), 'justify': 'left'
+        },
+        {
+            'db_col': 'frequency', 'type': 'Float', 'divisor': 1000000, 'suffix': '', 'width': 8,
+            'label': 'Freq\nMHz', 'widget': tk.Button(), 'justify': 'center'
+        },
+        {
+            'db_col': 'latest_post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 6,
+            'label': 'Latest', 'widget': tk.Button(), 'justify': 'center'
+        },
+        {
+            'db_col': 'latest_post_date', 'type': 'Date', 'suffix': '', 'width': 10,
+            'label': 'Date', 'widget': tk.Button(), 'justify': 'center'
+        },
+        {
+            'db_col': 'last_seen_date', 'type': 'DateTime', 'suffix': '', 'width': 15,
+            'label': 'Last Seen', 'widget': tk.Button(), 'justify': 'center'
+        },
+        {
+            'db_col': 'is_selected', 'db_type': 'Int', 'divisor': 1, 'suffix': '', 'width': 0,
+            'label': None, 'widget': tk.Button(), 'justify': 'center'
+        }
+    ]
     db_values = None
     blog_list_pop_up = None
     clicked_row = None
@@ -312,18 +378,32 @@ class GuiBlogList(GuiTable):
         self.blog_list_pop_up.add_command(label='Get info', command=self.get_blog_info)
 
     def list_latest(self):
-        m = UnifiedMessage.create(target='BACKEND', typ='REQUEST', verb='GET_LISTING', params={'destination': self.db_values[self.clicked_row]['blog'], 'operator': 'LATEST'})
+        m = UnifiedMessage.create(
+            target='BACKEND',
+            typ='REQUEST',
+            verb='GET_LISTING',
+            params={'destination': self.db_values[self.clicked_row]['blog'], 'operator': 'LATEST'}
+        )
         f2b_q.put(m)
         return
 
     def check_for_latest(self):
-        m = UnifiedMessage.create(target='BACKEND', typ='REQUEST', verb='SCAN', params={'destination': self.db_values[self.clicked_row]['blog']})
+        m = UnifiedMessage.create(
+            target='BACKEND',
+            typ='REQUEST', verb='SCAN',
+            params={'destination': self.db_values[self.clicked_row]['blog']}
+        )
         f2b_q.put(m)
         logger.debug(m)
         return
 
     def get_blog_info(self):
-        m = UnifiedMessage.create(target='BACKEND', typ='REQUEST', verb='GET_BLOG_INFO', params={'destination': self.db_values[self.clicked_row]['blog']})
+        m = UnifiedMessage.create(
+            target='BACKEND',
+            typ='REQUEST',
+            verb='GET_BLOG_INFO',
+            params={'destination': self.db_values[self.clicked_row]['blog']}
+        )
         f2b_q.put(m)
         logger.debug(m)
         return
@@ -333,12 +413,23 @@ class GuiBlogList(GuiTable):
         fields = []
         for field in self.blog_list_headers:
             fields.append(field['db_col'])
-        self.db_values = blog_table.select(order_by='last_seen_date', desc=True, limit=Settings().max_blogs, hdr_list=fields)
+        self.db_values = blog_table.select(
+            order_by='last_seen_date',
+            desc=True,
+            limit=Settings().max_blogs,
+            hdr_list=fields
+        )
         self.reload_table(self.db_values)
         return
 
     def cb_row_select(self, row, event):
-        m = UnifiedMessage.create(target='BACKEND', typ='CONTROL', verb='CHG_BLOG', params={'operator': 'EQ', 'blog': self.db_values[row]['blog'], 'frequency': self.db_values[row]['frequency']})
+        m = UnifiedMessage.create(
+            target='BACKEND',
+            typ='CONTROL',
+            verb='CHG_BLOG',
+            params={'operator': 'EQ', 'blog': self.db_values[row]['blog'],
+                    'frequency': self.db_values[row]['frequency']}
+        )
         f2b_q.put(m)
         return
 
@@ -349,6 +440,7 @@ class GuiBlogList(GuiTable):
     def cb_hdr_click(self, col, event):
         pass
 
+
 class GuiBlogInfo:
     gui_fonts = None
     blog_info_box = []
@@ -356,11 +448,17 @@ class GuiBlogInfo:
 
     def __init__(self, frame: tk.Frame):
         self.gui_fonts = MbFonts(Settings().font_size)
-        blog_info_box_hdr = tk.Label(frame, text='Blog Information', bg='black', fg='white', font=self.gui_fonts.font_main_bold, justify='left', anchor='w', padx=10, pady=12)
+        blog_info_box_hdr = tk.Label(
+            frame, text='Blog Information', bg='black', fg='white', font=self.gui_fonts.font_main_bold,
+            justify='left', anchor='w', padx=10, pady=12
+        )
         blog_info_box_hdr.pack(anchor='ne', fill='x')
         v = tk.Scrollbar(frame, orient='vertical')
         v.pack(side='right', fill='y')
-        self.blog_info_box = tk.Text(frame, width=480, wrap='word', padx=10, pady=10, font=self.gui_fonts.font_main, bg='white', yscrollcommand=v.set, spacing1=1.1, spacing2=1.1)
+        self.blog_info_box = tk.Text(
+            frame, width=480, wrap='word', padx=10, pady=10, font=self.gui_fonts.font_main, bg='white',
+            yscrollcommand=v.set, spacing1=1.1, spacing2=1.1
+        )
         v.config(command=self.blog_info_box.yview)
         self.blog_info_box.pack(fill='both', expand=1, anchor='ne')
 
@@ -368,7 +466,11 @@ class GuiBlogInfo:
         status = Status()
         info_string = ''
         blog_table = DbTable('blog')
-        db_values = blog_table.select(where=f"blog='{status.get_selected_blog_name()}' " + f'AND frequency={status.get_selected_blog_frequency()} ' + f'AND info IS NOT NULL', limit=1, hdr_list=['info'])
+        db_values = blog_table.select(
+            where=f"blog='{status.get_selected_blog_name()}' "
+                  + f'AND frequency={status.get_selected_blog_frequency()} '
+                  + f'AND info IS NOT NULL', limit=1, hdr_list=['info']
+        )
         self.blog_info_box.configure(state='normal')
         self.blog_info_box.delete(1.0, 'end')
         if len(db_values) > 0:
@@ -378,8 +480,20 @@ class GuiBlogInfo:
         self.blog_info_box.configure(state='disabled')
         return
 
+
 class GuiPostListBox(GuiTable):
-    post_list_headers = [{'db_col': 'blog', 'type': 'Text', 'suffix': '', 'width': 0, 'label': '', 'widget': tk.Button(), 'justify': 'left'}, {'db_col': 'post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 6, 'label': 'ID', 'widget': tk.Button(), 'justify': 'center'}, {'db_col': 'post_date', 'type': 'Date', 'suffix': '', 'width': 10, 'label': 'Date', 'widget': tk.Button(), 'justify': 'center'}, {'db_col': 'title', 'type': 'Text', 'suffix': '', 'width': 128, 'label': 'Subject', 'widget': tk.Button(), 'justify': 'left'}, {'db_col': 'is_selected', 'db_type': 'Int', 'divisor': 1, 'suffix': '', 'width': 0, 'label': None, 'widget': tk.Button(), 'justify': 'center'}]
+    post_list_headers = [
+        {'db_col': 'blog', 'type': 'Text', 'suffix': '', 'width': 0,
+         'label': '', 'widget': tk.Button(), 'justify': 'left'},
+        {'db_col': 'post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 6,
+         'label': 'ID', 'widget': tk.Button(), 'justify': 'center'},
+        {'db_col': 'post_date', 'type': 'Date', 'suffix': '', 'width': 10,
+         'label': 'Date', 'widget': tk.Button(), 'justify': 'center'},
+        {'db_col': 'title', 'type': 'Text', 'suffix': '', 'width': 128,
+         'label': 'Subject', 'widget': tk.Button(), 'justify': 'left'},
+        {'db_col': 'is_selected', 'db_type': 'Int', 'divisor': 1, 'suffix': '', 'width': 0,
+         'label': None, 'widget': tk.Button(), 'justify': 'center'}
+    ]
     db_values = None
     post_list_pop_up = None
     clicked_row = 1
@@ -398,7 +512,13 @@ class GuiPostListBox(GuiTable):
         fields = []
         for field in self.post_list_headers:
             fields.append(field['db_col'])
-        self.db_values = post_table.select(where=f"blog='{status.get_selected_blog_name()}'", order_by='post_id', desc=True, limit=Settings().max_posts, hdr_list=fields)
+        self.db_values = post_table.select(
+            where=f"blog='{status.get_selected_blog_name()}'",
+            order_by='post_id',
+            desc=True,
+            limit=Settings().max_posts,
+            hdr_list=fields
+        )
         self.reload_table(self.db_values)
         return
 
@@ -407,27 +527,61 @@ class GuiPostListBox(GuiTable):
         self.post_list_pop_up.tk_popup(event.x_root, event.y_root)
 
     def cb_row_select(self, row, event):
-        m = UnifiedMessage.create(target='BACKEND', typ='REQUEST', verb='FETCH_POST', params={'destination': self.db_values[row]['blog'], 'operator': 'EQ', 'post_id': self.db_values[row]['post_id']})
+        m = UnifiedMessage.create(
+            target='BACKEND',
+            typ='REQUEST',
+            verb='FETCH_POST',
+            params={
+                'destination': self.db_values[row]['blog'], 'operator': 'EQ', 'post_id': self.db_values[row]['post_id']
+            }
+        )
         f2b_q.put(m)
         return
 
     def list_more(self):
-        m = UnifiedMessage.create(target='BACKEND', typ='REQUEST', verb='FETCH_LISTING', params={'destination': self.db_values[self.clicked_row]['blog'], 'post_id': f"{self.db_values[self.clicked_row]['post_id']}", 'operator': 'MORE'})
+        m = UnifiedMessage.create(
+            target='BACKEND',
+            typ='REQUEST',
+            verb='FETCH_LISTING',
+            params={
+                'destination': self.db_values[self.clicked_row]['blog'],
+                'post_id': f"{self.db_values[self.clicked_row]['post_id']}",
+                'operator': 'MORE'}
+        )
         f2b_q.put(m)
         return
 
     def refresh_listing(self):
-        m = UnifiedMessage.create(target='BACKEND', typ='REQUEST', verb='GET_LISTING', params={'operator': 'EQ', 'destination': self.db_values[self.clicked_row]['blog'], 'post_id': self.db_values[self.clicked_row]['post_id']})
+        m = UnifiedMessage.create(
+            target='BACKEND',
+            typ='REQUEST',
+            verb='GET_LISTING',
+            params={
+                'operator': 'EQ',
+                'destination': self.db_values[self.clicked_row]['blog'],
+                'post_id': self.db_values[self.clicked_row]['post_id']
+            }
+        )
         f2b_q.put(m)
         return
 
     def refresh_content(self):
-        m = UnifiedMessage.create(target='BACKEND', typ='REQUEST', verb='GET_POST', params={'operator': 'EQ', 'destination': self.db_values[self.clicked_row]['blog'], 'post_id': f"{self.db_values[self.clicked_row]['post_id']}"})
+        m = UnifiedMessage.create(
+            target='BACKEND',
+            typ='REQUEST',
+            verb='GET_POST',
+            params={
+                'operator': 'EQ',
+                'destination': self.db_values[self.clicked_row]['blog'],
+                'post_id': f"{self.db_values[self.clicked_row]['post_id']}"
+            }
+        )
         f2b_q.put(m)
         return
 
     def cb_hdr_click(self, col, event):
         pass
+
 
 class GuiPostContent:
     gui_fonts = None
@@ -437,26 +591,46 @@ class GuiPostContent:
 
     def __init__(self, frame: tk.Frame):
         self.gui_fonts = MbFonts(Settings().font_size)
-        post_content_hdr = tk.Label(frame, text='Post', bg='black', fg='white', font=self.gui_fonts.font_main_bold, justify='left', anchor='w', padx=10, pady=12)
+        post_content_hdr = tk.Label(
+            frame, text='Post', bg='black', fg='white', font=self.gui_fonts.font_main_bold,
+            justify='left', anchor='w', padx=10, pady=12
+        )
         post_content_hdr.pack(anchor='ne', fill='x')
-        self.post_box = tk.Text(frame, width=300, wrap='word', padx=10, pady=5, font=self.gui_fonts.font_main, bg='#ffffff', spacing1=1.1, spacing2=1.1, borderwidth=0)
+        self.post_box = tk.Text(
+            frame, width=300, wrap='word', padx=10, pady=5, font=self.gui_fonts.font_main, bg='#ffffff',
+            spacing1=1.1, spacing2=1.1, borderwidth=0
+        )
         self.post_box.pack(fill='both', expand=1, anchor='ne')
         self.reload()
 
-    def get_post(self, blog: str, post_id: int):
-        m = UnifiedMessage.create(target='BACKEND', typ='REQUEST', verb='GET_POST', params={'operator': 'EQ', 'destination': blog, 'post_id': post_id})
+    @staticmethod
+    def get_post(blog: str, post_id: int):
+        m = UnifiedMessage.create(
+            target='BACKEND',
+            typ='REQUEST',
+            verb='GET_POST',
+            params={'operator': 'EQ', 'destination': blog, 'post_id': post_id}
+        )
         f2b_q.put(m)
         return
 
     def get_post_cb(self, event):
         status = Status()
-        self.get_post(blog=status.get_selected_blog_name(), post_id=status.get_selected_post(status.get_selected_blog_name()))
+        self.get_post(
+            blog=status.get_selected_blog_name(), post_id=status.get_selected_post(status.get_selected_blog_name())
+        )
 
     def reload(self):
         status = Status()
         post_string = f'{status.get_selected_blog_name()}'
         post_table = DbTable('post')
-        db_values = post_table.select_latest(where=f"blog='{status.get_selected_blog_name()}' " + f'AND post_id={status.get_selected_post(status.get_selected_blog_name())}', order_by='post_id', limit=1, hdr_list=self.post_cols)
+        db_values = post_table.select_latest(
+            where=f"blog='{status.get_selected_blog_name()}' "
+                  + f'AND post_id={status.get_selected_post(status.get_selected_blog_name())}',
+            order_by='post_id',
+            limit=1,
+            hdr_list=self.post_cols
+        )
         self.post_box.configure(state='normal')
         self.post_box.delete(1.0, 'end')
         if len(db_values) > 0:
@@ -478,6 +652,7 @@ class GuiPostContent:
         self.post_box.configure(state='disabled')
         return
 
+
 class GuiProgress:
     gui_fonts = None
     progress_box = []
@@ -494,11 +669,17 @@ class GuiProgress:
 
     def __init__(self, frame: tk.Frame):
         self.gui_fonts = MbFonts(Settings().font_size)
-        progress_box_hdr = tk.Label(frame, text='Progress', bg='black', fg='white', font=self.gui_fonts.font_main_bold, justify='left', anchor='w', padx=10, pady=12)
+        progress_box_hdr = tk.Label(
+            frame, text='Progress', bg='black', fg='white', font=self.gui_fonts.font_main_bold,
+            justify='left', anchor='w', padx=10, pady=12
+        )
         progress_box_hdr.pack(anchor='ne', fill='x')
         v = tk.Scrollbar(frame, orient='vertical')
         v.pack(side='right', fill='y')
-        self.progress_box = tk.Text(frame, width=300, wrap='word', padx=10, pady=10, font=self.gui_fonts.font_console, bg='white', yscrollcommand=v.set, spacing1=1.1, spacing2=1.1)
+        self.progress_box = tk.Text(
+            frame, width=300, wrap='word', padx=10, pady=10, font=self.gui_fonts.font_console, bg='white',
+            yscrollcommand=v.set, spacing1=1.1, spacing2=1.1
+        )
         v.config(command=self.progress_box.yview)
         self.progress_box.pack(fill='both', expand=1, anchor='ne')
         self.progress_box.bind('<Enter>', self.focus_in)
@@ -517,6 +698,7 @@ class GuiProgress:
             self.progress_box.see(tk.END)
         self.progress_box.configure(state='disabled')
         return
+
 
 class GuiMain:
     last_check_for_updates = 0
@@ -602,7 +784,12 @@ class GuiMain:
 
     @staticmethod
     def set_frequency(frequency):
-        m = UnifiedMessage.create(target='BACKEND', typ='CONTROL', verb='CHG_RADIO_FREQUENCY', params={'operator': 'EQ', 'frequency': frequency})
+        m = UnifiedMessage.create(
+            target='BACKEND',
+            typ='CONTROL',
+            verb='CHG_RADIO_FREQUENCY',
+            params={'operator': 'EQ', 'frequency': frequency}
+        )
         f2b_q.put(m)
         return
 

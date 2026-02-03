@@ -1,15 +1,16 @@
 import time
 import threading
 import shutil
-from queue import Queue
-from mbclient.logging_config import setup_logging
+from .logging_setup import configure_logging
 import logging
-from mbclient.mb_database import MbDatabase
-from mbclient.mb_gui import GuiMain
-from mbclient.backend import Backend
-from mbclient.js8call_driver import Js8CallDriver
-setup_logging(logging.INFO)
+from .mb_database import MbDatabase
+from .mb_gui import GuiMain
+from .backend import Backend
+from .js8call_driver import Js8CallDriver
+
+configure_logging(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 class MbClient:
     be_t = None
@@ -54,6 +55,7 @@ def main():
     logger.info('mb_client: Database is ready to go')
     c = MbClient()
     c.start_gui()
+
 
 if __name__ == '__main__':
     main()

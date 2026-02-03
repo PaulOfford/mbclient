@@ -1,5 +1,6 @@
 from mbclient.db_table import DbTable
 
+
 class Status:
     status_cols = ['radio_frequency', 'user_frequency', 'offset', 'is_scanning', 'callsign']
     radio_frequency: int = 0

@@ -1,5 +1,6 @@
 import tkinter.font as font
 
+
 class MbFonts:
     font_btn = None
     font_btn_bold = None

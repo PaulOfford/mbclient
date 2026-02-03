@@ -5,6 +5,7 @@ import logging
 from mbclient.db_root import db_path
 logger = logging.getLogger(__name__)
 
+
 def get_db_file_spec():
     path = os.path.normpath(db_path)
     result = path.split(os.sep)
@@ -22,6 +23,7 @@ def get_db_file_spec():
         resolved_path += element + os.sep
     os.makedirs(resolved_path, 777, True)
     return resolved_path + 'mblog.db'
+
 
 class DbTable:
     col_names = None
