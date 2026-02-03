@@ -1,6 +1,7 @@
 import time
 from mbclient.db_table import *
 
+
 class Settings:
     db_file = None
     settings_cols = ['ts', 'name', 'val', 'typ']
@@ -19,7 +20,9 @@ class Settings:
         self.reload_settings()
 
     def get_setting(self, name):
-        db_values = self.settings_table.select(where=f"name='{name}'", order_by=None, desc=False, limit=1, hdr_list=self.settings_cols)
+        db_values = self.settings_table.select(
+            where=f"name='{name}'", order_by=None, desc=False, limit=1, hdr_list=self.settings_cols
+        )
         if len(db_values) > 0:
             value_str = db_values[0]['val']
             data_type = db_values[0]['typ']

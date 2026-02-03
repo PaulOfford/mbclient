@@ -4,10 +4,12 @@ import re
 import logging
 from mbclient.status import Status
 from mbclient.settings import Settings
-from mbclient.message_q import f2b_q, b2f_q, b2c_q, c2b_q, UiArea, UnifiedMessage, MessageTarget, MessageType, MessageVerb, MessageOperator, MessageParameter
+from mbclient.message_q import f2b_q, b2f_q, b2c_q_p0, b2c_q_p1, c2b_q, UiArea, UnifiedMessage, MessageTarget,\
+    MessageType, MessageVerb, MessageOperator, MessageParameter
 from mbclient.db_table import DbTable
 from mbclient.general_functions import add_progress_m, reload_ui_areas
 logger = logging.getLogger(__name__)
+
 
 def compress_date(post_epoch: int) -> str:
     if post_epoch > 0:
@@ -26,12 +28,25 @@ def compress_date(post_epoch: int) -> str:
     else:
         return ''
 
+
+def signal_frontend(verb: MessageVerb):
+    m = UnifiedMessage.create(
+        priority=0,
+        target='FRONTEND',
+        typ='SIGNAL',
+        verb=verb
+    )
+    b2f_q.put(m)
+
+
 class BlogInstance:
     latest_post_id: int = None
     latest_post_date: int = None
     last_seen: int = None
     selected: int = None
-    blog_field = ['blog', 'station', 'frequency', 'snr', 'latest_post_id', 'latest_post_date', 'last_seen_date', 'is_selected']
+    blog_field = [
+        'blog', 'station', 'frequency', 'snr', 'latest_post_id', 'latest_post_date', 'last_seen_date', 'is_selected'
+    ]
 
     def __init__(self, name: str, freq: int):
         blog_table = DbTable('blog')
@@ -46,7 +61,7 @@ class BlogInstance:
         return
 
     def get_latest_post_details(self):
-        return (self.latest_post_id, self.latest_post_date)
+        return self.latest_post_id, self.latest_post_date
 
     def get_last_seen(self) -> int:
         return self.last_seen
@@ -57,6 +72,7 @@ class BlogInstance:
         else:
             return False
 
+
 class ServerMsgProcessors:
     listing_extractor = '^([+-])([EL])([\\d,]*)~\\n*([\\S\\s]+)'
     post_extractor = '^([+-])(G)(\\d+)~\\n*([\\S\\s]+)'
@@ -64,24 +80,17 @@ class ServerMsgProcessors:
     info_extractor = '^([+-])(I)~\\n*([\\S\\s]+)'
     announce_extractor = '^(\\d+) +(\\d{6})'
     announce_extractor_old = '^([A-Z,0-9/]+) +(\\d+) +(\\d{4}-\\d{2}-\\d{2})'
-    qso_fields = ['qso_date', 'blog', 'station', 'directed_to', 'frequency', 'offset', 'cmd', 'post_id', 'post_date', 'title', 'body']
+    qso_fields = [
+        'qso_date', 'blog', 'station', 'directed_to', 'frequency',
+        'offset', 'cmd', 'post_id', 'post_date', 'title', 'body'
+    ]
 
     def __init__(self):
         pass
 
-    def process_rx_message(self, m: UnifiedMessage):
-        if m.get_typ() == MessageType.MB_MSG:
-            if m.get_verb() == MessageVerb.INFORM:
-                self.process_inform(m)
-            elif m.get_verb() == MessageVerb.ANNOUNCE:
-                self.process_announcement(m)
-        elif m.get_typ() == MessageType.SIGNAL:
-            if m.get_verb() == MessageVerb.NOTE_CALLSIGN:
-                self.process_note_callsign(m)
-            elif m.get_verb() == MessageVerb.NOTE_FREQ:
-                self.process_note_freq(m)
-            elif m.get_verb() == MessageVerb.NOTE_OFFSET:
-                self.process_note_offset(m)
+    @staticmethod
+    def signal_reload(ui_area):
+        reload_ui_areas(ui_area)
 
     def process_inform(self, m: UnifiedMessage):
         status = Status()
@@ -95,14 +104,28 @@ class ServerMsgProcessors:
                 if result[0] == '+':
                     mb_cmd = result[1]
                     if mb_cmd == 'G':
-                        self.process_post(destination=m.get_param(MessageParameter.DESTINATION), blog=m.get_param(MessageParameter.SOURCE), post_id=result[2], body=result[3])
+                        self.process_post(
+                            destination=m.get_param(MessageParameter.DESTINATION),
+                            blog=m.get_param(MessageParameter.SOURCE),
+                            post_id=result[2],
+                            body=result[3]
+                        )
                         self.signal_reload(UiArea.POST_CONTENT)
                     elif mb_cmd == 'E' or mb_cmd == 'L':
                         destination, cmd, blog, post_range, lines = self.parse_listing(m)
-                        self.process_listing(destination=destination, cmd=cmd, blog=blog, post_range=post_range, lines=lines)
+                        self.process_listing(
+                            destination=destination,
+                            cmd=cmd, blog=blog,
+                            post_range=post_range,
+                            lines=lines
+                        )
                         self.signal_reload(UiArea.POST_LIST)
                     elif mb_cmd == 'I':
-                        self.process_info(blog=m.get_param(MessageParameter.SOURCE), frequency=status.radio_frequency, blog_info=result[2])
+                        self.process_info(
+                            blog=m.get_param(MessageParameter.SOURCE),
+                            frequency=status.radio_frequency,
+                            blog_info=result[2]
+                        )
                         self.signal_reload(UiArea.BLOG_INFO)
                 break
         return
@@ -125,7 +148,11 @@ class ServerMsgProcessors:
                     post_date = time.mktime(time.strptime(result[2] + ' GMT', '%Y-%m-%d %Z'))
                     is_valid = True
                 if is_valid:
-                    self.update_blog_list(blog=m.get_param(MessageParameter.SOURCE), post_id=post_id, post_date=post_date)
+                    self.update_blog_list(
+                        blog=m.get_param(MessageParameter.SOURCE),
+                        post_id=post_id,
+                        post_date=post_date
+                    )
                     self.signal_reload(UiArea.BLOG_LIST)
         return
 
@@ -134,14 +161,26 @@ class ServerMsgProcessors:
         post_table = DbTable('post')
         qso_date = time.time()
         for line in lines:
-            db_values = post_table.select(where=f"blog='{blog}' AND post_id={line['post_id']}", hdr_list=['body', 'is_selected'])
+            db_values = post_table.select(
+                where=f"blog='{blog}' AND post_id={line['post_id']}", hdr_list=['body', 'is_selected']
+            )
             if len(db_values) == 0:
                 post_table.delete(where=f"blog='{blog}' AND post_id={line['post_id']}")
-                row = {'qso_date': qso_date, 'blog': blog, 'station': blog, 'directed_to': destination, 'frequency': status.radio_frequency, 'offset': status.offset, 'cmd': cmd + post_range, 'post_id': line['post_id'], 'post_date': line['post_date'], 'title': line['title'], 'body': '', 'is_selected': 0}
+                row = {
+                    'qso_date': qso_date, 'blog': blog, 'station': blog,
+                    'directed_to': destination, 'frequency': status.radio_frequency,
+                    'offset': status.offset, 'cmd': cmd + post_range, 'post_id': line['post_id'],
+                    'post_date': line['post_date'], 'title': line['title'], 'body': '', 'is_selected': 0
+                }
                 post_table.insert(row)
             elif destination == status.callsign:
                 post_table.delete(where=f"blog='{blog}' AND post_id={line['post_id']}")
-                row = {'qso_date': qso_date, 'blog': blog, 'station': blog, 'directed_to': destination, 'frequency': status.radio_frequency, 'offset': status.offset, 'cmd': cmd, 'post_id': line['post_id'], 'post_date': line['post_date'], 'title': line['title'], 'body': db_values[0]['body'], 'is_selected': db_values[0]['is_selected']}
+                row = {
+                    'qso_date': qso_date, 'blog': blog, 'station': blog, 'directed_to': destination,
+                    'frequency': status.radio_frequency, 'offset': status.offset, 'cmd': cmd,
+                    'post_id': line['post_id'], 'post_date': line['post_date'], 'title': line['title'],
+                    'body': db_values[0]['body'], 'is_selected': db_values[0]['is_selected']
+                }
                 post_table.insert(row)
             self.update_blog_list(blog, line['post_id'], line['post_date'])
         self.signal_reload(UiArea.POST_LIST)
@@ -156,7 +195,13 @@ class ServerMsgProcessors:
             post_table.update(value_dictionary={'body': body}, where=f"blog='{blog}' AND post_id={post_id}")
             reload_ui_areas(UiArea.POST_CONTENT)
         else:
-            post_table.insert(row={'qso_date': 0, 'blog': blog, 'station': blog, 'directed_to': destination, 'frequency': status.radio_frequency, 'offset': status.offset, 'cmd': 'G', 'post_id': post_id, 'post_date': 0.0, 'title': f'** {body[:20]}', 'body': body, 'is_selected': 0})
+            post_table.insert(
+                row={
+                    'qso_date': 0, 'blog': blog, 'station': blog, 'directed_to': destination,
+                    'frequency': status.radio_frequency, 'offset': status.offset, 'cmd': 'G',
+                    'post_id': post_id, 'post_date': 0.0, 'title': f'** {body[:20]}', 'body': body, 'is_selected': 0
+                }
+            )
             reload_ui_areas(UiArea.POST_LIST)
 
     def process_weather(self, m: UnifiedMessage):
@@ -203,20 +248,40 @@ class ServerMsgProcessors:
                 else:
                     logger.info(f'Received listing is too corrupt to interpret: {line}')
                     continue
-        return (m.get_param(MessageParameter.DESTINATION), cmd, m.get_param(MessageParameter.SOURCE), post_range, entries)
+        return m.get_param(MessageParameter.DESTINATION), cmd, m.get_param(MessageParameter.SOURCE), post_range, entries
 
     def update_blog_list(self, blog: str, post_id: int, post_date: int) -> None:
         status = Status()
         blog_table = DbTable('blog')
-        results = blog_table.select(where=f"blog='{blog}' AND frequency={status.radio_frequency}", limit=1, hdr_list=['latest_post_id', 'latest_post_date'])
+        results = blog_table.select(
+            where=f"blog='{blog}' AND frequency={status.radio_frequency}",
+            limit=1, hdr_list=['latest_post_id', 'latest_post_date']
+        )
         if len(results) > 0:
             latest_post_id = results[0]['latest_post_id']
             if post_id >= latest_post_id:
-                blog_table.update(value_dictionary={'latest_post_id': post_id, 'latest_post_date': post_date, 'last_seen_date': time.time()}, where=f"blog='{blog}' AND frequency={status.radio_frequency}")
+                blog_table.update(
+                    value_dictionary={
+                        'latest_post_id': post_id, 'latest_post_date': post_date, 'last_seen_date': time.time()
+                    },
+                    where=f"blog='{blog}' AND frequency={status.radio_frequency}"
+                )
             else:
-                blog_table.update(value_dictionary={'last_seen_date': time.time()}, where=f"blog='{blog}' AND frequency={status.radio_frequency}")
+                blog_table.update(
+                    value_dictionary={
+                        'last_seen_date': time.time()
+                    },
+                    where=f"blog='{blog}' AND frequency={status.radio_frequency}"
+                )
         else:
-            blog_table.insert(row={'blog': blog, 'station': blog, 'frequency': status.radio_frequency, 'snr': 0, 'latest_post_id': post_id, 'latest_post_date': post_date, 'last_seen_date': time.time(), 'is_selected': 0, 'info': ''})
+            default_info = "To get Blog Information, right click on the blog list entry and choose Get info."
+            blog_table.insert(
+                row={
+                    'blog': blog, 'station': blog, 'frequency': status.radio_frequency, 'snr': 0,
+                    'latest_post_id': post_id, 'latest_post_date': post_date, 'last_seen_date': time.time(),
+                    'info': default_info, 'is_selected': 0
+                }
+            )
         self.signal_reload(UiArea.BLOG_LIST)
 
     def process_note_callsign(self, m: UnifiedMessage):
@@ -235,11 +300,45 @@ class ServerMsgProcessors:
         self.signal_reload(UiArea.HEADER)
 
     @staticmethod
-    def signal_reload(ui_area):
-        reload_ui_areas(ui_area)
+    def process_note_ptt(m: UnifiedMessage):
+        if m.get_param(MessageParameter.PTT):
+            verb = MessageVerb.FLASH_TX_START
+        else:
+            verb = MessageVerb.FLASH_TX_STOP
+        signal_frontend(verb)
+
+    @staticmethod
+    def process_note_rx(m: UnifiedMessage):
+        if m.get_param(MessageParameter.RX):
+            verb = MessageVerb.FLASH_RX_START
+        else:
+            verb = MessageVerb.FLASH_RX_STOP
+        signal_frontend(verb)
+
+    def process_rx_message(self, m: UnifiedMessage):
+        if m.get_typ() == MessageType.MB_MSG:
+            if m.get_verb() == MessageVerb.INFORM:
+                self.process_inform(m)
+            elif m.get_verb() == MessageVerb.ANNOUNCE:
+                self.process_announcement(m)
+        elif m.get_typ() == MessageType.SIGNAL:
+            if m.get_verb() == MessageVerb.NOTE_CALLSIGN:
+                self.process_note_callsign(m)
+            elif m.get_verb() == MessageVerb.NOTE_FREQ:
+                self.process_note_freq(m)
+            elif m.get_verb() == MessageVerb.NOTE_OFFSET:
+                self.process_note_offset(m)
+            elif m.get_verb() == MessageVerb.NOTE_PTT:
+                self.process_note_ptt(m)
+            elif m.get_verb() == MessageVerb.NOTE_RX:
+                self.process_note_rx(m)
+
 
 class BeProcessor:
-    post_fields = ['qso_date', 'blog', 'station', 'directed_to', 'frequency', 'offset', 'cmd', 'post_id', 'post_date', 'title', 'body']
+    post_fields = [
+        'qso_date', 'blog', 'station', 'directed_to', 'frequency', 'offset',
+        'cmd', 'post_id', 'post_date', 'title', 'body'
+    ]
 
     def __init__(self):
         pass
@@ -249,7 +348,10 @@ class BeProcessor:
         where_clause += f' AND post_id={post_id}'
         where_clause += " AND title<>'' and post_date>0"
         post_table = DbTable('post')
-        db_values = post_table.select(where=where_clause, group_by='post_id', order_by='post_id, body, title', desc=True, hdr_list=self.post_fields)
+        db_values = post_table.select(
+            where=where_clause, group_by='post_id', order_by='post_id, body, title', desc=True,
+            hdr_list=self.post_fields
+        )
         return len(db_values) > 0
 
     @staticmethod
@@ -290,7 +392,10 @@ class BeProcessor:
                 svr_request_list.append(post_id)
         if len(svr_request_list) == 0:
             return
-        self.mb_msg_send(destination=m.get_param(MessageParameter.DESTINATION), mb_cmd=self.get_listing_command(svr_request_list))
+        self.mb_msg_send(
+            destination=m.get_param(MessageParameter.DESTINATION),
+            mb_cmd=self.get_listing_command(svr_request_list)
+        )
         return
 
     def verb_get_listing(self, m: UnifiedMessage):
@@ -341,7 +446,13 @@ class BeProcessor:
         reload_ui_areas(UiArea.HEADER)
 
     def set_rig_frequency(self, frequency: int):
-        m = UnifiedMessage.create(target='COMMS', typ='CONTROL', verb='SET_FREQ', params={'frequency': frequency})
+        m = UnifiedMessage.create(
+            priority=0,
+            target='COMMS',
+            typ='CONTROL',
+            verb='SET_FREQ',
+            params={'frequency': frequency}
+        )
         self.send_to_comms(m)
 
     @staticmethod
@@ -351,7 +462,13 @@ class BeProcessor:
         reload_ui_areas(UiArea.HEADER)
 
     def mb_msg_send(self, destination: str, mb_cmd: str):
-        m = UnifiedMessage(target=MessageTarget.COMMS, typ=MessageType.MB_MSG, verb=MessageVerb.SEND, params={MessageParameter.DESTINATION: destination, MessageParameter.MB_MSG: mb_cmd})
+        m = UnifiedMessage.create(
+            priority=1,
+            target=MessageTarget.COMMS,
+            typ=MessageType.MB_MSG,
+            verb=MessageVerb.SEND,
+            params={MessageParameter.DESTINATION: destination, MessageParameter.MB_MSG: mb_cmd}
+        )
         logger.info(f'Sending to COMMS: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}')
         self.send_to_comms(m)
         return
@@ -366,7 +483,12 @@ class BeProcessor:
             b = DbTable('blog')
             b.update(where=None, value_dictionary={'is_selected': 0})
             b.update(where=f"blog='{blog}' AND frequency={frequency}", value_dictionary={'is_selected': 1})
-            s.update(where=None, value_dictionary={'hdr_updated': time.time(), 'progress_updated': time.time(), 'blog_updated': time.time()})
+            s.update(
+                where=None,
+                value_dictionary={
+                    'hdr_updated': time.time(), 'progress_updated': time.time(), 'blog_updated': time.time()
+                }
+            )
         reload_ui_areas(UiArea.BLOG_LIST)
         reload_ui_areas(UiArea.BLOG_INFO)
 
@@ -391,8 +513,18 @@ class BeProcessor:
 
     @staticmethod
     def send_to_comms(m: UnifiedMessage):
-        logger.info(f'Sending to COMMS: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}')
-        b2c_q.put(m)
+        if m.get_param(MessageParameter.MB_MSG):
+            log_msg = m.get_param(MessageParameter.MB_MSG).split('\n')[0]
+            logger.info(f"SEND -> {m.get_param(MessageParameter.DESTINATION)}: {log_msg}")
+
+        logger.debug(
+            f"Sending to COMMS: {m.get_target().value}|{m.get_typ().value}|{m.get_verb().value}|{m.get_params()}")
+        if m.priority == 0:
+            b2c_q_p0.put(m)
+        elif m.priority == 1:
+            b2c_q_p1.put(m)
+
+        # If it's not P0 or P1, ignore it.
 
     def type_process_request(self, m: UnifiedMessage):
         if m.get_verb() == MessageVerb.FETCH_LISTING:
@@ -421,7 +553,12 @@ class BeProcessor:
     def type_process_control(self, m: UnifiedMessage):
         command = m.get_verb()
         if command == MessageVerb.SHUTDOWN:
-            m = UnifiedMessage.create(target='COMMS', typ='CONTROL', verb='SHUTDOWN')
+            m = UnifiedMessage.create(
+                priority=0,
+                target='COMMS',
+                typ='CONTROL',
+                verb='SHUTDOWN'
+            )
             self.send_to_comms(m)
             add_progress_m(m)
             exit(0)
@@ -459,7 +596,9 @@ class BeProcessor:
         try:
             m: UnifiedMessage = c2b_q.get(block=True, timeout=0.1)
             if m.get_typ() != MessageType.SIGNAL:
-                logger.info(f'Received from COMMS: ' + f'{m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}')
+                logger.info(
+                    f'Received from COMMS: ' + f'{m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}'
+                )
             if m.get_target() == MessageTarget.FRONTEND:
                 log_message = f'Sending to FRONTEND: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}'
                 if m.get_typ() != MessageType.SIGNAL:
@@ -473,6 +612,7 @@ class BeProcessor:
             c2b_q.task_done()
         except queue.Empty:
             pass
+
 
 class Backend:
     proc = None
