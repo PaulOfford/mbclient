@@ -2,12 +2,16 @@ import time
 import queue
 import re
 import logging
+
 from mbclient.status import Status
 from mbclient.settings import Settings
 from mbclient.message_q import f2b_q, b2f_q, b2c_q_p0, b2c_q_p1, c2b_q, UiArea, UnifiedMessage, MessageTarget,\
     MessageType, MessageVerb, MessageOperator, MessageParameter
 from mbclient.db_table import DbTable
 from mbclient.general_functions import add_progress_m, reload_ui_areas
+
+from .config import SETTINGS
+
 logger = logging.getLogger(__name__)
 
 
@@ -315,13 +319,20 @@ class ServerMsgProcessors:
 
     def process_note_disconnect(self):
         self.is_connected = False
+        verb = MessageVerb.NOTE_DISCONNECT
+        signal_frontend(verb)
 
     def process_rx_message(self, m: UnifiedMessage):
         if m.get_typ() == MessageType.MB_MSG:
+            mb_cmd = str(m.get_param(MessageParameter.MB_MSG)).split('\n')[0]
+            logger.info(
+                f"RECV <- {m.get_param(MessageParameter.SOURCE)}: {mb_cmd}"
+            )
             if m.get_verb() == MessageVerb.INFORM:
                 self.process_inform(m)
             elif m.get_verb() == MessageVerb.ANNOUNCE:
                 self.process_announcement(m)
+
         elif m.get_typ() == MessageType.SIGNAL:
             if m.get_verb() == MessageVerb.NOTE_CALLSIGN:
                 self.process_note_callsign(m)
@@ -617,4 +628,4 @@ class Backend:
     def backend_loop(self):
         while True:
             self.proc.check_for_msg()
-            time.sleep(0.2)
+            time.sleep(SETTINGS.process_wait_ms/1000)

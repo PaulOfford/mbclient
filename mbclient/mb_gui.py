@@ -7,6 +7,7 @@ import locale
 import functools as ft
 from queue import Empty
 import logging
+
 from mbclient._version import __version__
 from mbclient.status import Status
 from mbclient.settings import Settings
@@ -14,6 +15,8 @@ from mbclient.db_table import DbTable
 from mbclient.message_q import f2b_q, b2f_q, UnifiedMessage, UiArea,\
     MessageTarget, MessageType, MessageVerb, MessageParameter
 from mbclient.mb_fonts import MbFonts
+from .config import SETTINGS
+
 logger = logging.getLogger(__name__)
 root = tk.Tk()
 
@@ -181,7 +184,7 @@ class GuiHeader:
             self.clock_label.config(text=curtime)
         if 0 < self.scan_timeout < time.time():
             self.reset_scan()
-        self.clock_label.after(200, self.clock_tick, curtime)
+        self.clock_label.after(SETTINGS.clock_tick_ms, self.clock_tick, curtime)
 
     def run_scan(self):
         if self.scan_timeout == 0:
@@ -229,6 +232,12 @@ class GuiHeader:
 
     def flash_rx_stop(self):
         self.rx_indicator.configure(bg='#22ff23')
+
+    def ind_comms_lost(self):
+        self.tx_indicator.configure(bg='#ffffff')
+        self.tx_indicator.configure(bg='#ffffff')
+        self.rx_indicator.configure(bg='#ffffff')
+        self.rx_indicator.configure(bg='#ffffff')
 
     def reload(self):
         self.set_frequency()
@@ -766,7 +775,7 @@ class GuiMain:
         frame_progress.pack(side='bottom', fill='both', expand=1)
         self.progress = GuiProgress(frame_progress)
         self.reload_all_ui_areas()
-        root.after(200, self.process_updates)
+        root.after(SETTINGS.process_wait_ms, self.process_updates)
         if self.stop:
             return
         root.mainloop()
@@ -817,6 +826,8 @@ class GuiMain:
                         self.header.flash_tx_start()
                     elif m.get_verb() == MessageVerb.FLASH_TX_STOP:
                         self.header.flash_tx_stop()
+                    elif m.get_verb() == MessageVerb.NOTE_DISCONNECT:
+                        self.header.ind_comms_lost()
                     elif m.get_verb() == MessageVerb.RELOAD_UI:
                         self.verb_reload_ui(m)
             b2f_q.task_done()
@@ -824,7 +835,7 @@ class GuiMain:
             pass
         if self.stop:
             return
-        root.after(200, self.process_updates)
+        root.after(SETTINGS.process_wait_ms, self.process_updates)
 
     def reload_all_ui_areas(self):
         self.blog_list.reload()
