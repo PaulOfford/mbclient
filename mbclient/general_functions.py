@@ -21,7 +21,7 @@ def reload_ui_areas(ui_area: str):
 def add_progress_txt(progress_msg: str):
     progress_table = DbTable('progress')
     progress_table.insert(
-        row={'qso_date': time.time(), 'blog': '', 'station': '', 'frequency': 0, 'offset': 0, 'message': progress_msg}
+        row={'qso_date': time.time(), 'blog': '', 'frequency': 0, 'offset': 0, 'message': progress_msg}
     )
     reload_ui_areas(UiArea.PROGRESS)
     return
@@ -62,7 +62,7 @@ def add_progress_m(m: UnifiedMessage):
             pass
     progress_table = DbTable('progress')
     progress_table.insert(
-        row={'qso_date': time.time(), 'blog': '', 'station': '', 'frequency': 0, 'offset': 0, 'message': progress_msg}
+        row={'qso_date': time.time(), 'blog': '', 'frequency': 0, 'offset': 0, 'message': progress_msg}
     )
     reload_ui_areas(UiArea.PROGRESS)
     return

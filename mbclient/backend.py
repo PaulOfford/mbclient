@@ -11,6 +11,10 @@ from mbclient.general_functions import add_progress_m, reload_ui_areas
 logger = logging.getLogger(__name__)
 
 
+class CommsDisconnect(Exception):
+    pass
+
+
 def compress_date(post_epoch: int) -> str:
     if post_epoch > 0:
         dt_string = time.strftime('%Y-%m-%d', time.gmtime(post_epoch))
@@ -45,7 +49,7 @@ class BlogInstance:
     last_seen: int = None
     selected: int = None
     blog_field = [
-        'blog', 'station', 'frequency', 'snr', 'latest_post_id', 'latest_post_date', 'last_seen_date', 'is_selected'
+        'blog', 'frequency', 'snr', 'latest_post_id', 'latest_post_date', 'last_seen_date', 'is_selected'
     ]
 
     def __init__(self, name: str, freq: int):
@@ -80,10 +84,8 @@ class ServerMsgProcessors:
     info_extractor = '^([+-])(I)~\\n*([\\S\\s]+)'
     announce_extractor = '^(\\d+) +(\\d{6})'
     announce_extractor_old = '^([A-Z,0-9/]+) +(\\d+) +(\\d{4}-\\d{2}-\\d{2})'
-    qso_fields = [
-        'qso_date', 'blog', 'station', 'directed_to', 'frequency',
-        'offset', 'cmd', 'post_id', 'post_date', 'title', 'body'
-    ]
+
+    is_connected: bool = True
 
     def __init__(self):
         pass
@@ -167,7 +169,7 @@ class ServerMsgProcessors:
             if len(db_values) == 0:
                 post_table.delete(where=f"blog='{blog}' AND post_id={line['post_id']}")
                 row = {
-                    'qso_date': qso_date, 'blog': blog, 'station': blog,
+                    'qso_date': qso_date, 'blog': blog,
                     'directed_to': destination, 'frequency': status.radio_frequency,
                     'offset': status.offset, 'cmd': cmd + post_range, 'post_id': line['post_id'],
                     'post_date': line['post_date'], 'title': line['title'], 'body': '', 'is_selected': 0
@@ -176,7 +178,7 @@ class ServerMsgProcessors:
             elif destination == status.callsign:
                 post_table.delete(where=f"blog='{blog}' AND post_id={line['post_id']}")
                 row = {
-                    'qso_date': qso_date, 'blog': blog, 'station': blog, 'directed_to': destination,
+                    'qso_date': qso_date, 'blog': blog, 'directed_to': destination,
                     'frequency': status.radio_frequency, 'offset': status.offset, 'cmd': cmd,
                     'post_id': line['post_id'], 'post_date': line['post_date'], 'title': line['title'],
                     'body': db_values[0]['body'], 'is_selected': db_values[0]['is_selected']
@@ -197,7 +199,7 @@ class ServerMsgProcessors:
         else:
             post_table.insert(
                 row={
-                    'qso_date': 0, 'blog': blog, 'station': blog, 'directed_to': destination,
+                    'qso_date': 0, 'blog': blog, 'directed_to': destination,
                     'frequency': status.radio_frequency, 'offset': status.offset, 'cmd': 'G',
                     'post_id': post_id, 'post_date': 0.0, 'title': f'** {body[:20]}', 'body': body, 'is_selected': 0
                 }
@@ -277,7 +279,7 @@ class ServerMsgProcessors:
             default_info = "To get Blog Information, right click on the blog list entry and choose Get info."
             blog_table.insert(
                 row={
-                    'blog': blog, 'station': blog, 'frequency': status.radio_frequency, 'snr': 0,
+                    'blog': blog, 'frequency': status.radio_frequency, 'snr': 0,
                     'latest_post_id': post_id, 'latest_post_date': post_date, 'last_seen_date': time.time(),
                     'info': default_info, 'is_selected': 0
                 }
@@ -315,6 +317,9 @@ class ServerMsgProcessors:
             verb = MessageVerb.FLASH_RX_STOP
         signal_frontend(verb)
 
+    def process_note_disconnect(self):
+        self.is_connected = False
+
     def process_rx_message(self, m: UnifiedMessage):
         if m.get_typ() == MessageType.MB_MSG:
             if m.get_verb() == MessageVerb.INFORM:
@@ -332,13 +337,17 @@ class ServerMsgProcessors:
                 self.process_note_ptt(m)
             elif m.get_verb() == MessageVerb.NOTE_RX:
                 self.process_note_rx(m)
+            elif m.get_verb() == MessageVerb.NOTE_DISCONNECT:
+                self.process_note_disconnect()
 
 
 class BeProcessor:
     post_fields = [
-        'qso_date', 'blog', 'station', 'directed_to', 'frequency', 'offset',
+        'qso_date', 'blog', 'directed_to', 'frequency', 'offset',
         'cmd', 'post_id', 'post_date', 'title', 'body'
     ]
+
+    processor = ServerMsgProcessors()
 
     def __init__(self):
         pass
@@ -469,7 +478,7 @@ class BeProcessor:
             verb=MessageVerb.SEND,
             params={MessageParameter.DESTINATION: destination, MessageParameter.MB_MSG: mb_cmd}
         )
-        logger.info(f'Sending to COMMS: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}')
+        logger.debug(f'Sending to COMMS: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}')
         self.send_to_comms(m)
         return
 
@@ -478,17 +487,10 @@ class BeProcessor:
         blog = m.get_param(MessageParameter.BLOG)
         frequency = m.get_param(MessageParameter.FREQUENCY)
         if len(blog) > 0:
-            s = DbTable('status')
-            s.update(where=None, value_dictionary={'selected_blog': blog, 'user_frequency': frequency})
             b = DbTable('blog')
             b.update(where=None, value_dictionary={'is_selected': 0})
             b.update(where=f"blog='{blog}' AND frequency={frequency}", value_dictionary={'is_selected': 1})
-            s.update(
-                where=None,
-                value_dictionary={
-                    'hdr_updated': time.time(), 'progress_updated': time.time(), 'blog_updated': time.time()
-                }
-            )
+
         reload_ui_areas(UiArea.BLOG_LIST)
         reload_ui_areas(UiArea.BLOG_INFO)
 
@@ -511,8 +513,10 @@ class BeProcessor:
         status.set_user_frequency(m.get_param(MessageParameter.FREQUENCY))
         return
 
-    @staticmethod
-    def send_to_comms(m: UnifiedMessage):
+    def send_to_comms(self, m: UnifiedMessage):
+        if not self.processor.is_connected:
+            return  # We've lost comms
+
         if m.get_param(MessageParameter.MB_MSG):
             log_msg = m.get_param(MessageParameter.MB_MSG).split('\n')[0]
             logger.info(f"SEND -> {m.get_param(MessageParameter.DESTINATION)}: {log_msg}")
@@ -588,7 +592,7 @@ class BeProcessor:
         try:
             m: UnifiedMessage = f2b_q.get(block=False)
             if m:
-                logger.info(f'Received from FRONTEND: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}')
+                logger.debug(f'Received from FRONTEND: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}')
                 self.preprocess(m)
                 f2b_q.task_done()
         except queue.Empty:
@@ -596,19 +600,12 @@ class BeProcessor:
         try:
             m: UnifiedMessage = c2b_q.get(block=True, timeout=0.1)
             if m.get_typ() != MessageType.SIGNAL:
-                logger.info(
+                logger.debug(
                     f'Received from COMMS: ' + f'{m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}'
                 )
-            if m.get_target() == MessageTarget.FRONTEND:
-                log_message = f'Sending to FRONTEND: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}'
-                if m.get_typ() != MessageType.SIGNAL:
-                    logger.info(log_message)
-                else:
-                    logger.debug(log_message)
-                b2f_q.put(m)
-            elif m.get_target() == MessageTarget.BACKEND:
-                processor = ServerMsgProcessors()
-                processor.process_rx_message(m)
+
+            if m.get_target() == MessageTarget.BACKEND:
+                self.processor.process_rx_message(m)
             c2b_q.task_done()
         except queue.Empty:
             pass

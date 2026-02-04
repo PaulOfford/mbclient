@@ -342,10 +342,6 @@ class GuiBlogList(GuiTable):
             'label': 'Blog', 'widget': tk.Button(), 'justify': 'left'
         },
         {
-            'db_col': 'station', 'type': 'Text', 'suffix': '', 'width': 0,
-            'label': '', 'widget': tk.Button(), 'justify': 'left'
-        },
-        {
             'db_col': 'frequency', 'type': 'Float', 'divisor': 1000000, 'suffix': '', 'width': 8,
             'label': 'Freq\nMHz', 'widget': tk.Button(), 'justify': 'center'
         },
@@ -444,7 +440,7 @@ class GuiBlogList(GuiTable):
 class GuiBlogInfo:
     gui_fonts = None
     blog_info_box = []
-    progress_cols = ['qso_date', 'blog', 'station', 'frequency', 'offset', 'message']
+    progress_cols = ['qso_date', 'blog', 'frequency', 'offset', 'message']
 
     def __init__(self, frame: tk.Frame):
         self.gui_fonts = MbFonts(Settings().font_size)
@@ -656,7 +652,7 @@ class GuiPostContent:
 class GuiProgress:
     gui_fonts = None
     progress_box = []
-    progress_cols = ['qso_date', 'blog', 'station', 'frequency', 'offset', 'message']
+    progress_cols = ['qso_date', 'blog', 'frequency', 'offset', 'message']
 
     def on_mousewheel(self, event):
         self.progress_box.yview_scroll(int(-1 * (event.delta / 120)), 'units')
