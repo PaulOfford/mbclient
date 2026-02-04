@@ -709,9 +709,9 @@ class GuiMain:
     last_check_for_updates = 0
     header = None
     main = None
-    file_path = os.path.dirname(os.path.realpath(__file__)).replace('\\', '//')
-    user_guide_url = file_path + '//docs//UserGuide.html'
-    internals_url = file_path + '//docs//Internals.html'
+    file_path = os.path.dirname(os.path.realpath("config.ini")).replace('\\', '//')
+    user_guide_url = file_path + '/docs/UserGuide.html'
+    internals_url = file_path + '/docs//Internals.html'
     stop = False
 
     def __init__(self):

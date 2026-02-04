@@ -10,15 +10,23 @@
         <h1>MbClient User Guide</h1>
         <h2>Contents</h2>
         <ul>
+            <li><a href="#quickstart">Quick Start</a></li>
             <li><a href="#intro">Introduction</a></li>
             <li><a href="#offgrid">Off Grid Operation</a></li>
             <li><a href="#postfile">Microblog Post File</a></li>
             <li><a href="#function">MbClient Functionality</a></li>
             <li><a href="#interface">Getting Started</a></li>
             <li><a href="#settings">Settings</a></li>
+            <li><a href="#config">config.ini</a></li>
             <li><a href="#tips">Tips, Tricks and FAQs</a></li>
             <li><a href="#installation">Installing and Running MbClient</a></li>
         </ul>
+
+        <h2 id="quickstart">Quick Start</h2>
+        <p>Do you just want to run the thing and figure it out as you go?  You can do that.
+            Just read <a href="#interface">Getting Started</a> and then follow the instructions in
+            <a href="#installation">Installing and Running MbClient</a>.</p>
+
         <h2 id="intro">Introduction</h2>
         <p>Blogging is a popular way to share information with Internet users by posting short articles in an
             <i>ad hoc</i> manner.  In an emergency situation, blogging could provide a way to disseminate critical
@@ -202,7 +210,7 @@
         <p>With JS8Call in Fast mode, it will take almost 5 minutes to send five listing entries.  It may be OK
         to increase this for an overnight trawl through the blog, but please consider others.</p>
 
-        <h2>config.ini</h2>
+        <h2 id="config">config.ini</h2>
         <p>There are further settings in config.ini, and these are not settings you should normally change.  You can,
         of course, experiment with these settings and if things go wrong, simply back out the changes.</p>
 
@@ -331,6 +339,7 @@
         <p>If you want MbClient to convert an earlier version database, once you have set the database
             location (db_path) in db_root.py, you should move the old database file to that location.
             The old database file must be called mblog.db and so rename it if needed.</p>
+
         <h3>Running MbClient</h3>
         <p>To use MbClient, do the following:</p>
         <ol>
@@ -339,6 +348,15 @@
                 containing the MbClient code and entering the command <pre>python3 mb_client.py</pre></li>
         </ol>
         <p>You may want to add a .bat or shell script file to your desktop to start MbClient.</p>
+
+        <h3>Logging</h3>
+        <p>Messages reflecting the actions of MbClient are sent to <b>stdout</b> and to a <b>logging file</b>.
+            The location of the logging file is set by the <b>log_file</b> setting in <b>config.ini</b>.</p>
+        <p>Being sent to stdout means that, if you start MbClient from a Windows command prompt window, or from a
+        Linux terminal window, the messages will be seen in that window.</p>
+        <p>If you experience a problem with MbClient, you may be asked to increase the logging level
+        from its default of INFO to the DEBUG level.  The log level is set by the <b>log_level</b>
+            setting in <b>config.ini</b>.</p>
     </div>
 </body>
 </html>
