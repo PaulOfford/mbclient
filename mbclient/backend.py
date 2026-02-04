@@ -11,10 +11,6 @@ from mbclient.general_functions import add_progress_m, reload_ui_areas
 logger = logging.getLogger(__name__)
 
 
-class CommsDisconnect(Exception):
-    pass
-
-
 def compress_date(post_epoch: int) -> str:
     if post_epoch > 0:
         dt_string = time.strftime('%Y-%m-%d', time.gmtime(post_epoch))
