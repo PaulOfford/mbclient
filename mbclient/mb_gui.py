@@ -201,12 +201,13 @@ class GuiHeader:
         logger.info('End of scan period')
 
     def set_frequency(self):
+        def format_frequency(freq: int) -> str:
+            return f"{freq:,}".replace(",", " ")
+
         field = ['radio_frequency']
         status_table = DbTable('status')
         db_values = status_table.select(where=None, order_by=None, desc=False, limit=1, hdr_list=field)
-        locale.setlocale(locale.LC_ALL, 'fr')
-        freq_str = locale.format_string('%d', int(db_values[0]['radio_frequency']), grouping=True)
-        locale.setlocale(locale.LC_ALL, 'en_GB')
+        freq_str = format_frequency(int(db_values[0]['radio_frequency']))
         self.freq_text.set(freq_str)
 
     def set_offset(self):
