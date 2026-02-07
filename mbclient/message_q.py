@@ -332,12 +332,6 @@ class UnifiedMessage:
 
     # Getters
 
-    def get_ts(self) -> float:
-        return self.ts
-
-    def get_priority(self) -> int:
-        return self.priority
-
     def get_target(self) -> MessageTarget:
         return self.target
 
