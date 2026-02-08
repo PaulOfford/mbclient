@@ -1,6 +1,8 @@
+from __future__ import annotations
 import re
 from socket import socket, AF_INET, SOCK_STREAM
-import queue
+from queue import Queue, Empty
+from dataclasses import dataclass, field
 import logging
 import json
 import time
@@ -13,7 +15,21 @@ from .config import SETTINGS
 js8call_addr = SETTINGS.server
 debug = SETTINGS.debug
 
+# ToDo: Replace the following with config settings
+MAX_QUEUE_SIZE = 20
+RELEASE_TIME_INCREMENT = 15
+RELEASE_TIME_INCREMENT_SHORT = 5
+AGE_OUT_TIME = 3600
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class Station:
+    callsign: str
+    absolute_frequency: int
+    tx_release_time: float
+    tx_q: Queue[UnifiedMessage] = field(default_factory=Queue)
 
 
 class Js8CallApi:
@@ -112,10 +128,50 @@ class Js8CallDriver:
 
     is_connected = False
 
+    station_list: list[Station] = []
+    # Entries in the station_list look like this
+    # {'callsign': callsign, 'absolute_frequency': absolute_frequency,
+    # 'tx_release_time': time.time() + 15, 'tx_q': queue.Queue}
+
     def __init__(self):
         self.js8call_api = Js8CallApi()
         self.js8call_api.connect()
         self.is_connected = True
+
+    def add_to_station_list(self, callsign: str, absolute_frequency: int) -> None:
+        self.station_list.append(
+            Station(
+                callsign=callsign,
+                absolute_frequency=absolute_frequency,
+                tx_release_time=time.time() + RELEASE_TIME_INCREMENT,
+                tx_q=Queue(maxsize=MAX_QUEUE_SIZE)
+            )
+        )
+
+    def check_the_station_list(self, callsign: str) -> int:
+        for i, station in enumerate(self.station_list):
+            if station.callsign == callsign:
+                return i
+        return -1
+
+    def update_station_list_entry(self, callsign: str, absolute_frequency) -> None:
+        index = self.check_the_station_list(callsign=callsign)
+        if index < 0:
+            # We didn't find the callsign in the station list
+            self.add_to_station_list(callsign=callsign, absolute_frequency=absolute_frequency)
+            return
+
+        self.station_list[index].absolute_frequency = absolute_frequency
+        self.station_list[index].tx_release_time = time.time() + RELEASE_TIME_INCREMENT
+        return
+
+    def age_out_stations(self) -> None:
+        # This function isn't perfect.  If we have two adjacent entries in station_list to be aged out
+        # we will miss the second.  It's not critical that we age entries out during the first pass
+        # as we will do so with subsequent passes.
+        for i, station in enumerate(self.station_list):
+            if self.station_list[i].tx_release_time < (time.time() - AGE_OUT_TIME):
+                self.station_list.pop(i)
 
     def set_radio_frequency(self, freq: int):
         logger.debug('call: RIG.SET_FREQ')
@@ -125,7 +181,7 @@ class Js8CallDriver:
 
     def process_mb_msg(self, m: UnifiedMessage):
         req_msg = f"{m.get_param(MessageParameter.DESTINATION)} {m.get_param(MessageParameter.MB_MSG)}"
-        self.tx_release_time = time.time() + 15  # Block further sends
+        self.tx_release_time = time.time() + RELEASE_TIME_INCREMENT  # Block further sends
         self.js8call_api.send('TX.SEND_MESSAGE', req_msg)
 
     def process_control(self, m: UnifiedMessage):
@@ -165,16 +221,26 @@ class Js8CallDriver:
             self.process_comms_tx(comms_tx)
             add_progress_m(comms_tx)
             b2c_q_p0.task_done()
-        except queue.Empty:
+        except Empty:
             if time.time() > self.tx_release_time:
                 # We are free to send another priority 1 message.
                 try:
                     comms_tx: UnifiedMessage = b2c_q_p1.get(timeout=timeout)
                     logger.debug(f"Received from BACKEND: {comms_tx.get_params()}")
-                    self.process_comms_tx(comms_tx)
-                    add_progress_m(comms_tx)
-                    b2c_q_p1.task_done()
-                except queue.Empty:
+
+                    # Check if we are sending to a station in the station_list
+                    index = self.check_the_station_list(comms_tx.get_param(MessageParameter.DESTINATION))
+
+                    if index < 0:
+                        # There's no entry in the station_list so go ahead and send
+                        self.process_comms_tx(comms_tx)
+                        add_progress_m(comms_tx)
+                        b2c_q_p1.task_done()
+                        return
+                    else:
+                        self.station_list[index].tx_q.put(comms_tx)
+
+                except Empty:
                     return
         return
 
@@ -268,11 +334,13 @@ class Js8CallDriver:
                     elif js8call_msg_type == 'RIG.PTT':
                         if value == 'on':
                             ptt_state = True
-                            self.tx_release_time = time.time() + 15  # We need to wait for the last send to complete
+                            # We need to wait for the last send to complete
+                            self.tx_release_time = time.time() + RELEASE_TIME_INCREMENT
 
                         else:
                             ptt_state = False
-                            self.tx_release_time = time.time() + 5  # We need to wait in case there are more frames
+                            # We need to wait in case there are more frames
+                            self.tx_release_time = time.time() + RELEASE_TIME_INCREMENT_SHORT
 
                         self.signal_backend(MessageVerb.NOTE_PTT, {MessageParameter.PTT: ptt_state})
 
@@ -294,6 +362,8 @@ class Js8CallDriver:
                         # We need to extract the source and destination
                         msg_elements = re.findall(r"^\S+: +\S+ +([\S\s]+)", value)
                         mb_message = msg_elements[0]
+
+                        self.update_station_list_entry(str(params['FROM']), int(params['FREQ']))
 
                         if str(params['TO']) == "@MB":
                             self.announce_to_backend(
