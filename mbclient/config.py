@@ -65,10 +65,19 @@ class Settings:
     lst_limit: int
     replace_nl: bool
 
+    # Database
+    db_path: str
+
     # Gui
     scan_time: int
     clock_tick_ms: int
     process_wait_ms: int
+
+    # Comms
+    max_queue_size: int
+    release_time_increment: int
+    release_time_increment_short: int
+    age_out_time: int
 
     # Debug
     debug: bool
@@ -82,7 +91,7 @@ class Settings:
 
 
 def load_settings() -> Settings:
-    cfg = configparser.ConfigParser()
+    cfg = configparser.ConfigParser(interpolation=None)
     path = _config_path()
 
     # Defaults mirror the old server_settings.py
@@ -98,10 +107,19 @@ def load_settings() -> Settings:
             "lst_limit": "5",
             "replace_nl": "false",
         },
+        "database": {
+            "db_path": "%AppData%/MbClient/"
+        },
         "gui": {
             "scan_time": "120",
             "clock_tick_ms": "200",
             "process_wait_ms": "200"
+        },
+        "comms": {
+            "max_queue_size": "20",
+            "release_time_increment": "15",
+            "release_time_increment_short": "5",
+            "age_out_time": "3600"
         },
         "debug": {
             "debug": "false",
@@ -134,11 +152,16 @@ def load_settings() -> Settings:
     replace_nl = _as_bool(cfg, "posts", "replace_nl", False)
 
     # Used by MbClient only
+    db_path = _as_str(cfg, "database", "db_path", "%AppData%/MbClient/")
     scan_time = _as_int(cfg, "gui", "scan_time", 120)
     clock_tick_ms = _as_int(cfg, "gui", "clock_tick_ms", 200)
     process_wait_ms = _as_int(cfg, "gui", "process_wait_ms", 200)
 
     # Used by MbClient and MbServer
+    max_queue_size = _as_int(cfg, "comms", "max_queue_size", 20)
+    release_time_increment = _as_int(cfg, "comms", "release_time_increment", 15)
+    release_time_increment_short = _as_int(cfg, "comms", "release_time_increment_short", 5)
+    age_out_time = _as_int(cfg, "comms", "age_out_time", 3600)
     debug = _as_bool(cfg, "debug", "debug", False)
 
     log_level = _parse_log_level(_as_str(cfg, "logging", "log_level", "INFO"), logging.INFO)
@@ -154,9 +177,14 @@ def load_settings() -> Settings:
         mb_announcement_timer=mb_announcement_timer,
         lst_limit=lst_limit,
         replace_nl=replace_nl,
+        db_path=db_path,
         scan_time=scan_time,
         clock_tick_ms=clock_tick_ms,
         process_wait_ms=process_wait_ms,
+        max_queue_size=max_queue_size,
+        release_time_increment=release_time_increment,
+        release_time_increment_short=release_time_increment_short,
+        age_out_time=age_out_time,
         debug=debug,
         log_level=log_level,
         log_to_file=log_to_file,

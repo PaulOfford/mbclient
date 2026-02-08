@@ -2,9 +2,12 @@ import os
 import re
 import sqlite3
 import logging
-from mbclient.db_root import db_path
+
+from .config import SETTINGS
+
 logger = logging.getLogger(__name__)
 
+db_path = SETTINGS.db_path
 
 def get_db_file_spec():
     path = os.path.normpath(db_path)

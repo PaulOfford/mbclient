@@ -16,10 +16,10 @@ js8call_addr = SETTINGS.server
 debug = SETTINGS.debug
 
 # ToDo: Replace the following with config settings
-MAX_QUEUE_SIZE = 20
-RELEASE_TIME_INCREMENT = 15
-RELEASE_TIME_INCREMENT_SHORT = 5
-AGE_OUT_TIME = 3600
+MAX_QUEUE_SIZE = SETTINGS.max_queue_size
+RELEASE_TIME_INCREMENT = SETTINGS.release_time_increment
+RELEASE_TIME_INCREMENT_SHORT = SETTINGS.release_time_increment_short
+AGE_OUT_TIME = SETTINGS.age_out_time
 
 logger = logging.getLogger(__name__)
 
