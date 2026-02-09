@@ -173,9 +173,7 @@ class Js8CallDriver:
 
     def process_comms_tx(self, m: UnifiedMessage):
         if m.get_typ() == MessageType.MB_MSG:
-            # We can only send if we are not awaiting completion of a previous send.
-            if time.time() > self.ptt_release_time:
-                self.process_mb_msg(m)
+            self.process_mb_msg(m)
 
         elif m.get_typ() == MessageType.CONTROL:
             self.process_control(m)
@@ -268,7 +266,10 @@ class Js8CallDriver:
             if time.time() > station.tx_release_time:
                 try:
                     comms_tx: UnifiedMessage = station.tx_q.get(timeout=QUEUE_GET_TIMEOUT)
-                    logger.info(f"Received from BACKEND: {comms_tx.get_params()}")
+                    logger.info(
+                        f"Transmit ->: {comms_tx.get_param(MessageParameter.DESTINATION)}"
+                        f" {comms_tx.get_param(MessageParameter.MB_MSG)}"
+                    )
 
                     self.process_comms_tx(comms_tx)
 
@@ -382,11 +383,13 @@ class Js8CallDriver:
                             ptt_state = True
                             # We need to wait for the last send to complete
                             self.ptt_release_time = time.time() + RELEASE_TIME_INCREMENT
+                            logger.info("PTT ON")
 
                         else:
                             ptt_state = False
                             # We need to wait in case there are more frames
                             self.ptt_release_time = time.time() + RELEASE_TIME_INCREMENT
+                            logger.info("PTT OFF")
 
                         self.signal_backend(MessageVerb.NOTE_PTT, {MessageParameter.PTT: ptt_state})
 
@@ -407,7 +410,10 @@ class Js8CallDriver:
                         logger.debug(f"RX.DIRECTED {value}")
                         # We need to extract the source and destination
                         msg_elements = re.findall(r"^\S+: +\S+ +([\S\s]+)", value)
-                        mb_message = msg_elements[0]
+                        try:
+                            mb_message = msg_elements[0]
+                        except IndexError:
+                            continue
 
                         self.update_station_list_entry(str(params['FROM']), int(params['FREQ']))
 
