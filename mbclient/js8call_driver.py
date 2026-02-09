@@ -13,7 +13,7 @@ from .message_q import b2c_q_p0, b2c_q_p1, c2b_q, UnifiedMessage, MessageType, M
 from .config import SETTINGS
 
 js8call_addr = SETTINGS.server
-debug = SETTINGS.debug
+DEBUG = SETTINGS.debug
 
 # ToDo: Replace the following with config settings
 MAX_QUEUE_SIZE = SETTINGS.max_queue_size
@@ -105,7 +105,7 @@ class Js8CallApi:
 
         message = message.replace('\n\n', '\n \n')  # this seems to help with the JS8Call message window format
 
-        if len(args) > 1 and debug:
+        if len(args) > 1 and DEBUG:
             logger.debug('MB message not sent as we are in debug mode')
             # this avoids hamlib errors in JS8Call if the radio isn't connected
         else:
