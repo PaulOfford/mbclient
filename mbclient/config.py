@@ -112,8 +112,8 @@ def load_settings() -> Settings:
         },
         "gui": {
             "scan_time": "120",
-            "clock_tick_ms": "200",
-            "process_wait_ms": "200"
+            "clock_tick_ms": "20",
+            "process_wait_ms": "20"
         },
         "comms": {
             "max_queue_size": "20",
@@ -154,8 +154,8 @@ def load_settings() -> Settings:
     # Used by MbClient only
     db_path = _as_str(cfg, "database", "db_path", "%AppData%/MbClient/")
     scan_time = _as_int(cfg, "gui", "scan_time", 120)
-    clock_tick_ms = _as_int(cfg, "gui", "clock_tick_ms", 200)
-    process_wait_ms = _as_int(cfg, "gui", "process_wait_ms", 200)
+    clock_tick_ms = _as_int(cfg, "gui", "clock_tick_ms", 20)
+    process_wait_ms = _as_int(cfg, "gui", "process_wait_ms", 20)
 
     # Used by MbClient and MbServer
     max_queue_size = _as_int(cfg, "comms", "max_queue_size", 20)
