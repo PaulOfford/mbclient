@@ -14,11 +14,12 @@ from mbclient.settings import Settings
 from mbclient.db_table import DbTable
 from mbclient.message_q import f2b_q, b2f_q, UnifiedMessage, UiArea,\
     MessageTarget, MessageType, MessageVerb, MessageParameter
-from mbclient.mb_fonts import MbFonts
 from .config import SETTINGS
 
 logger = logging.getLogger(__name__)
 root = tk.Tk()
+
+from mbclient.mb_fonts import gui_fonts  # This can only happen after we have a root window
 
 
 def settings_window():
@@ -104,7 +105,6 @@ class ScrollableFrame(ttk.Frame):
 
 class GuiHeader:
     use_gmt: bool = True
-    gui_fonts = None
     freq_text = None
     offset_text = None
     callsign_text = None
@@ -119,7 +119,6 @@ class GuiHeader:
     def __init__(self, header_frame):
         settings = Settings()
         self.use_gmt = settings.use_gmt
-        self.gui_fonts = MbFonts(settings.font_size)
         self.freq_text = tk.StringVar()
         self.offset_text = tk.StringVar()
         self.callsign_text = tk.StringVar()
@@ -133,42 +132,42 @@ class GuiHeader:
         frame_cell_1.pack(expand=True, fill='both')
         hdr_freq = tk.Label(
             frame_cell_1, textvariable=self.freq_text, bg='black', fg='white',
-            font=self.gui_fonts.font_freq, justify='center'
+            font=gui_fonts.font_freq, justify='center'
         )
         hdr_freq.pack()
         frame_cell_4 = tk.Frame(frame_hdr_left, bg='black')
         frame_cell_4.pack(expand=True, fill='both')
         hdr_offset = tk.Label(
             frame_cell_4, textvariable=self.offset_text, bg='black', fg='white',
-            font=self.gui_fonts.font_hdr, justify='center'
+            font=gui_fonts.font_hdr, justify='center'
         )
         hdr_offset.pack()
         frame_cell_2 = tk.Frame(frame_hdr_mid, bg='black')
         frame_cell_2.pack(expand=True, fill='both')
         hdr_callsign = tk.Label(
-            frame_cell_2, textvariable=self.callsign_text, bg='black', fg='white', font=self.gui_fonts.font_hdr
+            frame_cell_2, textvariable=self.callsign_text, bg='black', fg='white', font=gui_fonts.font_hdr
         )
         hdr_callsign.pack()
         frame_cell_5 = tk.Frame(frame_hdr_mid, bg='black')
         frame_cell_5.pack(expand=True, fill='both')
-        self.clock_label = tk.Label(frame_cell_5, bg='black', fg='white', font=self.gui_fonts.font_hdr)
+        self.clock_label = tk.Label(frame_cell_5, bg='black', fg='white', font=gui_fonts.font_hdr)
         self.clock_label.pack()
         frame_cell_3 = tk.Frame(frame_hdr_right, bg='black')
         frame_cell_3.pack(expand=True, fill='both')
         self.scan_btn = tk.Button(
-            frame_cell_3, text='Scan', font=self.gui_fonts.font_btn_bold, bg='#22ff23',
+            frame_cell_3, text='Scan', font=gui_fonts.font_btn_bold, bg='#22ff23',
             height=1, width=18, relief='flat', command=self.run_scan
         )
         self.scan_btn.pack()
         frame_cell_6 = tk.Frame(frame_hdr_right, bg='black')
         frame_cell_6.pack(expand=True, fill='both')
         self.tx_indicator = tk.Button(
-            frame_cell_6, text='Tx', font=self.gui_fonts.font_btn_bold, bg='#22ff23',
+            frame_cell_6, text='Tx', font=gui_fonts.font_btn_bold, bg='#22ff23',
             height=1, width=4, relief='flat', command=self.run_scan
         )
         self.tx_indicator.pack(side='left')
         self.rx_indicator = tk.Button(
-            frame_cell_6, text='Rx', font=self.gui_fonts.font_btn_bold, bg='#22ff23',
+            frame_cell_6, text='Rx', font=gui_fonts.font_btn_bold, bg='#22ff23',
             height=1, width=4, relief='flat', command=self.run_scan
         )
         self.rx_indicator.pack(side='right')
@@ -247,7 +246,6 @@ class GuiHeader:
 
 
 class GuiTable:
-    gui_fonts = None
     table_data = None
     table_headers = None
     select_cb = None
@@ -274,7 +272,6 @@ class GuiTable:
         return value
 
     def __init__(self, frame, column_definitions, max_rows: int, select_method, hdr_click_method):
-        self.gui_fonts = MbFonts(Settings().font_size)
         self.table_headers = column_definitions
         self.select_cb = select_method
         self.hdr_click_cb = hdr_click_method
@@ -293,7 +290,7 @@ class GuiTable:
         for col, headers in enumerate(self.table_headers):
             if headers['label']:
                 headers['widget'] = tk.Text(
-                    frame_hdr, bg='white', font=self.gui_fonts.font_main_bold, relief='flat',
+                    frame_hdr, bg='white', font=gui_fonts.font_main_bold, relief='flat',
                     width=self.table_headers[col]['width'], height=1, padx=10
                 )
                 headers['widget'].grid(row=0, column=col)
@@ -306,7 +303,7 @@ class GuiTable:
             for col, blog in enumerate(self.table_data[row]):
                 if self.table_headers[col]['label']:
                     blog['widget'] = tk.Text(
-                        frame_body.scrollable_frame, bg='white', font=self.gui_fonts.font_main, relief='flat',
+                        frame_body.scrollable_frame, bg='white', font=gui_fonts.font_main, relief='flat',
                         width=self.table_headers[col]['width'], height=1, padx=10
                     )
                     blog['widget'].grid(column=col, row=row + 1)
@@ -448,21 +445,19 @@ class GuiBlogList(GuiTable):
 
 
 class GuiBlogInfo:
-    gui_fonts = None
     blog_info_box = []
     progress_cols = ['qso_date', 'blog', 'frequency', 'offset', 'message']
 
     def __init__(self, frame: tk.Frame):
-        self.gui_fonts = MbFonts(Settings().font_size)
         blog_info_box_hdr = tk.Label(
-            frame, text='Blog Information', bg='black', fg='white', font=self.gui_fonts.font_main_bold,
+            frame, text='Blog Information', bg='black', fg='white', font=gui_fonts.font_main_bold,
             justify='left', anchor='w', padx=10, pady=12
         )
         blog_info_box_hdr.pack(anchor='ne', fill='x')
         v = tk.Scrollbar(frame, orient='vertical')
         v.pack(side='right', fill='y')
         self.blog_info_box = tk.Text(
-            frame, width=480, wrap='word', padx=10, pady=10, font=self.gui_fonts.font_main, bg='white',
+            frame, width=480, wrap='word', padx=10, pady=10, font=gui_fonts.font_main, bg='white',
             yscrollcommand=v.set, spacing1=1.1, spacing2=1.1
         )
         v.config(command=self.blog_info_box.yview)
@@ -589,21 +584,178 @@ class GuiPostListBox(GuiTable):
         pass
 
 
+class GuiPostListTree(ttk.Frame):
+    _db_fields = ["blog", "post_id", "post_date", "title", "is_selected"]
+    _columns = ("post_id", "post_date", "title")
+
+    def __init__(self, frame: tk.Frame):
+        super().__init__(frame)
+        self.settings = Settings()
+        self.status = Status()
+        self.db_values = []
+        self._clicked_iid = None
+
+        self.tree = ttk.Treeview(self, columns=self._columns, show="headings", selectmode="browse")
+        ysb = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=ysb.set)
+
+        self.tree.heading("post_id", text="ID")
+        self.tree.heading("post_date", text="Date")
+        self.tree.heading("title", text="Subject")
+
+        self.tree.column("post_id", width=60, anchor="center", stretch=False)
+        self.tree.column("post_date", width=100, anchor="center", stretch=False)
+        self.tree.column("title", width=520, anchor="w", stretch=True)
+
+        self.tree.tag_configure("db_selected", background="#6699FF", foreground="#ffffff")
+
+        self.tree.bind("<<TreeviewSelect>>", self._on_select)
+        self.tree.bind("<Button-3>", self._on_right_click)
+
+        self.post_list_pop_up = tk.Menu(frame, tearoff=False)
+        self.post_list_pop_up.add_command(label="List more posts", command=self.list_more)
+        self.post_list_pop_up.add_command(label="Refresh this listing", command=self.refresh_listing)
+        self.post_list_pop_up.add_command(label="Refresh this post", command=self.refresh_content)
+
+        self.tree.pack(side="left", fill="both", expand=True)
+        ysb.pack(side="right", fill="y")
+
+    @staticmethod
+    def _format_post_date(ts: int) -> str:
+        try:
+            if int(ts) > 0:
+                return time.strftime("%Y-%m-%d", time.gmtime(ts))
+        except ValueError:
+            pass
+        return "unknown"
+
+    def reload(self):
+        post_table = DbTable("post")
+        rows = post_table.select(
+            where=f"blog='{self.status.get_selected_blog_name()}'",
+            order_by="post_id",
+            desc=True,
+            limit=self.settings.max_posts,
+            hdr_list=self._db_fields,
+        )
+        self.db_values = rows
+        self._sync_tree(rows)
+
+    def _sync_tree(self, rows):
+        desired_iids = [str(r["post_id"]) for r in rows]
+        existing_iids = set(self.tree.get_children(""))
+
+        for iid in list(existing_iids):
+            if iid not in desired_iids:
+                self.tree.delete(iid)
+
+        for index, r in enumerate(rows):
+            iid = str(r["post_id"])
+            values = (r["post_id"], self._format_post_date(r["post_date"]), r["title"])
+
+            if self.tree.exists(iid):
+                if self.tree.item(iid, "values") != values:
+                    self.tree.item(iid, values=values)
+                if self.tree.index(iid) != index:
+                    self.tree.move(iid, "", index)
+            else:
+                self.tree.insert("", index, iid=iid, values=values)
+
+        selected_iid = None
+        for r in rows:
+            if r.get("is_selected"):
+                selected_iid = str(r["post_id"])
+                break
+
+        for iid in self.tree.get_children(""):
+            self.tree.item(iid, tags=())
+
+        if selected_iid and self.tree.exists(selected_iid):
+            self.tree.item(selected_iid, tags=("db_selected",))
+            self.tree.see(selected_iid)
+
+    def _on_select(self, event):
+        sel = self.tree.selection()
+        if not sel:
+            return
+        iid = sel[0]
+        post_id = int(iid)
+        blog = self.status.get_selected_blog_name()
+
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="REQUEST",
+            verb="FETCH_POST",
+            params={"destination": blog, "operator": "EQ", "post_id": post_id},
+        )
+        f2b_q.put(m)
+
+    def _on_right_click(self, event):
+        iid = self.tree.identify_row(event.y)
+        if not iid:
+            return
+        self._clicked_iid = iid
+        self.tree.selection_set(iid)
+        self.post_list_pop_up.tk_popup(event.x_root, event.y_root)
+
+    def _clicked_row_info(self):
+        if not self._clicked_iid:
+            return None
+        for r in self.db_values:
+            if str(r.get("post_id")) == self._clicked_iid:
+                return r
+        return None
+
+    def list_more(self):
+        r = self._clicked_row_info()
+        if not r:
+            return
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="REQUEST",
+            verb="FETCH_LISTING",
+            params={"destination": r["blog"], "post_id": f"{r['post_id']}", "operator": "MORE"},
+        )
+        f2b_q.put(m)
+
+    def refresh_listing(self):
+        r = self._clicked_row_info()
+        if not r:
+            return
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="REQUEST",
+            verb="GET_LISTING",
+            params={"operator": "EQ", "destination": r["blog"], "post_id": r["post_id"]},
+        )
+        f2b_q.put(m)
+
+    def refresh_content(self):
+        r = self._clicked_row_info()
+        if not r:
+            return
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="REQUEST",
+            verb="GET_POST",
+            params={"operator": "EQ", "destination": r["blog"], "post_id": f"{r['post_id']}"},
+        )
+        f2b_q.put(m)
+
+
 class GuiPostContent:
-    gui_fonts = None
     f2b_q = None
     post_box = None
     post_cols = ['qso_date', 'post_id', 'post_date', 'title', 'body', 'is_selected']
 
     def __init__(self, frame: tk.Frame):
-        self.gui_fonts = MbFonts(Settings().font_size)
         post_content_hdr = tk.Label(
-            frame, text='Post', bg='black', fg='white', font=self.gui_fonts.font_main_bold,
+            frame, text='Post', bg='black', fg='white', font=gui_fonts.font_main_bold,
             justify='left', anchor='w', padx=10, pady=12
         )
         post_content_hdr.pack(anchor='ne', fill='x')
         self.post_box = tk.Text(
-            frame, width=300, wrap='word', padx=10, pady=5, font=self.gui_fonts.font_main, bg='#ffffff',
+            frame, width=300, wrap='word', padx=10, pady=5, font=gui_fonts.font_main, bg='#ffffff',
             spacing1=1.1, spacing2=1.1, borderwidth=0
         )
         self.post_box.pack(fill='both', expand=1, anchor='ne')
@@ -660,7 +812,6 @@ class GuiPostContent:
 
 
 class GuiProgress:
-    gui_fonts = None
     progress_box = []
     progress_cols = ['qso_date', 'blog', 'frequency', 'offset', 'message']
 
@@ -674,16 +825,15 @@ class GuiProgress:
         self.progress_box.unbind_all('<MouseWheel>')
 
     def __init__(self, frame: tk.Frame):
-        self.gui_fonts = MbFonts(Settings().font_size)
         progress_box_hdr = tk.Label(
-            frame, text='Progress', bg='black', fg='white', font=self.gui_fonts.font_main_bold,
+            frame, text='Progress', bg='black', fg='white', font=gui_fonts.font_main_bold,
             justify='left', anchor='w', padx=10, pady=12
         )
         progress_box_hdr.pack(anchor='ne', fill='x')
         v = tk.Scrollbar(frame, orient='vertical')
         v.pack(side='right', fill='y')
         self.progress_box = tk.Text(
-            frame, width=300, wrap='word', padx=10, pady=10, font=self.gui_fonts.font_console, bg='white',
+            frame, width=300, wrap='word', padx=10, pady=10, font=gui_fonts.font_console, bg='white',
             yscrollcommand=v.set, spacing1=1.1, spacing2=1.1
         )
         v.config(command=self.progress_box.yview)
@@ -772,7 +922,8 @@ class GuiMain:
         self.blog_info = GuiBlogInfo(frame_blog_info)
         frame_post_list = tk.Frame(frame_mid, bg='white', padx=4, pady=4)
         frame_post_list.pack(side='top', fill='both', expand=1)
-        self.post_list = GuiPostListBox(frame_post_list)
+        self.post_list = GuiPostListTree(frame_post_list)
+        self.post_list.pack(side='top', fill='both', expand=1)
         frame_post_content = tk.Frame(frame_right, bg='white')
         frame_post_content.pack(side='top', fill='both', expand=1)
         self.post_content = GuiPostContent(frame_post_content)

@@ -1,4 +1,6 @@
 import tkinter.font as font
+from tkinter import ttk
+from .settings import user_settings
 
 
 class MbFonts:
@@ -23,3 +25,20 @@ class MbFonts:
         self.font_main_hdr = font.Font(family='Ariel', size=int(base_font_size * 1.25), weight='normal')
         self.font_main_bold = font.Font(family='Ariel', size=base_font_size, weight='bold')
         self.font_console = font.Font(family='Courier', size=base_font_size, weight='normal')
+
+        # ---- Treeview styling ----
+        style = ttk.Style()
+        style.configure(
+            "Treeview",
+            font=self.font_main,
+            rowheight=22
+        )
+        style.configure(
+            "Treeview.Heading",
+            font=self.font_main_bold
+        )
+
+
+gui_fonts = MbFonts(user_settings.font_size)
+
+
