@@ -538,6 +538,13 @@ class BeProcessor:
         # If it's not P0 or P1, ignore it.
 
     def type_process_request(self, m: UnifiedMessage):
+        logger.info(
+            f"FRONTEND ->:"
+            f" {m.get_param(MessageParameter.DESTINATION)}"
+            f"|{m.get_verb()}"
+            f"|{m.get_param(MessageParameter.OPERATOR)}"
+            f"|{m.get_param(MessageParameter.POST_ID)}"
+        )
         if m.get_verb() == MessageVerb.FETCH_LISTING:
             add_progress_m(m)
             self.verb_fetch_listing(m)

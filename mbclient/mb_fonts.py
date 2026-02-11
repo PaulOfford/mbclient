@@ -1,4 +1,6 @@
 import tkinter.font as font
+from tkinter import ttk
+from .settings import user_settings
 
 
 class MbFonts:
@@ -23,3 +25,33 @@ class MbFonts:
         self.font_main_hdr = font.Font(family='Ariel', size=int(base_font_size * 1.25), weight='normal')
         self.font_main_bold = font.Font(family='Ariel', size=base_font_size, weight='bold')
         self.font_console = font.Font(family='Courier', size=base_font_size, weight='normal')
+
+        # ---- Treeview styling ----
+        style = ttk.Style()
+        style.theme_use("clam")  # important for predictable styling
+
+        # Remove outer frame/border completely
+        style.layout(
+            "Treeview",
+            [("Treeview.treearea", {"sticky": "nswe"})]
+        )
+        style.configure("Treeview", relief="flat")
+        style.map(
+            "Treeview",
+            background=[("selected", "#6699ff")],
+            foreground=[("selected", "white")],
+        )
+        style.configure(
+            "Treeview",
+            font=self.font_main,
+            rowheight=22
+        )
+        style.configure(
+            "Treeview.Heading",
+            background="white",
+            foreground="black",
+            font=self.font_main_bold,
+            relief="flat",
+            borderwidth=0,
+            padding=(6, 4)
+        )
