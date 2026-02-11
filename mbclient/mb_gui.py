@@ -692,17 +692,21 @@ class GuiProgress:
         self.progress_box.bind('<Leave>', self.focus_out)
 
     def reload(self):
-        progress_table = DbTable('progress')
-        db_values = progress_table.select(order_by='qso_date', hdr_list=self.progress_cols)
-        self.progress_box.configure(state='normal')
-        self.progress_box.delete(1.0, 'end')
-        for i, r in enumerate(db_values):
-            progress_string = ''
-            q_date = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(r['qso_date']))
-            progress_string += f"\n{q_date} {r['message']}"
-            self.progress_box.insert(tk.END, progress_string)
-            self.progress_box.see(tk.END)
-        self.progress_box.configure(state='disabled')
+        progress_table = DbTable("progress")
+        db_values = progress_table.select(order_by="qso_date", hdr_list=self.progress_cols)
+
+        self.progress_box.configure(state="normal")
+        self.progress_box.delete("1.0", "end")
+
+        lines = []
+        for r in db_values:
+            q_date = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(r["qso_date"]))
+            lines.append(f"{q_date} {r['message']}")
+        self.progress_box.insert(tk.END, "\n" + "\n".join(lines))
+
+        self.progress_box.see(tk.END)
+        self.progress_box.configure(state="disabled")
+
         return
 
 
