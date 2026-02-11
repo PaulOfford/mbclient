@@ -267,7 +267,7 @@ class Js8CallDriver:
                     if msg_type == "RIG.PTT":
                         ptt_state = value == "on"
                         self.ptt_release_time = time.time() + RELEASE_TIME_INCREMENT
-                        logger.info("PTT %s", "ON" if ptt_state else "OFF")
+                        logger.debug("PTT %s", "ON" if ptt_state else "OFF")
                         self.signal_backend(MessageVerb.NOTE_PTT, {MessageParameter.PTT: ptt_state})
                         continue
 
@@ -312,7 +312,7 @@ class Js8CallDriver:
 
                     if msg_type == "RX.ACTIVITY":
                         absolute_frequency = int(params["FREQ"])
-                        logger.info("Seeing RX.ACTIVITY messages for FREQ: %s", absolute_frequency)
+                        logger.debug("Seeing RX.ACTIVITY messages for FREQ: %s", absolute_frequency)
                         self.stations.bump_release_by_frequency(absolute_frequency)
                         continue
 
