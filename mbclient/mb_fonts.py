@@ -28,6 +28,19 @@ class MbFonts:
 
         # ---- Treeview styling ----
         style = ttk.Style()
+        style.theme_use("clam")  # important for predictable styling
+
+        # Remove outer frame/border completely
+        style.layout(
+            "Treeview",
+            [("Treeview.treearea", {"sticky": "nswe"})]
+        )
+        style.configure("Treeview", relief="flat")
+        style.map(
+            "Treeview",
+            background=[("selected", "#6699ff")],
+            foreground=[("selected", "white")],
+        )
         style.configure(
             "Treeview",
             font=self.font_main,
@@ -35,10 +48,10 @@ class MbFonts:
         )
         style.configure(
             "Treeview.Heading",
-            font=self.font_main_bold
+            background="white",
+            foreground="black",
+            font=self.font_main_bold,
+            relief="flat",
+            borderwidth=0,
+            padding=(6, 4)
         )
-
-
-gui_fonts = MbFonts(user_settings.font_size)
-
-

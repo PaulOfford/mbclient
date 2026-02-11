@@ -7,26 +7,27 @@ import locale
 import functools as ft
 from queue import Empty
 import logging
+from typing import Union
 
 from mbclient._version import __version__
 from mbclient.status import Status
-from mbclient.settings import Settings
+from mbclient.settings import user_settings
 from mbclient.db_table import DbTable
 from mbclient.message_q import f2b_q, b2f_q, UnifiedMessage, UiArea,\
     MessageTarget, MessageType, MessageVerb, MessageParameter
 from .config import SETTINGS
+from mbclient.mb_fonts import MbFonts  # This can only happen after we have a root window
 
 logger = logging.getLogger(__name__)
 root = tk.Tk()
 
-from mbclient.mb_fonts import gui_fonts  # This can only happen after we have a root window
+gui_fonts = MbFonts(user_settings.font_size)
 
 
 def settings_window():
     sw = tk.Tk()
     sw.title('Settings')
     sw.geometry('400x320')
-    settings = Settings()
     label_list = [
         ('startup_width', 'Window Startup Width:', 'entry', tk.IntVar(sw)),
         ('startup_height', 'Window Startup Height:', 'entry', tk.IntVar(sw)),
@@ -48,11 +49,11 @@ def settings_window():
         if label[2] == 'entry':
             entry_list.append(tk.Entry(sw_frame, borderwidth=2, width=8, font='8', relief='groove'))
             entry_list[-1].grid(row=i, column=1)
-            entry_list[-1].insert(0, settings.get_setting(label[0]))
+            entry_list[-1].insert(0, user_settings.get_setting(label[0]))
         elif label[2] == 'checkbox':
             entry_list.append(tk.Checkbutton(sw_frame, justify='left', onvalue=1, offvalue=0, variable=label[3]))
             entry_list[-1].grid(row=i, column=1)
-            if settings.get_setting(label[0]) == 1:
+            if user_settings.get_setting(label[0]) == 1:
                 entry_list[-1].select()
             pass
 
@@ -60,14 +61,14 @@ def settings_window():
         for j, entry in enumerate(entry_list):
             my_label = label_list[j]
             if entry.widgetName == 'entry':
-                settings.set_setting(my_label[0], entry.get())
+                user_settings.set_setting(my_label[0], entry.get())
             elif entry.widgetName == 'checkbutton':
                 print(my_label[3].get())
                 if my_label[3].get():
                     db_value = 1
                 else:
                     db_value = 0
-                settings.set_setting(my_label[0], db_value)
+                user_settings.set_setting(my_label[0], db_value)
         sw.destroy()
     tk.Label(sw_frame, text=' ').grid(row=len(label_list) + 1, column=0, columnspan=2)
     tk.Button(sw_frame, text='Cancel', font='8', command=sw.destroy).grid(row=len(label_list) + 2, column=0)
@@ -117,8 +118,7 @@ class GuiHeader:
     scan_timeout: float = 0.0
 
     def __init__(self, header_frame):
-        settings = Settings()
-        self.use_gmt = settings.use_gmt
+        self.use_gmt = user_settings.use_gmt
         self.freq_text = tk.StringVar()
         self.offset_text = tk.StringVar()
         self.callsign_text = tk.StringVar()
@@ -350,7 +350,7 @@ class GuiBlogList(GuiTable):
         },
         {
             'db_col': 'frequency', 'type': 'Float', 'divisor': 1000000, 'suffix': '', 'width': 8,
-            'label': 'Freq\nMHz', 'widget': tk.Button(), 'justify': 'center'
+            'label': 'Freq', 'widget': tk.Button(), 'justify': 'center'
         },
         {
             'db_col': 'latest_post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 6,
@@ -374,7 +374,7 @@ class GuiBlogList(GuiTable):
     clicked_row = None
 
     def __init__(self, frame):
-        super().__init__(frame, self.blog_list_headers, Settings().max_blogs, self.cb_row_select, self.cb_hdr_click)
+        super().__init__(frame, self.blog_list_headers, user_settings.max_blogs, self.cb_row_select, self.cb_hdr_click)
         self.blog_list_pop_up = tk.Menu(frame, tearoff=False)
         self.blog_list_pop_up.add_command(label='List latest', command=self.list_latest)
         self.blog_list_pop_up.add_command(label='Refresh', command=self.check_for_latest)
@@ -419,7 +419,7 @@ class GuiBlogList(GuiTable):
         self.db_values = blog_table.select(
             order_by='last_seen_date',
             desc=True,
-            limit=Settings().max_blogs,
+            limit=user_settings.max_blogs,
             hdr_list=fields
         )
         self.reload_table(self.db_values)
@@ -442,6 +442,203 @@ class GuiBlogList(GuiTable):
 
     def cb_hdr_click(self, col, event):
         pass
+
+
+class GuiBlogListTree(ttk.Frame):
+    """Treeview-based blog list replacing the GuiTable-based GuiBlogList."""
+
+    _db_fields = ["blog", "frequency", "latest_post_id", "latest_post_date", "last_seen_date", "is_selected"]
+    _columns = ("blog", "frequency", "latest_post_id", "latest_post_date", "last_seen_date")
+
+    def __init__(self, frame: tk.Frame):
+        super().__init__(frame)
+
+        self.db_values = []
+        self._clicked_iid = None  # iid is blog name
+
+        self.tree = ttk.Treeview(self, columns=self._columns, show="headings", selectmode="browse")
+        ysb = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=ysb.set)
+
+        # Headings
+        self.tree.heading("blog", text="Blog")
+        self.tree.heading("frequency", text="Freq")
+        self.tree.heading("latest_post_id", text="Latest")
+        self.tree.heading("latest_post_date", text="Date")
+        self.tree.heading("last_seen_date", text="Last Seen")
+
+        # Column sizing (tweak as desired)
+        self.tree.column("blog", width=90, anchor="w", stretch=True)
+        self.tree.column("frequency", width=80, anchor="center", stretch=False)
+        self.tree.column("latest_post_id", width=60, anchor="center", stretch=False)
+        self.tree.column("latest_post_date", width=90, anchor="center", stretch=False)
+        self.tree.column("last_seen_date", width=130, anchor="center", stretch=False)
+
+        self.tree.tag_configure("db_selected", background="#6699FF", foreground="#ffffff")
+
+        self.tree.bind("<<TreeviewSelect>>", self._on_select)
+        self.tree.bind("<Button-3>", self._on_right_click)
+
+        self.blog_list_pop_up = tk.Menu(frame, tearoff=False)
+        self.blog_list_pop_up.add_command(label="List latest", command=self.list_latest)
+        self.blog_list_pop_up.add_command(label="Refresh", command=self.check_for_latest)
+        self.blog_list_pop_up.add_command(label="Get info", command=self.get_blog_info)
+
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        ysb.grid(row=0, column=1, sticky="ns")
+
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)  # tree expands
+        self.grid_columnconfigure(1, weight=0)  # scrollbar stays visible
+
+    @staticmethod
+    def _fmt_mhz(freq_hz: Union[int, float]) -> str:
+        try:
+            return f"{float(freq_hz) / 1_000_000:.3f}"
+        except ValueError:
+            return ""
+
+    @staticmethod
+    def _fmt_date(ts: int) -> str:
+        try:
+            if int(ts) > 0:
+                return time.strftime("%Y-%m-%d", time.gmtime(ts))
+        except ValueError:
+            pass
+        return "unknown"
+
+    @staticmethod
+    def _fmt_datetime(ts: int) -> str:
+        try:
+            if int(ts) > 0:
+                return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(ts))
+        except ValueError:
+            pass
+        return "unknown"
+
+    def reload(self):
+        blog_table = DbTable("blog")
+        rows = blog_table.select(
+            order_by="last_seen_date",
+            desc=True,
+            limit=user_settings.max_blogs,
+            hdr_list=self._db_fields,
+        )
+        self.db_values = rows
+        self._sync_tree(rows)
+
+    def _sync_tree(self, rows):
+        desired_iids = [str(r["blog"]) for r in rows]
+        existing_iids = set(self.tree.get_children(""))
+
+        for iid in list(existing_iids):
+            if iid not in desired_iids:
+                self.tree.delete(iid)
+
+        for index, r in enumerate(rows):
+            iid = str(r["blog"])
+            values = (
+                r["blog"],
+                self._fmt_mhz(r.get("frequency", 0)),
+                r.get("latest_post_id", ""),
+                self._fmt_date(r.get("latest_post_date", 0)),
+                self._fmt_datetime(r.get("last_seen_date", 0)),
+            )
+
+            if self.tree.exists(iid):
+                if self.tree.item(iid, "values") != values:
+                    self.tree.item(iid, values=values)
+                if self.tree.index(iid) != index:
+                    self.tree.move(iid, "", index)
+            else:
+                self.tree.insert("", index, iid=iid, values=values)
+
+        selected_iid = None
+        for r in rows:
+            if r.get("is_selected"):
+                selected_iid = str(r["blog"])
+                break
+
+        for iid in self.tree.get_children(""):
+            self.tree.item(iid, tags=())
+
+        if selected_iid and self.tree.exists(selected_iid):
+            self.tree.item(selected_iid, tags=("db_selected",))
+            self.tree.see(selected_iid)
+
+    def _on_select(self, event):
+        sel = self.tree.selection()
+        if not sel:
+            return
+        iid = sel[0]
+        blog = str(iid)
+
+        # Look up frequency from cached db_values (small list)
+        freq = 0
+        for r in self.db_values:
+            if str(r.get("blog")) == blog:
+                freq = r.get("frequency", 0)
+                break
+
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="CONTROL",
+            verb="CHG_BLOG",
+            params={"operator": "EQ", "blog": blog, "frequency": freq},
+        )
+        f2b_q.put(m)
+
+    def _on_right_click(self, event):
+        iid = self.tree.identify_row(event.y)
+        if not iid:
+            return
+        self._clicked_iid = iid
+        self.tree.selection_set(iid)
+        self.blog_list_pop_up.tk_popup(event.x_root, event.y_root)
+
+    def _clicked_row_info(self):
+        if not self._clicked_iid:
+            return None
+        for r in self.db_values:
+            if str(r.get("blog")) == str(self._clicked_iid):
+                return r
+        return None
+
+    def list_latest(self):
+        r = self._clicked_row_info()
+        if not r:
+            return
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="REQUEST",
+            verb="GET_LISTING",
+            params={"destination": r["blog"], "operator": "LATEST"},
+        )
+        f2b_q.put(m)
+
+    def check_for_latest(self):
+        r = self._clicked_row_info()
+        if not r:
+            return
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="REQUEST",
+            verb="SCAN",
+            params={"destination": r["blog"]},
+        )
+        f2b_q.put(m)
+
+    def get_blog_info(self):
+        r = self._clicked_row_info()
+        if not r:
+            return
+        m = UnifiedMessage.create(
+            target="BACKEND",
+            typ="REQUEST",
+            verb="GET_BLOG_INFO",
+            params={"destination": r["blog"]},
+        )
+        f2b_q.put(m)
 
 
 class GuiBlogInfo:
@@ -482,115 +679,12 @@ class GuiBlogInfo:
         return
 
 
-class GuiPostListBox(GuiTable):
-    post_list_headers = [
-        {'db_col': 'blog', 'type': 'Text', 'suffix': '', 'width': 0,
-         'label': '', 'widget': tk.Button(), 'justify': 'left'},
-        {'db_col': 'post_id', 'type': 'Int', 'divisor': 1, 'suffix': '', 'width': 6,
-         'label': 'ID', 'widget': tk.Button(), 'justify': 'center'},
-        {'db_col': 'post_date', 'type': 'Date', 'suffix': '', 'width': 10,
-         'label': 'Date', 'widget': tk.Button(), 'justify': 'center'},
-        {'db_col': 'title', 'type': 'Text', 'suffix': '', 'width': 128,
-         'label': 'Subject', 'widget': tk.Button(), 'justify': 'left'},
-        {'db_col': 'is_selected', 'db_type': 'Int', 'divisor': 1, 'suffix': '', 'width': 0,
-         'label': None, 'widget': tk.Button(), 'justify': 'center'}
-    ]
-    db_values = None
-    post_list_pop_up = None
-    clicked_row = 1
-
-    def __init__(self, frame: tk.Frame):
-        settings = Settings()
-        super().__init__(frame, self.post_list_headers, settings.max_posts, self.cb_row_select, self.cb_hdr_click)
-        self.post_list_pop_up = tk.Menu(frame, tearoff=False)
-        self.post_list_pop_up.add_command(label='List more posts', command=self.list_more)
-        self.post_list_pop_up.add_command(label='Refresh this listing', command=self.refresh_listing)
-        self.post_list_pop_up.add_command(label='Refresh this post', command=self.refresh_content)
-
-    def reload(self):
-        status = Status()
-        post_table = DbTable('post')
-        fields = []
-        for field in self.post_list_headers:
-            fields.append(field['db_col'])
-        self.db_values = post_table.select(
-            where=f"blog='{status.get_selected_blog_name()}'",
-            order_by='post_id',
-            desc=True,
-            limit=Settings().max_posts,
-            hdr_list=fields
-        )
-        self.reload_table(self.db_values)
-        return
-
-    def popup_cb(self, row, event):
-        self.clicked_row = row
-        self.post_list_pop_up.tk_popup(event.x_root, event.y_root)
-
-    def cb_row_select(self, row, event):
-        m = UnifiedMessage.create(
-            target='BACKEND',
-            typ='REQUEST',
-            verb='FETCH_POST',
-            params={
-                'destination': self.db_values[row]['blog'], 'operator': 'EQ', 'post_id': self.db_values[row]['post_id']
-            }
-        )
-        f2b_q.put(m)
-        return
-
-    def list_more(self):
-        m = UnifiedMessage.create(
-            target='BACKEND',
-            typ='REQUEST',
-            verb='FETCH_LISTING',
-            params={
-                'destination': self.db_values[self.clicked_row]['blog'],
-                'post_id': f"{self.db_values[self.clicked_row]['post_id']}",
-                'operator': 'MORE'}
-        )
-        f2b_q.put(m)
-        return
-
-    def refresh_listing(self):
-        m = UnifiedMessage.create(
-            target='BACKEND',
-            typ='REQUEST',
-            verb='GET_LISTING',
-            params={
-                'operator': 'EQ',
-                'destination': self.db_values[self.clicked_row]['blog'],
-                'post_id': self.db_values[self.clicked_row]['post_id']
-            }
-        )
-        f2b_q.put(m)
-        return
-
-    def refresh_content(self):
-        m = UnifiedMessage.create(
-            target='BACKEND',
-            typ='REQUEST',
-            verb='GET_POST',
-            params={
-                'operator': 'EQ',
-                'destination': self.db_values[self.clicked_row]['blog'],
-                'post_id': f"{self.db_values[self.clicked_row]['post_id']}"
-            }
-        )
-        f2b_q.put(m)
-        return
-
-    def cb_hdr_click(self, col, event):
-        pass
-
-
 class GuiPostListTree(ttk.Frame):
     _db_fields = ["blog", "post_id", "post_date", "title", "is_selected"]
     _columns = ("post_id", "post_date", "title")
 
     def __init__(self, frame: tk.Frame):
         super().__init__(frame)
-        self.settings = Settings()
         self.status = Status()
         self.db_values = []
         self._clicked_iid = None
@@ -601,7 +695,7 @@ class GuiPostListTree(ttk.Frame):
 
         self.tree.heading("post_id", text="ID")
         self.tree.heading("post_date", text="Date")
-        self.tree.heading("title", text="Subject")
+        self.tree.heading("title", text="Subject", anchor='w')
 
         self.tree.column("post_id", width=60, anchor="center", stretch=False)
         self.tree.column("post_date", width=100, anchor="center", stretch=False)
@@ -617,8 +711,12 @@ class GuiPostListTree(ttk.Frame):
         self.post_list_pop_up.add_command(label="Refresh this listing", command=self.refresh_listing)
         self.post_list_pop_up.add_command(label="Refresh this post", command=self.refresh_content)
 
-        self.tree.pack(side="left", fill="both", expand=True)
-        ysb.pack(side="right", fill="y")
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        ysb.grid(row=0, column=1, sticky="ns")
+
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)  # tree expands
+        self.grid_columnconfigure(1, weight=0)  # scrollbar stays visible
 
     @staticmethod
     def _format_post_date(ts: int) -> str:
@@ -635,7 +733,7 @@ class GuiPostListTree(ttk.Frame):
             where=f"blog='{self.status.get_selected_blog_name()}'",
             order_by="post_id",
             desc=True,
-            limit=self.settings.max_posts,
+            limit=user_settings.max_posts,
             hdr_list=self._db_fields,
         )
         self.db_values = rows
@@ -872,7 +970,7 @@ class GuiMain:
     def __init__(self):
         window_title = 'Microblog Client ' + __version__
         root.title(window_title)
-        root.geometry(Settings().startup_dimensions)
+        root.geometry(user_settings.startup_dimensions)
         top_menu = tk.Menu(root, tearoff=False)
         root.config(menu=top_menu)
         file_menu = tk.Menu(top_menu, tearoff=False)
@@ -916,7 +1014,8 @@ class GuiMain:
         pane_main.add(frame_right, width=160)
         frame_blog_list = tk.Frame(frame_left, bg='white', padx=4, pady=4)
         frame_blog_list.pack(side='top', fill='both', expand=1)
-        self.blog_list = GuiBlogList(frame_blog_list)
+        self.blog_list = GuiBlogListTree(frame_blog_list)
+        self.blog_list.pack(side='top', fill='both', expand=1)
         frame_blog_info = tk.Frame(frame_left, bg='white', padx=4, pady=4)
         frame_blog_info.pack(side='bottom', fill='both', expand=1)
         self.blog_info = GuiBlogInfo(frame_blog_info)
