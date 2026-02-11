@@ -622,6 +622,11 @@ class Backend:
     proc = None
 
     def __init__(self):
+        # Let's trim out old progress entries.
+        limit_date = time.time() - (60 * 60 * 24 *2)  # Keep progress for two days.
+        post_table = DbTable('progress')
+        post_table.delete(where=f"qso_date < {limit_date}")
+
         self.proc = BeProcessor()
         pass
 

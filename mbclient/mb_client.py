@@ -9,11 +9,8 @@ from .logging_setup import configure_logging
 from .mb_database import MbDatabase
 from .mb_gui import GuiMain
 from .backend import Backend
-from . import js8call_driver
-
-from .js8call_driver import Js8CallDriver
-
-
+from . import driver
+from .driver import Js8CallDriver
 from .config import SETTINGS
 msg_terminator = SETTINGS.msg_terminator
 LOG_LEVEL: int = SETTINGS.log_level
@@ -137,7 +134,7 @@ def main():
 
     if args.tcp_port is not None:
         host, _ = SETTINGS.server
-        js8call_driver.js8call_addr = (host, args.tcp_port)
+        driver.JS8CALL_ADDR = (host, args.tcp_port)
         logger.info(
             f"Overriding JS8Call TCP port: {host}:{args.tcp_port}"
         )

@@ -1,1 +1,2 @@
-db_path = '%AppData%/MbClient/'
+# No longer used
+# Set db_path in config.ini
