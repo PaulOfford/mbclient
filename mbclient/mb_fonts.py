@@ -1,6 +1,5 @@
 import tkinter.font as font
 from tkinter import ttk
-from .settings import user_settings
 
 
 class MbFonts:

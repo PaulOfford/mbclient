@@ -7,11 +7,11 @@ import locale
 import functools as ft
 from queue import Empty
 import logging
-from typing import Union
+from typing import Union, Optional
 
 from mbclient._version import __version__
 from mbclient.status import Status
-from mbclient.settings import user_settings
+from mbclient.settings import Settings
 from mbclient.db_table import DbTable
 from mbclient.message_q import f2b_q, b2f_q, UnifiedMessage, UiArea,\
     MessageTarget, MessageType, MessageVerb, MessageParameter
@@ -21,7 +21,8 @@ from mbclient.mb_fonts import MbFonts  # This can only happen after we have a ro
 logger = logging.getLogger(__name__)
 root = tk.Tk()
 
-gui_fonts = MbFonts(user_settings.font_size)
+user_settings: Optional[Settings] = None
+gui_fonts: Optional[MbFonts] = None
 
 
 def settings_window():
@@ -968,6 +969,10 @@ class GuiMain:
     stop = False
 
     def __init__(self):
+        global user_settings
+        global gui_fonts
+        user_settings = Settings()
+        gui_fonts = MbFonts(user_settings.font_size)
         window_title = 'Microblog Client ' + __version__
         root.title(window_title)
         root.geometry(user_settings.startup_dimensions)

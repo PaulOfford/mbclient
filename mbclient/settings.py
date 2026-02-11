@@ -68,6 +68,3 @@ class Settings:
             self.set_setting('use_gmt', 1)
         else:
             self.set_setting('use_gmt', 0)
-
-
-user_settings = Settings()
